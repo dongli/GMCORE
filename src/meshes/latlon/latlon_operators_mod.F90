@@ -47,8 +47,8 @@ contains
     integer i, j, k, is, ie, js, je, ks, ke
 
     associate (mesh => div%mesh)
-    ks = merge(mesh%full_kds, mesh%half_kds, div%loc == 'cell')
-    ke = merge(mesh%full_kde, mesh%half_kde, div%loc == 'cell')
+    ks = merge(mesh%full_kds, mesh%half_kds, div%loc(1:3) /= 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, div%loc(1:3) /= 'lev')
     is = mesh%full_ids
     ie = mesh%full_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
     js = mesh%full_jds_no_pole
@@ -109,8 +109,8 @@ contains
     integer i, j, k, is, ie, js, je, ks, ke
 
     associate (mesh => curl%mesh)
-    ks = merge(mesh%full_kds, mesh%half_kds, curl%loc == 'cell')
-    ke = merge(mesh%full_kde, mesh%half_kde, curl%loc == 'cell')
+    ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) == 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, curl%loc(1:3) == 'lev')
     is = mesh%half_ids
     ie = mesh%half_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
     js = mesh%half_jds
