@@ -380,6 +380,36 @@ contains
         end do
       end do
     end do
+    if (mesh%has_south_pole()) then
+      j = mesh%full_jds
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = 0.5_r8 * (v%d(i,j,k)**2 + block%aux%u_lat%d(i,j,k)**2)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole / global_mesh%full_nlon
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          ke%d(i,j,k) = pole(k)
+        end do
+      end do
+    end if
+    if (mesh%has_north_pole()) then
+      j = mesh%full_jde
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = 0.5_r8 * (v%d(i,j-1,k)**2 + block%aux%u_lat%d(i,j-1,k)**2)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole / global_mesh%full_nlon
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          ke%d(i,j,k) = pole(k)
+        end do
+      end do
+    end if
 
     if (substep < total_substeps) then
       call perf_stop('calc_ke')
@@ -441,38 +471,6 @@ contains
               (ke_vtx(2) + ke_vtx(3)) * mesh%area_subcell(1,j)   &
             ) / mesh%area_cell(j) + ke_cell_wgt * ke%d(i,j,k)
           end do
-        end do
-      end do
-    end if
-
-    ! Note: area_lat_south and area_lat_north at the Poles is the same as area_cell.
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = 0.5_r8 * (v%d(i,j,k)**2 + block%aux%u_lat%d(i,j,k)**2)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole / global_mesh%full_nlon
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          ke%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = 0.5_r8 * (v%d(i,j-1,k)**2 + block%aux%u_lat%d(i,j-1,k)**2)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole / global_mesh%full_nlon
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          ke%d(i,j,k) = pole(k)
         end do
       end do
     end if
@@ -725,7 +723,8 @@ contains
         pole = pole / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j+1,k) = pv_pole_wgt * vor%d(i,j+1,k) + (1 - pv_pole_wgt) * vor%d(i,j+2,k)
+            vor%d(i,j  ,k) = pv_pole_wgt * pole(k)        + (1 - pv_pole_wgt) * vor%d(i,j+1,k)
           end do
         end do
       end if
@@ -740,7 +739,8 @@ contains
         pole = pole / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j-1,k) = pv_pole_wgt * vor%d(i,j-1,k) + (1 - pv_pole_wgt) * vor%d(i,j-2,k)
+            vor%d(i,j  ,k) = pv_pole_wgt * pole(k)        + (1 - pv_pole_wgt) * vor%d(i,j-1,k)
           end do
         end do
       end if

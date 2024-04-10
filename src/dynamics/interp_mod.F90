@@ -18,25 +18,25 @@ module interp_mod
 
   private
 
-  !                              / lev_lat_edge
+  !                              / lev_lat
   !               o-------------o------------o lev_vtx
   !              /|            /            /|
   !             / |                        / |
   !            /  |        |              /  |
-  !           o   |        o lev_edge   -o- lev_lon_edge
-  !          /    |        |            /    |
-  !         /     o vtx                /     o vtx
-  !        /      |                   /      |
+  !           o   |        o lev        -o- lev_lon
+  !          /    |        |    /       /    |
+  !         /     o vtx        o lat   /     o vtx
+  !        /      |           /       /      |
   !       o-------+-----o------------o       |
   !       |       |                  |       |
-  ! lon_edge -o-  |        o cell    |  -o- lon_edge
+  !      lon -o-  |        o cell    |  -o- lon
   !       |       |                  |       |
   !       |       o------------------+-------o
   !       |      /       /           |      /
-  !       o vtx /       o lat_edge   o vtx /
-  !       |    /       /             |    /
-  !       |   o                      |   o
-  !       |  /                       |  /
+  !       o vtx /       o lat        o vtx /
+  !       |    /       /   |         |    /
+  !       |   o            o lev     |   o
+  !       |  /             |         |  /
   !       | /                        | /
   !       |/                         |/
   !       o-------------o------------o

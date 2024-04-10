@@ -176,7 +176,7 @@ contains
                  dstate    => blocks(iblk)%dstate(itime)    , &
                  mesh      => blocks(iblk)%filter_mesh      , &
                  m_new     => blocks(iblk)%dstate(itime)%dmg, &
-                 dqdt      => blocks(iblk)%aux%ke           )   ! Borrow array.
+                 dqdt      => blocks(iblk)%aux%pv           )   ! Borrow array.
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, itime, dt_adv)
