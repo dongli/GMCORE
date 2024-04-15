@@ -13,6 +13,7 @@ module math_mod
   public exp_two_values
   public swap_two_values
   public round_robin
+  public gamma_dist
 
   interface cross_product
     module procedure cross_product_r8
@@ -315,5 +316,15 @@ contains
     iend = ibeg + num - 1
 
   end subroutine round_robin
+
+  elemental pure real(r8) function gamma_dist(a, b, x) result(res)
+
+    real(r8), intent(in) :: a     ! Alpha parameter to control shape
+    real(r8), intent(in) :: b     ! Beta parameter to control rate
+    real(r8), intent(in) :: x
+
+    res = merge(x**(a - 1) * exp(-x / b) / b**a / gamma(a), 0.0_r8, x > 0)
+
+  end function gamma_dist
 
 end module math_mod
