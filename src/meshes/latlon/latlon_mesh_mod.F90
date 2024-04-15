@@ -340,14 +340,6 @@ contains
       this%de_lon(j) = radius * this%full_cos_lat(j) * this%dlon
       this%le_lon(j) = 2.0d0 * this%area_lon(j) / this%de_lon(j)
     end do
-    if (this%has_south_pole()) then
-      this%le_lon(this%full_jds) = 0
-      this%de_lon(this%full_jds) = 0
-    end if
-    if (this%has_north_pole()) then
-      this%le_lon(this%full_jde) = 0
-      this%de_lon(this%full_jde) = 0
-    end if
 
     do j = this%half_jds, this%half_jde
       this%le_lat(j) = radius * this%half_cos_lat(j) * this%dlon
