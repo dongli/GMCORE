@@ -12,7 +12,6 @@ module latlon_interp_mod
   use flogger
   use const_mod
   use latlon_mesh_mod
-  use process_mod
   use latlon_parallel_mod
   use latlon_field_types_mod
 
@@ -24,8 +23,8 @@ module latlon_interp_mod
   public latlon_interp_bilinear_lon_edge
   public latlon_interp_bilinear_lat_edge
   public latlon_interp_bilinear_column
-  public latlon_interp_pressure
-  public latlon_interp_height
+  public latlon_interp_plev
+  public latlon_interp_zlev
 
 contains
 
@@ -570,7 +569,7 @@ contains
 
   end subroutine latlon_interp_bilinear_column
 
-  subroutine latlon_interp_pressure(pi, xi, po, xo)
+  subroutine latlon_interp_plev(pi, xi, po, xo)
 
     type(latlon_field3d_type), intent(in) :: pi
     type(latlon_field3d_type), intent(in) :: xi
@@ -604,9 +603,9 @@ contains
       end do
     end do
 
-  end subroutine latlon_interp_pressure
+  end subroutine latlon_interp_plev
 
-  subroutine latlon_interp_height(zi, xi, zo, xo)
+  subroutine latlon_interp_zlev(zi, xi, zo, xo)
 
     type(latlon_field3d_type), intent(in) :: zi
     type(latlon_field3d_type), intent(in) :: xi
@@ -640,6 +639,6 @@ contains
       end do
     end do
 
-  end subroutine latlon_interp_height
+  end subroutine latlon_interp_zlev
 
 end module latlon_interp_mod
