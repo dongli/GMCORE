@@ -716,11 +716,11 @@ contains
         j = mesh%half_jds
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            work(i,k) = -u_lat%d(i,j,k) * mesh%le_lat(j)
+            work(i,k) = u_lat%d(i,j,k)
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = pole / global_mesh%area_pole_cap
+        pole = -pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
             vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j+1,k) - vor%d(i,j+2,k))
@@ -731,11 +731,11 @@ contains
         j = mesh%half_jde
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            work(i,k) = u_lat%d(i,j,k) * mesh%le_lat(j)
+            work(i,k) = u_lat%d(i,j,k)
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = pole / global_mesh%area_pole_cap
+        pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
             vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j-1,k) - vor%d(i,j-2,k))

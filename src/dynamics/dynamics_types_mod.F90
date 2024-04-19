@@ -88,9 +88,6 @@ module dynamics_types_mod
     logical :: update_gz  = .false.
     logical :: update_pt  = .false.
     logical :: update_mgs = .false.
-    logical :: copy_gz    = .false.
-    logical :: copy_pt    = .false.
-    logical :: copy_mgs   = .false.
   contains
     procedure :: init        => dtend_init
     procedure :: reset_flags => dtend_reset_flags
@@ -554,9 +551,6 @@ contains
     this%update_gz  = .false.
     this%update_pt  = .false.
     this%update_mgs = .false.
-    this%copy_gz    = .false.
-    this%copy_pt    = .false.
-    this%copy_mgs   = .false.
 
   end subroutine dtend_reset_flags
 
