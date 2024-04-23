@@ -132,7 +132,7 @@ contains
       call history_setup_h1_swm()
     end if
 
-    call history_setup_h2()
+    if (output_h2) call history_setup_h2()
 
   end subroutine history_init_stage2
 

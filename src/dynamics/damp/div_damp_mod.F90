@@ -25,7 +25,7 @@ module div_damp_mod
   public div_damp_final
   public div_damp_run
 
-  real(r8), allocatable :: cx(:,:), cy(:,:), cx_pole(:,:)
+  real(r8), allocatable :: cx(:,:), cy(:,:)
 
 contains
 
@@ -40,7 +40,6 @@ contains
 
     allocate(cx(global_mesh%full_nlat,global_mesh%full_nlev))
     allocate(cy(global_mesh%half_nlat,global_mesh%full_nlev))
-    allocate(cx_pole(global_mesh%full_nlat,global_mesh%full_nlev))
 
     select case (div_damp_order)
     case (2)
@@ -50,9 +49,8 @@ contains
         do j = global_mesh%full_jds_no_pole, global_mesh%full_jde_no_pole
           cx(j,k) = div_damp_coef2 * global_mesh%full_cos_lat(j)**(r - 1) * &
             exp_two_values(div_damp_top, 1.0_r8, 1.0_r8, real(div_damp_k0, r8), real(k, r8)) * &
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%full_lat_deg(j))) * &
             global_mesh%le_lon(j) * global_mesh%de_lon(j) / dt_dyn
-          cx_pole(j,k) = cx(j,k) * &
-            exp_two_values(div_damp_pole, 0.0_r8, lat0, div_damp_lat0, abs(global_mesh%full_lat_deg(j)))
         end do
       end do
       lat0 = abs(global_mesh%half_lat_deg(1))
@@ -60,6 +58,7 @@ contains
         do j = global_mesh%half_jds, global_mesh%half_jde
           cy(j,k) = div_damp_coef2 * global_mesh%half_cos_lat(j)**(r - 1) * &
             exp_two_values(div_damp_top, 1.0_r8, 1.0_r8, real(div_damp_k0, r8), real(k, r8)) * &
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%half_lat_deg(j))) * &
             global_mesh%le_lat(j) * global_mesh%de_lat(j) / dt_dyn
         end do
       end do
@@ -87,7 +86,6 @@ contains
 
     if (allocated(cx)) deallocate(cx)
     if (allocated(cy)) deallocate(cy)
-    if (allocated(cx_pole)) deallocate(cx_pole)
 
   end subroutine div_damp_final
 
@@ -117,7 +115,7 @@ contains
         end do
       end do
       call fill_halo(du, south_halo=.false., north_halo=.false.)
-      call filter_run(block%small_filter, du)
+      call filter_run(block%big_filter, du)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
@@ -132,26 +130,6 @@ contains
           end do
         end do
       end do
-      ! ------------------------------------------------------------------------
-      if (div_damp_pole > 0) then
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-            do i = mesh%half_ids, mesh%half_ide
-              du%d(i,j,k) = dt * cx_pole(j,k) * (div%d(i+1,j,k) - div%d(i,j,k)) / mesh%de_lon(j)
-            end do
-          end do
-        end do
-        call fill_halo(du, south_halo=.false., north_halo=.false.)
-        call filter_run(block%small_filter, du)
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-            do i = mesh%half_ids, mesh%half_ide
-              u%d(i,j,k) = u%d(i,j,k) + du%d(i,j,k)
-            end do
-          end do
-        end do
-      end if
-      ! ------------------------------------------------------------------------
     case (4)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole

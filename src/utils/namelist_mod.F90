@@ -107,7 +107,7 @@ module namelist_mod
   logical         :: pv_pole_stokes       = .true.
   integer         :: upwind_order_pv      = 3
   real(r8)        :: upwind_wgt_pv        = 1
-  real(r8)        :: pv_pole_wgt          = 0.8_r8
+  real(r8)        :: pv_pole_wgt          = 1.0_r8
 
   character(8)    :: pgf_scheme           = 'lin97'
   integer         :: coriolis_scheme      = 1
@@ -131,13 +131,11 @@ module namelist_mod
   character(30)   :: time_scheme          = 'wrfrk3'
 
   ! Filter settings
-  real(r8)        :: max_wave_speed       = 300
-  real(r8)        :: max_cfl              = 0.5
-  real(r8)        :: filter_coef_a        = 1.5
-  real(r8)        :: filter_coef_b        = 0.2
+  real(r8)        :: filter_coef_a        = 2.0
+  real(r8)        :: filter_coef_b        = 0.4
   real(r8)        :: filter_coef_c        = 0.5
   real(r8)        :: filter_gauss_sigma   = 8.0
-  real(r8)        :: filter_min_width     = 0.0
+  real(r8)        :: filter_min_width     = 4.0
 
   ! Damping settings
   logical         :: use_topo_smooth      = .false.
@@ -148,16 +146,17 @@ module namelist_mod
   integer         :: div_damp_order       = 2
   real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 0
+  real(r8)        :: div_damp_pole        = 1
   real(r8)        :: div_damp_lat0        = 70
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
   logical         :: use_vor_damp         = .false.
   integer         :: vor_damp_cycles      = 1
   integer         :: vor_damp_order       = 2
-  real(r8)        :: vor_damp_coef2       = 0.01_r8
+  real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
+  real(r8)        :: vor_damp_pole        = 1
   real(r8)        :: vor_damp_lat0        = 70
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
@@ -177,7 +176,7 @@ module namelist_mod
   logical         :: output_h0            = .true.
   character(8)    :: output_h0_dtype      = 'r4'
   logical         :: output_h1            = .false.
-  logical         :: output_h2            = .true.
+  logical         :: output_h2            = .false.
   character(30)   :: output_h0_new_file   = ''
   character(8)    :: output_h0_vars(100)  = ''
   integer         :: output_ngroups       = 0
@@ -264,8 +263,6 @@ module namelist_mod
     vert_upwind_order         , &
     vert_upwind_wgt           , &
     time_scheme               , &
-    max_wave_speed            , &
-    max_cfl                   , &
     filter_coef_a             , &
     filter_coef_b             , &
     filter_coef_c             , &
@@ -292,9 +289,10 @@ module namelist_mod
     use_vor_damp              , &
     vor_damp_cycles           , &
     vor_damp_order            , &
-    vor_damp_k0               , &
     vor_damp_coef2            , &
+    vor_damp_k0               , &
     vor_damp_top              , &
+    vor_damp_pole             , &
     vor_damp_lat0             , &
     rayleigh_damp_w_coef      , &
     rayleigh_damp_top         , &
@@ -396,8 +394,6 @@ contains
       write(*, *) 'dt_phys             = ', to_str(dt_phys, 2)
       write(*, *) 'time_scheme         = ', trim(time_scheme)
       write(*, *) 'pdc_type            = ', to_str(pdc_type)
-      write(*, *) 'max_wave_speed      = ', to_str(max_wave_speed, 2)
-      write(*, *) 'max_cfl             = ', to_str(max_cfl, 2)
       write(*, *) 'filter_coef_a       = ', filter_coef_a
       write(*, *) 'filter_coef_b       = ', filter_coef_b
       write(*, *) 'filter_coef_c       = ', filter_coef_c
@@ -446,6 +442,7 @@ contains
       write(*, *) 'vor_damp_coef2      = ', vor_damp_coef2
       write(*, *) 'vor_damp_k0         = ', to_str(vor_damp_k0)
       write(*, *) 'vor_damp_top        = ', to_str(vor_damp_top, 3)
+      write(*, *) 'vor_damp_pole       = ', to_str(vor_damp_pole, 3)
       write(*, *) 'vor_damp_lat0       = ', to_str(vor_damp_lat0, 3)
     end if
     if (nonhydrostatic) then

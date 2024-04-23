@@ -90,6 +90,8 @@ contains
 
     integer i, j
 
+    if (.not. regrid_initialized) return
+
     do i = 1, size(regrids)
       associate (dstate => blocks(i)%dstate(itime))
       j = 0
