@@ -26,6 +26,7 @@ module latlon_mesh_mod
     type(latlon_mesh_type), pointer :: parent => null()
     integer lon_hw              ! Halo width along longitude
     integer lat_hw              ! Halo width along latitude
+    integer lev_hw              ! Halo width along level
     integer full_nlon, half_nlon
     integer full_nlat, half_nlat
     integer full_nlev, half_nlev
@@ -110,7 +111,7 @@ module latlon_mesh_mod
 
 contains
 
-  subroutine latlon_mesh_init_global(this, nlon, nlat, nlev, id, lon_hw, lat_hw, keep_lev)
+  subroutine latlon_mesh_init_global(this, nlon, nlat, nlev, id, lon_hw, lat_hw, lev_hw, keep_lev)
 
     class(latlon_mesh_type), intent(inout) :: this
     integer, intent(in)           :: nlon
@@ -119,9 +120,10 @@ contains
     integer, intent(in), optional :: id
     integer, intent(in), optional :: lon_hw
     integer, intent(in), optional :: lat_hw
+    integer, intent(in), optional :: lev_hw
     logical, intent(in), optional :: keep_lev
 
-    integer nlev_opt, id_opt, lon_hw_opt, lat_hw_opt
+    integer nlev_opt, id_opt, lon_hw_opt, lat_hw_opt, lev_hw_opt
     logical keep_lev_opt
     real(8) dlat0
     real(16) x(3), y(3), z(3)
@@ -131,6 +133,7 @@ contains
     id_opt     = -1; if (present(id    )) id_opt     = id
     lon_hw_opt =  3; if (present(lon_hw)) lon_hw_opt = lon_hw
     lat_hw_opt =  3; if (present(lat_hw)) lat_hw_opt = lat_hw
+    lev_hw_opt =  3; if (present(lev_hw)) lev_hw_opt = lev_hw
 
     call this%clear(keep_lev)
 
@@ -156,6 +159,7 @@ contains
     this%id        = id_opt
     this%lon_hw    = lon_hw_opt
     this%lat_hw    = lat_hw_opt
+    this%lev_hw    = lev_hw_opt
     this%start_lon = 0
     this%end_lon   =  pi2
     this%start_lat = -pi05
@@ -405,10 +409,11 @@ contains
     this%id        = id
     this%lon_hw    = parent%lon_hw
     this%lat_hw    = parent%lat_hw
+    this%lev_hw    = parent%lev_hw
     this%start_lon = parent%full_lon(ids)
     this%end_lon   = parent%full_lon(ide) + parent%dlon
-    this%start_lat = merge(parent%half_lat(jds-1), -pi05, .not. this%has_south_pole())
-    this%end_lat   = merge(parent%half_lat(jde  ),  pi05, .not. this%has_north_pole())
+    this%start_lat = merge(parent%full_lat(jds), -pi05, .not. this%has_south_pole())
+    this%end_lat   = merge(parent%full_lat(jde),  pi05, .not. this%has_north_pole())
 
     call this%common_init()
 
@@ -507,10 +512,10 @@ contains
     this%half_ime = this%half_ide + this%lon_hw
     this%half_jms = this%half_jds - this%lat_hw
     this%half_jme = this%half_jde + this%lat_hw
-    this%full_kms = this%full_kds - 3
-    this%full_kme = this%full_kde + 3
-    this%half_kms = this%half_kds - 3
-    this%half_kme = this%half_kde + 3
+    this%full_kms = this%full_kds - this%lev_hw
+    this%full_kme = this%full_kde + this%lev_hw
+    this%half_kms = this%half_kds - this%lev_hw
+    this%half_kme = this%half_kde + this%lev_hw
 
     if (.not. allocated(this%full_lev)) then
       allocate(this%full_dlev        (this%full_kms:this%full_kme)); this%full_dlev           = 0

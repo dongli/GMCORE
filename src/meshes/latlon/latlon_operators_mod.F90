@@ -109,8 +109,8 @@ contains
     integer i, j, k, is, ie, js, je, ks, ke
 
     associate (mesh => curl%mesh)
-    ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) == 'lev')
-    ke = merge(mesh%full_kde, mesh%half_kde, curl%loc(1:3) == 'lev')
+    ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) /= 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, curl%loc(1:3) /= 'lev')
     is = mesh%half_ids
     ie = mesh%half_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
     js = mesh%half_jds

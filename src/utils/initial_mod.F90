@@ -58,7 +58,7 @@ contains
       call cpu_time(time1)
     end if
 
-    call fiona_create_dataset('i0', file_path=initial_file, start_time=initial_time, time_units='hours', mpi_comm=proc%comm, ngroup=output_ngroup)
+    call fiona_create_dataset('i0', file_path=initial_file, start_time=initial_time, time_units='hours', mpi_comm=proc%comm, ngroup=output_ngroups)
     call fiona_add_dim('i0', 'time', add_var=.true.)
     call fiona_add_dim('i0',  'lon', size=global_mesh%full_nlon, add_var=.true., decomp=.true.)
     call fiona_add_dim('i0',  'lat', size=global_mesh%full_nlat, add_var=.true., decomp=.true.)

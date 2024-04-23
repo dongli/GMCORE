@@ -177,9 +177,13 @@ module namelist_mod
   logical         :: output_h0            = .true.
   character(8)    :: output_h0_dtype      = 'r4'
   logical         :: output_h1            = .false.
+  logical         :: output_h2            = .true.
   character(30)   :: output_h0_new_file   = ''
   character(8)    :: output_h0_vars(100)  = ''
-  integer         :: output_ngroup        = 0
+  integer         :: output_ngroups       = 0
+
+  integer         :: output_nlev          = 0
+  real(r8)        :: output_plev_hPa(100) = 0
 
   namelist /gmcore_control/     &
     planet                    , &
@@ -301,9 +305,12 @@ module namelist_mod
     output_h0                 , &
     output_h0_dtype           , &
     output_h1                 , &
+    output_h2                 , &
     output_h0_new_file        , &
     output_h0_vars            , &
-    output_ngroup
+    output_ngroups            , &
+    output_nlev              , &
+    output_plev_hPa
 
 contains
 

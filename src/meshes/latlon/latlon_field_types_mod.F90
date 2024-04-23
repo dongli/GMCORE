@@ -101,7 +101,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
 
     call this%clear()
@@ -111,7 +111,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     select case (loc)
@@ -258,7 +258,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     type(latlon_field3d_type), intent(in), optional, target :: ptr_to
 
@@ -269,7 +269,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     if (present(ptr_to)) then
@@ -441,7 +441,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     integer, intent(in) :: n4
 
@@ -452,7 +452,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     select case (loc)

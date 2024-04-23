@@ -24,6 +24,7 @@ module history_mod
   use tracer_mod
   use operators_mod, only: calc_div
   use physics_mod
+  use regrid_mod
 
   implicit none
 
@@ -35,6 +36,7 @@ module history_mod
   public history_setup_h0_adv
   public history_write_h0
   public history_write_h1
+  public history_write_h2
 
   character(8), parameter ::    cell_dims_2d(3) = ['lon ', 'lat ',         'time']
   character(8), parameter ::    cell_dims_3d(4) = ['lon ', 'lat ', 'lev ', 'time']
@@ -130,6 +132,8 @@ contains
       call history_setup_h1_swm()
     end if
 
+    call history_setup_h2()
+
   end subroutine history_init_stage2
 
   subroutine history_final()
@@ -141,7 +145,7 @@ contains
   subroutine history_setup_h0_swm()
 
     call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm, ngroup=output_ngroup)
+      mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Global attributes
     call fiona_add_att('h0', 'planet', planet)
     call fiona_add_att('h0', 'time_step_size', dt)
@@ -179,7 +183,7 @@ contains
     integer i, j
 
     call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm, ngroup=output_ngroup)
+      mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Dimensions
     call fiona_add_att('h0', 'time_step_size', dt)
     call fiona_add_dim('h0', 'time' , add_var=.true.)
@@ -199,10 +203,10 @@ contains
 
   subroutine history_setup_h0_hydrostatic()
 
-    integer k
+    integer i
 
     call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm, ngroup=output_ngroup)
+      mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Global attributes
     call fiona_add_att('h0', 'planet', planet)
     call fiona_add_att('h0', 'time_step_size', dt)
@@ -264,8 +268,8 @@ contains
       call fiona_add_var('h0', 'ni', long_name='Cloud ice number concentration', units='m-3', dim_names=cell_dims_3d, dtype=output_h0_dtype)
     end if
 
-    do k = 1, blocks(1)%accum_list%size
-      select type (accum => blocks(1)%accum_list%value_at(k))
+    do i = 1, blocks(1)%accum_list%size
+      select type (accum => blocks(1)%accum_list%value_at(i))
       type is (accum_type)
         if (.not. accum%active) cycle
         call fiona_add_var('h0', accum%name, accum%units, accum%long_name, dim_names=cell_dims_3d, dtype=output_h0_dtype)
@@ -280,7 +284,7 @@ contains
 
     integer k
 
-    call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroup)
+    call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Dimensions
     call fiona_add_att('h0', 'time_step_size', dt)
     call fiona_add_dim('h0', 'time' , add_var=.true.)
@@ -341,7 +345,7 @@ contains
 
   subroutine history_setup_h1_swm()
 
-    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroup)
+    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Dimensions
     call fiona_add_att('h1', 'time_step_size', dt)
     call fiona_add_dim('h1', 'time' , add_var=.true.)
@@ -365,7 +369,7 @@ contains
     integer m
     character(30) tag
 
-    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroup)
+    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Dimensions
     call fiona_add_att('h1', 'time_step_size', dt)
     call fiona_add_dim('h1', 'time' , add_var=.true.)
@@ -431,7 +435,7 @@ contains
 
   subroutine history_setup_h1_nonhydrostatic
 
-    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroup)
+    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
     ! Dimensions
     call fiona_add_att('h1', 'time_step_size', dt)
     call fiona_add_dim('h1', 'time' , add_var=.true.)
@@ -1104,5 +1108,57 @@ contains
     end if
 
   end subroutine history_write_h1
+
+  subroutine history_setup_h2
+
+    integer i
+
+    if (.not. regrid_initialized) return
+
+    call fiona_create_dataset('h2', desc=case_desc, file_prefix=trim(case_name), &
+      mpi_comm=proc%comm, ngroup=output_ngroups)
+    ! Global attributes
+    call fiona_add_att('h2', 'planet', planet)
+    ! Dimensions
+    call fiona_add_dim('h2', 'time' , add_var=.true.)
+    call fiona_add_dim('h2', 'lon'  , size=regrid_global_mesh%full_nlon, add_var=.true., decomp=.true.)
+    call fiona_add_dim('h2', 'lat'  , size=regrid_global_mesh%full_nlat, add_var=.true., decomp=.true.)
+    call fiona_add_dim('h2', 'lev'  , long_name='Pressure level', units='Pa', size=regrid_global_mesh%full_nlev, add_var=.true., decomp=.false.)
+
+    do i = 1, regrids(1)%nfields
+      call fiona_add_var('h2', regrids(1)%fields(i)%name, regrids(1)%fields(i)%long_name, regrids(1)%fields(i)%units, &
+        dim_names=cell_dims_3d, dtype=output_h0_dtype, missing_value=real(inf))
+    end do
+
+  end subroutine history_setup_h2
+
+  subroutine history_write_h2()
+
+    integer is, ie, js, je, ks, ke, i
+    integer start(3), count(3)
+
+    if (.not. time_has_alert('h0_new_file')) then
+      call fiona_start_output('h2', dble(elapsed_seconds), new_file=time_step==0)
+    else if (time_is_alerted('h0_new_file')) then
+      call fiona_start_output('h2', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
+    else
+      call fiona_start_output('h2', dble(elapsed_seconds), new_file=.false.)
+    end if
+    call fiona_output('h2', 'lon', regrid_global_mesh%full_lon_deg(1:regrid_global_mesh%full_nlon))
+    call fiona_output('h2', 'lat', regrid_global_mesh%full_lat_deg(1:regrid_global_mesh%full_nlat))
+    call fiona_output('h2', 'lev', regrid_global_mesh%full_lev(1:regrid_global_mesh%full_nlev))
+
+    is = regrids(1)%mesh%full_ids; ie = regrids(1)%mesh%full_ide
+    js = regrids(1)%mesh%full_jds; je = regrids(1)%mesh%full_jde
+    ks = regrids(1)%mesh%full_kds; ke = regrids(1)%mesh%full_kde
+    start = [is,js,ks]
+    count = [regrids(1)%mesh%full_nlon,regrids(1)%mesh%full_nlat,regrids(1)%mesh%full_nlev]
+    do i = 1, regrids(1)%nfields
+      call fiona_output('h2', regrids(1)%fields(i)%name, regrids(1)%fields(i)%d(is:ie,js:je,ks:ke), start=start, count=count)
+    end do
+
+    call fiona_end_output('h2', keep_dataset=.true.)
+
+  end subroutine history_write_h2
 
 end module history_mod

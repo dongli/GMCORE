@@ -30,6 +30,7 @@ module latlon_parallel_mod
   public zonal_avg
   public global_sum
   public global_max
+  public global_min
 
   interface fill_halo
     module procedure fill_halo_2d
@@ -47,6 +48,12 @@ module latlon_parallel_mod
     module procedure global_max_0d_r8
     module procedure global_max_0d_i4
   end interface global_max
+
+  interface global_min
+    module procedure global_min_0d_r4
+    module procedure global_min_0d_r8
+    module procedure global_min_0d_i4
+  end interface global_min
 
 contains
 
@@ -477,5 +484,44 @@ contains
     value = res
 
   end subroutine global_max_0d_i4
+
+  subroutine global_min_0d_r4(comm, value)
+
+    integer, intent(in) :: comm
+    real(4), intent(inout) :: value
+
+    integer ierr
+    real(4) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_REAL, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_r4
+
+  subroutine global_min_0d_r8(comm, value)
+
+    integer, intent(in) :: comm
+    real(8), intent(inout) :: value
+
+    integer ierr
+    real(8) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_DOUBLE, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_r8
+
+  subroutine global_min_0d_i4(comm, value)
+
+    integer, intent(in) :: comm
+    integer(4), intent(inout) :: value
+
+    integer ierr
+    integer(4) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_INT, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_i4
 
 end module latlon_parallel_mod

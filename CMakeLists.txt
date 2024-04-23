@@ -342,6 +342,7 @@ target_sources(gmcore PRIVATE
   src/tests/swm/vortex_erosion_test_mod.F90
   src/tests/tropical_cyclone_test_mod.F90
   src/utils/accum_mod.F90
+  src/utils/regrid_mod.F90
   src/utils/allocator_mod.F90
   src/utils/block_mod.F90
   src/utils/const_mod.F90

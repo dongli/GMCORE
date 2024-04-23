@@ -595,7 +595,7 @@ contains
             if (pi%d(i,j,k-1) <= po(ko) .and. po(ko) <= pi%d(i,j,k)) then
               dp1 = po(ko) - pi%d(i,j,k-1)
               dp2 = pi%d(i,j,k) - po(ko)
-              xo%d(i,j,ko) = (dp2 * xi%d(i,j,k-1) + dp1 * xi%d(i,j,k)) / (dp1 + dp2)
+              xo%d(i,j,xo%mesh%full_kds+ko-1) = (dp2 * xi%d(i,j,k-1) + dp1 * xi%d(i,j,k)) / (dp1 + dp2)
               exit
             end if
           end do
@@ -631,7 +631,7 @@ contains
             if (zi%d(i,j,k-1) >= zo(ko) .and. zo(ko) >= zi%d(i,j,k)) then
               dz1 = zi%d(i,j,k-1) - zo(ko)
               dz2 = zo(ko) - zi%d(i,j,k)
-              xo%d(i,j,ko) = (dz2 * xi%d(i,j,k-1) + dz1 * xi%d(i,j,k)) / (dz1 + dz2)
+              xo%d(i,j,xo%mesh%full_kds+ko-1) = (dz2 * xi%d(i,j,k-1) + dz1 * xi%d(i,j,k)) / (dz1 + dz2)
               exit
             end if
           end do
