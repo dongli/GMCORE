@@ -271,6 +271,8 @@ contains
     end do
     call fill_halo(v_lat)
     call fill_halo(mgs)
+    z_lev%d = z_lev%d * g
+    call fill_halo(z_lev)
     end associate
 
   end subroutine tropical_cyclone_test_set_ic
