@@ -107,7 +107,6 @@ module namelist_mod
   logical         :: pv_pole_stokes       = .true.
   integer         :: upwind_order_pv      = 3
   real(r8)        :: upwind_wgt_pv        = 1
-  real(r8)        :: pv_pole_wgt          = 1.0_r8
 
   character(8)    :: pgf_scheme           = 'lin97'
   integer         :: coriolis_scheme      = 1
@@ -247,7 +246,6 @@ module namelist_mod
     pv_pole_stokes            , &
     upwind_order_pv           , &
     upwind_wgt_pv             , &
-    pv_pole_wgt               , &
     pgf_scheme                , &
     coriolis_scheme           , &
     pt_adv_scheme             , &
@@ -413,7 +411,6 @@ contains
     end if
       write(*, *) 'pv_scheme           = ', trim(pv_scheme)
       write(*, *) 'pv_pole_stokes      = ', to_str(pv_pole_stokes)
-      write(*, *) 'pv_pole_wgt         = ', to_str(pv_pole_wgt, 2)
     if (pv_scheme == 'upwind') then
       write(*, *) 'upwind_order_pv     = ', to_str(upwind_order_pv)
       write(*, *) 'upwind_wgt_pv       = ', to_str(upwind_wgt_pv, 2)
