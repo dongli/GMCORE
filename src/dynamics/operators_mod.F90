@@ -723,7 +723,7 @@ contains
         pole = -pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j+1,k) - vor%d(i,j+2,k))
           end do
         end do
       end if
@@ -738,7 +738,7 @@ contains
         pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j-1,k) - vor%d(i,j-2,k))
           end do
         end do
       end if
