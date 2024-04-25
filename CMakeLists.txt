@@ -7,7 +7,7 @@
 # WARRANTY. You may contact authors for helping or cooperation.
 # ==============================================================================
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.5)
 
 project(gmcore LANGUAGES Fortran C)
 
@@ -46,9 +46,13 @@ if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   list(APPEND fortran_flags
     -ffree-line-length-none
     -fno-range-check
-    -fallow-argument-mismatch
-    -fallow-invalid-boz
   )
+  if (CMAKE_Fortran_COMPILER_VERSION GREATER 10)
+    list(APPEND fortran_flags
+      -fallow-argument-mismatch
+      -fallow-invalid-boz
+    )
+  endif ()
   if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND fortran_flags -O0 -fcheck=all -g -fbacktrace)
   else ()
@@ -175,8 +179,12 @@ if (DEFINED ENV{ECCODES_ROOT})
   message(STATUS "Found EcCodes in $ENV{ECCODES_ROOT}.")
   add_definitions(-DHAS_ECCODES)
   include_directories("$ENV{ECCODES_ROOT}/include")
-  link_directories("$ENV{ECCODES_ROOT}/lib")
-  link_directories("$ENV{ECCODES_ROOT}/lib64")
+  if (EXISTS "$ENV{ECCODES_ROOT}/lib")
+    link_directories("$ENV{ECCODES_ROOT}/lib")
+  endif ()
+  if (EXISTS "$ENV{ECCODES_ROOT}/lib64")
+    link_directories("$ENV{ECCODES_ROOT}/lib64")
+  endif ()
   list(APPEND EXTERNAL_LIBS eccodes_f90)
 else ()
   find_package(ECCODES QUIET)
@@ -262,12 +270,10 @@ target_sources(gmcore PRIVATE
   src/dynamics/vert_coord/smooth_coord_mod.F90
   src/dynamics/vert_coord/vert_coord_mod.F90
   src/dynamics/vert_coord/wrf_vert_coord_mod.F90
-  src/meshes/cubed_sphere/cubed_sphere_panel_mod.F90
-  src/meshes/cubed_sphere/cubed_sphere_mesh_mod.F90
-  src/meshes/cubed_sphere/cubed_sphere_array_mod.F90
   src/meshes/latlon/latlon_mesh_mod.F90
   src/meshes/latlon/latlon_halo_mod.F90
   src/meshes/latlon/latlon_field_types_mod.F90
+  src/meshes/latlon/latlon_operators_mod.F90
   src/meshes/latlon/latlon_parallel_types_mod.F90
   src/meshes/latlon/latlon_parallel_zonal_mod.F90
   src/meshes/latlon/latlon_parallel_mod.F90
@@ -279,6 +285,8 @@ target_sources(gmcore PRIVATE
   src/physics/physics_types_mod.F90
   src/physics/simple_physics/simple_physics_v6.f90
   src/physics/simple_physics/simple_physics_types_mod.F90
+  src/physics/simple_physics/simple_physics_objects_mod.F90
+  src/physics/simple_physics/simple_physics_output_mod.F90
   src/physics/simple_physics/simple_physics_driver_mod.F90
   src/physics/test_forcing_mod.F90
   src/physics/mars_nasa/mars_nasa_const_mod.F90
@@ -334,6 +342,7 @@ target_sources(gmcore PRIVATE
   src/tests/swm/vortex_erosion_test_mod.F90
   src/tests/tropical_cyclone_test_mod.F90
   src/utils/accum_mod.F90
+  src/utils/regrid_mod.F90
   src/utils/allocator_mod.F90
   src/utils/block_mod.F90
   src/utils/const_mod.F90
@@ -354,6 +363,21 @@ target_sources(gmcore PRIVATE
   src/utils/tridiag_mod.F90
   src/utils/tridiag_spk_mod.F90
 )
+if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
+  if (CMAKE_Fortran_COMPILER_VERSION GREATER 8)
+    target_sources(gmcore PRIVATE
+      src/meshes/cubed_sphere/cubed_sphere_panel_mod.F90
+      src/meshes/cubed_sphere/cubed_sphere_mesh_mod.F90
+      src/meshes/cubed_sphere/cubed_sphere_array_mod.F90
+    )
+  endif ()
+else ()
+  target_sources(gmcore PRIVATE
+    src/meshes/cubed_sphere/cubed_sphere_panel_mod.F90
+    src/meshes/cubed_sphere/cubed_sphere_mesh_mod.F90
+    src/meshes/cubed_sphere/cubed_sphere_array_mod.F90
+  )
+endif ()
 
 if (HAS_RRTMGP AND HAS_NOAHMP)
   target_sources(gmcore PRIVATE

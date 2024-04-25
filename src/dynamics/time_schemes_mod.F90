@@ -156,12 +156,12 @@ contains
 
     integer i, j, k
 
-    associate (mesh       => block%mesh, &
-               dmgsdt     => dtend%dmgs, &
-               dgzdt      => dtend%dgz , &
-               dptdt      => dtend%dpt , &
-               dudt       => dtend%du  , &
-               dvdt       => dtend%dv  )
+    associate (mesh   => block%mesh, &
+               dmgsdt => dtend%dmgs, &
+               dgzdt  => dtend%dgz , &
+               dptdt  => dtend%dpt , &
+               dudt   => dtend%du  , &
+               dvdt   => dtend%dv  )
     if (baroclinic) then
       if (dtend%update_mgs) then
         ! ----------------------------------------------------------------------
@@ -176,17 +176,10 @@ contains
         call calc_mg (block, new_state)
         call calc_dmg(block, new_state)
         call calc_ph (block, new_state)
-      else if (dtend%copy_mgs) then ! FIXME: Do we still need copy?
-        new_state%mgs   %d = old_state%mgs   %d
-        new_state%mg_lev%d = old_state%mg_lev%d
-        new_state%mg    %d = old_state%mg    %d
-        new_state%dmg   %d = old_state%dmg   %d
-        new_state%ph_lev%d = old_state%ph_lev%d
-        new_state%ph    %d = old_state%ph    %d
       end if
 
       if (dtend%update_pt) then
-        if (.not. dtend%update_mgs .and. .not. dtend%copy_mgs .and. proc%is_root()) call log_error('Mass is not updated or copied!')
+        if (.not. dtend%update_mgs .and. proc%is_root()) call log_error('Mass is not updated or copied!')
         ! ----------------------------------------------------------------------
         call fill_halo(dptdt, south_halo=.false., north_halo=.false.)
         call filter_run(block%big_filter, dptdt)
@@ -199,8 +192,6 @@ contains
           end do
         end do
         call fill_halo(new_state%pt)
-      else if (dtend%copy_pt) then
-        new_state%pt%d = old_state%pt%d
       end if
     else
       if (dtend%update_gz) then
@@ -217,8 +208,6 @@ contains
         end do
         call fill_halo(new_state%gz)
         call calc_dmg(block, new_state)
-      else if (dtend%copy_gz) then
-        new_state%gz = old_state%gz
       end if
     end if
 

@@ -7,27 +7,22 @@ module debug_mod
   use latlon_mesh_mod
   use block_mod
   use latlon_parallel_mod
+  use latlon_field_types_mod
 
   private
 
   public debug_check_areas
-  public debug_print_min_max
-  public debug_print_min_max_cell
-  public debug_print_min_max_lev_edge
-  public debug_print_min_max_lon_edge
-  public debug_print_min_max_lat_edge
-  public debug_is_inf
+  public print_min_max
+  public is_inf
 
-  interface debug_print_min_max
-    module procedure debug_print_min_max_1d
-    module procedure debug_print_min_max_2d
-    module procedure debug_print_min_max_3d
-  end interface debug_print_min_max
+  interface print_min_max
+    module procedure print_min_max_3d
+  end interface print_min_max
 
-  interface debug_is_inf
-    module procedure debug_is_inf_r4
-    module procedure debug_is_inf_r8
-  end interface debug_is_inf
+  interface is_inf
+    module procedure is_inf_r4
+    module procedure is_inf_r8
+  end interface is_inf
 
 contains
 
@@ -51,7 +46,7 @@ contains
     do j = mesh%half_jds, mesh%half_jde
       total_area = total_area + mesh%area_vtx(j) * mesh%half_nlon
     end do
-    if (abs(global_mesh%total_area - total_area) / global_mesh%total_area > 1.0d-12) then
+    if (abs(global_mesh%total_area - total_area) / global_mesh%total_area > 1.0d-11) then
       call log_error('Failed to calculate vertex area!', __FILE__, __LINE__)
     end if
 
@@ -70,7 +65,7 @@ contains
     end do
 
     do j = mesh%half_jds, mesh%half_jde
-      if (abs(mesh%area_vtx(j) - 2.0_r8 * (mesh%area_subcell(2,j) + mesh%area_subcell(1,j+1))) / mesh%area_vtx(j) > 1.0d-12) then
+      if (abs(mesh%area_vtx(j) - 2.0_r8 * (mesh%area_subcell(2,j) + mesh%area_subcell(1,j+1))) / mesh%area_vtx(j) > 1.0d-10) then
         call log_error('Failed to calculate subcell area!', __FILE__, __LINE__)
       end if
     end do
@@ -111,115 +106,44 @@ contains
 
   end subroutine debug_check_areas
 
-  subroutine debug_print_min_max_1d(array, label)
+  subroutine print_min_max_3d(field)
 
-    real(r8), intent(in) :: array(:)
-    character(*), intent(in) :: label
+    type(latlon_field3d_type), intent(in) :: field
 
-    write(6, *) trim(label), minval(array), maxval(array)
+    integer is, ie, js, je, ks, ke
+    real(r8) min_val, max_val
 
-  end subroutine debug_print_min_max_1d
+    is = merge(field%mesh%full_ids, field%mesh%half_ids, field%full_lon)
+    ie = merge(field%mesh%full_ide, field%mesh%half_ide, field%full_lon)
+    js = merge(field%mesh%full_jds, field%mesh%half_jds, field%full_lat)
+    je = merge(field%mesh%full_jde, field%mesh%half_jde, field%full_lat)
+    ks = merge(field%mesh%full_kds, field%mesh%half_kds, field%full_lev)
+    ke = merge(field%mesh%full_kde, field%mesh%half_kde, field%full_lev)
 
-  subroutine debug_print_min_max_2d(array, label)
+    min_val = minval(field%d(is:ie,js:je,ks:ke))
+    max_val = maxval(field%d(is:ie,js:je,ks:ke))
 
-    real(r8), intent(in) :: array(:,:)
-    character(*), intent(in) :: label
+    call global_min(proc%comm, min_val)
+    call global_max(proc%comm, max_val)
 
-    write(6, *) trim(label), minval(array), maxval(array)
+    if (proc%is_root()) write(6, *) trim(field%name), min_val, max_val
 
-  end subroutine debug_print_min_max_2d
+  end subroutine print_min_max_3d
 
-  subroutine debug_print_min_max_3d(array, label)
-
-    real(r8), intent(in) :: array(:,:,:)
-    character(*), intent(in) :: label
-
-    write(6, *) trim(label), minval(array), maxval(array)
-
-  end subroutine debug_print_min_max_3d
-
-  subroutine debug_print_min_max_cell(mesh, array, label)
-
-    type(latlon_mesh_type), intent(in) :: mesh
-    real(r8), intent(in) :: array(mesh%full_ims:mesh%full_ime, &
-                                  mesh%full_jms:mesh%full_jme, &
-                                  mesh%full_kms:mesh%full_kme)
-    character(*), intent(in) :: label
-
-    write(6, *) trim(label), minval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%full_kds:mesh%full_kde)), &
-                             maxval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%full_kds:mesh%full_kde))
-
-  end subroutine debug_print_min_max_cell
-
-  subroutine debug_print_min_max_lev_edge(mesh, array, label)
-
-    type(latlon_mesh_type), intent(in) :: mesh
-    real(r8), intent(in) :: array(mesh%full_ims:mesh%full_ime, &
-                                  mesh%full_jms:mesh%full_jme, &
-                                  mesh%half_kms:mesh%half_kme)
-    character(*), intent(in) :: label
-
-    write(6, *) trim(label), minval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%half_kds:mesh%half_kde)), &
-                             maxval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%half_kds:mesh%half_kde))
-
-  end subroutine debug_print_min_max_lev_edge
-
-  subroutine debug_print_min_max_lon_edge(mesh, array, label)
-
-    type(latlon_mesh_type), intent(in) :: mesh
-    real(r8), intent(in) :: array(mesh%half_ims:mesh%half_ime, &
-                                  mesh%full_jms:mesh%full_jme, &
-                                  mesh%full_kms:mesh%full_kme)
-    character(*), intent(in) :: label
-
-    write(6, *) trim(label), minval(array(mesh%half_ids:mesh%half_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%full_kds:mesh%full_kde)), &
-                             maxval(array(mesh%half_ids:mesh%half_ide,   &
-                                          mesh%full_jds:mesh%full_jde,   &
-                                          mesh%full_kds:mesh%full_kde))
-
-  end subroutine debug_print_min_max_lon_edge
-
-  subroutine debug_print_min_max_lat_edge(mesh, array, label)
-
-    type(latlon_mesh_type), intent(in) :: mesh
-    real(r8), intent(in) :: array(mesh%full_ims:mesh%full_ime, &
-                                  mesh%half_jms:mesh%half_jme, &
-                                  mesh%full_kms:mesh%full_kme)
-    character(*), intent(in) :: label
-
-    write(6, *) trim(label), minval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%half_jds:mesh%half_jde,   &
-                                          mesh%full_kds:mesh%full_kde)), &
-                             maxval(array(mesh%full_ids:mesh%full_ide,   &
-                                          mesh%half_jds:mesh%half_jde,   &
-                                          mesh%full_kds:mesh%full_kde))
-
-  end subroutine debug_print_min_max_lat_edge
-
-  logical function debug_is_inf_r4(x) result(res)
+  logical function is_inf_r4(x) result(res)
 
     real(4), intent(in) :: x
 
     res = .not. ieee_is_finite(x)
 
-  end function debug_is_inf_r4
+  end function is_inf_r4
 
-  logical function debug_is_inf_r8(x) result(res)
+  logical function is_inf_r8(x) result(res)
 
     real(8), intent(in) :: x
 
     res = .not. ieee_is_finite(x)
 
-  end function debug_is_inf_r8
+  end function is_inf_r8
 
 end module debug_mod

@@ -45,6 +45,7 @@ module gmcore_mod
   use filter_mod
   use test_forcing_mod
   use perf_mod
+  use regrid_mod
 
   implicit none
 
@@ -135,7 +136,7 @@ contains
 
     character(*), intent(in) :: namelist_path
 
-    call global_mesh%init_global(nlon, nlat, nlev, lon_hw=lon_hw, lat_hw=lat_hw)
+    call global_mesh%init_global(nlon, nlat, nlev, lon_hw=lon_hw, lat_hw=lat_hw, lev_hw=3)
     call process_create_blocks()
     associate (mesh => blocks(1)%mesh)
     min_lon = mesh%full_lon_deg(mesh%full_ims)
@@ -143,6 +144,7 @@ contains
     min_lat = mesh%full_lat_deg(max(mesh%full_jms, 1))
     max_lat = mesh%full_lat_deg(min(mesh%full_jme, global_mesh%full_nlat))
     end associate
+    call regrid_init()
     call history_init_stage1()
     call damp_init()
     call tracer_init_stage1()
@@ -249,6 +251,7 @@ contains
     call operators_prepare(blocks, old, dt_dyn)
     call adv_prepare(old)
     call diagnose(blocks, old)
+    call regrid_run(old)
     if (proc%is_root()) call log_print_diag(curr_time%isoformat())
     call output(old)
 
@@ -278,8 +281,10 @@ contains
         end do
       end if
       ! ------------------------------------------------------------------------
-      call diagnose(blocks, old)
-      if (proc%is_root() .and. time_is_alerted('print')) call log_print_diag(curr_time%isoformat())
+      if (time_is_alerted('print')) then
+        call diagnose(blocks, old)
+        if (proc%is_root()) call log_print_diag(curr_time%isoformat())
+      end if
       call blocks(1)%accum(old)
       call output(old)
     end do model_main_loop
@@ -300,6 +305,7 @@ contains
     call history_final()
     call process_final()
     call perf_final()
+    call regrid_final()
 
   end subroutine gmcore_final
 
@@ -320,6 +326,10 @@ contains
       end if
       if (output_h0) call history_write_h0(itime)
       if (output_h1) call history_write_h1(itime)
+      if (output_h2) then
+        call regrid_run(itime)
+        call history_write_h2()
+      end if
     end if
     if (time_is_alerted('restart_write')) then
       call restart_write(itime)

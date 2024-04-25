@@ -54,7 +54,7 @@ contains
     real(8) s
     integer i, x
 
-    s = width / 8.0d0
+    s = width / filter_gauss_sigma
     do i = 1, ngrid
       x = i - (ngrid + 1) / 2
       w(i) = exp(-x**2 / (2 * s**2)) / (s * sqrt(pi2))
@@ -69,42 +69,39 @@ contains
     type(latlon_mesh_type), intent(in), target :: mesh
     character(*), intent(in) :: type
 
-    real(8) dx, dt, cfl, w
+    real(8) dx, dy, w
     integer j, n
 
     call this%clear()
 
     this%mesh => mesh
-    dt = dt_dyn
     allocate(this%width_lon(mesh%full_jms:mesh%full_jme)); this%width_lon = 0
     allocate(this%ngrid_lon(mesh%full_jms:mesh%full_jme)); this%ngrid_lon = 0
     allocate(this%width_lat(mesh%half_jms:mesh%half_jme)); this%width_lat = 0
     allocate(this%ngrid_lat(mesh%half_jms:mesh%half_jme)); this%ngrid_lat = 0
 
-    if (max_wave_speed > 0) then
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        dx = mesh%de_lon(j)
-        if (dx > 0) then
-          cfl = max_wave_speed * dt / dx
-          w = filter_coef_a * cfl / max_cfl * (filter_coef_b * (tanh(90 - abs(mesh%full_lat_deg(j))) - 1) + 1)
-          w = max(filter_min_width, w)
-          n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
-          this%width_lon(j) = w
-          this%ngrid_lon(j) = n
-        end if
-      end do
-      do j = mesh%half_jds, mesh%half_jde
-        dx = merge(mesh%de_lon(j+1), mesh%de_lon(j), mesh%half_lat(j) < 0)
-        if (dx > 0) then
-          cfl = max_wave_speed * dt / dx
-          w = filter_coef_a * cfl / max_cfl * (filter_coef_b * (tanh(90 - abs(mesh%half_lat_deg(j))) - 1) + 1)
-          w = max(filter_min_width, w)
-          n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
-          this%width_lat(j) = w
-          this%ngrid_lat(j) = n
-        end if
-      end do
-    end if
+    do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+      dx = mesh%de_lon(j)
+      dy = mesh%le_lon(j)
+      if (dx > 0) then
+        w = filter_coef_a * dy / dx * (filter_coef_b * (tanh(90 - abs(mesh%full_lat_deg(j))) - 1) + 1)
+        w = max(filter_min_width, w)
+        n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
+        this%width_lon(j) = w
+        this%ngrid_lon(j) = n
+      end if
+    end do
+    do j = mesh%half_jds, mesh%half_jde
+      dx = merge(mesh%de_lon(j+1), mesh%de_lon(j), mesh%half_lat(j) < 0)
+      dy = merge(mesh%le_lon(j+1), mesh%le_lon(j), mesh%half_lat(j) < 0)
+      if (dx > 0) then
+        w = filter_coef_a * dy / dx * (filter_coef_b * (tanh(90 - abs(mesh%half_lat_deg(j))) - 1) + 1)
+        w = max(filter_min_width, w)
+        n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
+        this%width_lat(j) = w
+        this%ngrid_lat(j) = n
+      end if
+    end do
 
     allocate(this%wgt_lon(maxval(this%ngrid_lon),mesh%full_jms:mesh%full_jme)); this%wgt_lon = 0
     allocate(this%wgt_lat(maxval(this%ngrid_lat),mesh%half_jms:mesh%half_jme)); this%wgt_lat = 0

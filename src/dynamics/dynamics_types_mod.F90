@@ -88,9 +88,6 @@ module dynamics_types_mod
     logical :: update_gz  = .false.
     logical :: update_pt  = .false.
     logical :: update_mgs = .false.
-    logical :: copy_gz    = .false.
-    logical :: copy_pt    = .false.
-    logical :: copy_mgs   = .false.
   contains
     procedure :: init        => dtend_init
     procedure :: reset_flags => dtend_reset_flags
@@ -109,12 +106,6 @@ module dynamics_types_mod
     type(latlon_field2d_type) ref_ps
     type(latlon_field2d_type) ref_ps_smth
     type(latlon_field2d_type) ref_ps_perb
-    ! Coriolis parameters
-    real(8), allocatable, dimension(:  ) :: f_lon
-    real(8), allocatable, dimension(:  ) :: f_lat
-    ! Weight for constructing tangential wind
-    real(8), allocatable, dimension(:,:) :: tg_wgt_lon
-    real(8), allocatable, dimension(:,:) :: tg_wgt_lat
   contains
     procedure :: init_stage1 => static_init_stage1
     procedure :: init_stage2 => static_init_stage2
@@ -141,9 +132,9 @@ module dynamics_types_mod
     type(latlon_field3d_type) pkh_lev           ! Exner pressure on half levels
     type(latlon_field3d_type) we_lev_lon        ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
     type(latlon_field3d_type) we_lev_lat        ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
-    type(latlon_field3d_type) ptf_lon           ! Potential temperature on the zonal edge
-    type(latlon_field3d_type) ptf_lat           ! Potential temperature on the merdional edge
-    type(latlon_field3d_type) ptf_lev           ! Potential temperature on the vertical edge
+    type(latlon_field3d_type) ptfx              ! Potential temperature on the zonal edge
+    type(latlon_field3d_type) ptfy              ! Potential temperature on the merdional edge
+    type(latlon_field3d_type) ptfz              ! Potential temperature on the vertical edge
     type(latlon_field3d_type) mfx_lon           ! Normal mass flux on zonal edge
     type(latlon_field3d_type) mfy_lat           ! Normal mass flux on merdional edge
     type(latlon_field3d_type) mfx_lat           ! Tangient mass flux on zonal edge
@@ -152,7 +143,8 @@ module dynamics_types_mod
     type(latlon_field3d_type) pv                ! Potential vorticity
     type(latlon_field3d_type) div               ! Divergence (s-1)
     type(latlon_field3d_type) div2              ! Laplacian of divergence (s-1)
-    type(latlon_field3d_type) dmf
+    type(latlon_field3d_type) dmf               ! Mass flux divergence on full level (Pa s-1)
+    type(latlon_field3d_type) dmf_lev           ! Mass flux divergence on half level (Pa s-1)
     type(latlon_field3d_type) omg               ! Vertical pressure velocity (Pa s-1)
     ! Tendencies from physics
     type(latlon_field3d_type) dudt_phys
@@ -559,9 +551,6 @@ contains
     this%update_gz  = .false.
     this%update_pt  = .false.
     this%update_mgs = .false.
-    this%copy_gz    = .false.
-    this%copy_pt    = .false.
-    this%copy_mgs   = .false.
 
   end subroutine dtend_reset_flags
 
@@ -650,70 +639,12 @@ contains
     units     = 'Pa'
     call this%ref_ps_perb%init(name, long_name, units, 'cell', mesh, halo)
 
-    allocate(this%f_lon       (mesh%full_jms:mesh%full_jme)); this%f_lon      = inf
-    allocate(this%f_lat       (mesh%half_jms:mesh%half_jme)); this%f_lat      = inf
-    allocate(this%tg_wgt_lon(2,mesh%full_jms:mesh%full_jme)); this%tg_wgt_lon = inf
-    allocate(this%tg_wgt_lat(2,mesh%half_jms:mesh%half_jme)); this%tg_wgt_lat = inf
-
   end subroutine static_init_stage1
 
   subroutine static_init_stage2(this, mesh)
 
     class(static_type), intent(inout) :: this
     type(latlon_mesh_type), intent(in) :: mesh
-
-    integer j
-
-    do j = mesh%full_jds, mesh%full_jde
-      this%f_lon(j) = 2 * omega * mesh%full_sin_lat(j)
-    end do
-    do j = mesh%half_jds, mesh%half_jde
-      this%f_lat(j) = 2 * omega * mesh%half_sin_lat(j)
-    end do
-
-
-    !  ____________________                 ____________________                  ____________________                  ____________________
-    ! |          |         |               |          |         |                |          |         |                |          |         |
-    ! |          |         |               |          |         |                |          |         |                |          |         |
-    ! |          |         |               |          |         |                |          |         |                |          |         |
-    ! |          |         |               |          |         |                |          |         |                |          |         |
-    ! |_____o____|____o____|   j           |_____o____|____*____|   j            |_____*____|____o____|   j            |_____o____|____o____|   j
-    ! |          |////|////|               |          |////|    |                |/////|    |         |                |     |    |         |
-    ! |          |/3//|/2//|               |          |////|    |                |/////|    |         |                |     |    |         |
-    ! |          x---------|   j           |          x---------|   j            |-----|----x         |   j            |-----|----x         |   j
-    ! |          |    |/1//|               |          |    |    |                |/////|////|         |                |     |////|         |
-    ! |_____o____|____*____|   j - 1       |_____o____|____o____|   j - 1        |_____o____|____o____|   j - 1        |_____*____|____o____|   j - 1
-    !       i    i   i+1                         i    i   i+1                          i    i   i+1                          i
-    !
-    !
-    !       [ 1    As_1 + As_2 + As_3]
-    ! w = - [--- - ------------------]
-    !       [ 2        A_{i+1,j}     ]
-    !
-    !
-
-    select case (tangent_wgt_scheme)
-    case ('classic')
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        this%tg_wgt_lon(1,j) = mesh%le_lat(j-1) / mesh%de_lon(j) * 0.25d0
-        this%tg_wgt_lon(2,j) = mesh%le_lat(j  ) / mesh%de_lon(j) * 0.25d0
-      end do
-
-      do j = mesh%half_jds, mesh%half_jde
-        this%tg_wgt_lat(1,j) = mesh%le_lon(j  ) / mesh%de_lat(j) * 0.25d0
-        this%tg_wgt_lat(2,j) = mesh%le_lon(j+1) / mesh%de_lat(j) * 0.25d0
-      end do
-    case ('th09')
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        this%tg_wgt_lon(1,j) = mesh%le_lat(j-1) / mesh%de_lon(j) * mesh%area_subcell(2,j  ) / mesh%area_cell(j  )
-        this%tg_wgt_lon(2,j) = mesh%le_lat(j  ) / mesh%de_lon(j) * mesh%area_subcell(1,j  ) / mesh%area_cell(j  )
-      end do
-
-      do j = mesh%half_jds, mesh%half_jde
-        this%tg_wgt_lat(1,j) = mesh%le_lon(j  ) / mesh%de_lat(j) * mesh%area_subcell(1,j  ) / mesh%area_cell(j  )
-        this%tg_wgt_lat(2,j) = mesh%le_lon(j+1) / mesh%de_lat(j) * mesh%area_subcell(2,j+1) / mesh%area_cell(j+1)
-      end do
-    end select
 
   end subroutine static_init_stage2
 
@@ -729,11 +660,6 @@ contains
     call this%ref_ps     %clear()
     call this%ref_ps_smth%clear()
     call this%ref_ps_perb%clear()
-
-    if (allocated(this%f_lon     )) deallocate(this%f_lon     )
-    if (allocated(this%f_lat     )) deallocate(this%f_lat     )
-    if (allocated(this%tg_wgt_lon)) deallocate(this%tg_wgt_lon)
-    if (allocated(this%tg_wgt_lat)) deallocate(this%tg_wgt_lat)
 
   end subroutine static_clear
 
@@ -847,25 +773,25 @@ contains
       call this%we_lev_lat%init(name, long_name, units, 'lev_lat', mesh, halo)
     end if
 
-    name      = 'ptf_lon'
+    name      = 'ptfx'
     long_name = 'Modified potential temperature flux on lon edge'
     units     = 'K m s-1'
     if (baroclinic) then
-      call this%ptf_lon%init(name, long_name, units, 'lon', mesh, halo)
+      call this%ptfx%init(name, long_name, units, 'lon', mesh, halo)
     end if
 
-    name      = 'ptf_lat'
+    name      = 'ptfy'
     long_name = 'Modified potential temperature flux on lat edge'
     units     = 'K m s-1'
     if (baroclinic) then
-      call this%ptf_lat%init(name, long_name, units, 'lat', mesh, halo)
+      call this%ptfy%init(name, long_name, units, 'lat', mesh, halo)
     end if
 
-    name      = 'ptf_lev'
+    name      = 'ptfz'
     long_name = 'Modified potential temperature flux on half level'
     units     = 'K m s-1'
     if (baroclinic) then
-      call this%ptf_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call this%ptfz%init(name, long_name, units, 'lev', mesh, halo)
     end if
 
     name      = 'mfx_lon'
@@ -912,6 +838,13 @@ contains
     long_name = 'Mass flux divergence'
     units     = 'Pa s-1'
     call this%dmf%init(name, long_name, units, 'cell', mesh, halo)
+
+    name      = 'dmf_lev'
+    long_name = 'Mass flux divergence on half level'
+    units     = 'Pa s-1'
+    if (nonhydrostatic) then
+      call this%dmf_lev%init(name, long_name, units, 'lev', mesh, halo)
+    end if
 
     name      = 'omg'
     long_name = 'Omega'
@@ -1048,9 +981,9 @@ contains
     call this%pkh_lev    %clear()
     call this%we_lev_lon %clear()
     call this%we_lev_lat %clear()
-    call this%ptf_lon    %clear()
-    call this%ptf_lat    %clear()
-    call this%ptf_lev    %clear()
+    call this%ptfx       %clear()
+    call this%ptfy       %clear()
+    call this%ptfz       %clear()
     call this%mfx_lon    %clear()
     call this%mfy_lat    %clear()
     call this%mfx_lat    %clear()
@@ -1060,6 +993,7 @@ contains
     call this%div        %clear()
     call this%div2       %clear()
     call this%dmf        %clear()
+    call this%dmf_lev    %clear()
     call this%omg        %clear()
     call this%dudt_phys  %clear()
     call this%dvdt_phys  %clear()

@@ -77,7 +77,7 @@ module namelist_mod
 
   character(30)   :: tangent_wgt_scheme   = 'classic'
 
-  real(r8)        :: implicit_w_wgt       = 0.55_r8
+  real(r8)        :: implicit_w_wgt       = 1
 
   character(30)   :: vert_coord_scheme    = 'hybrid'
   character(30)   :: vert_coord_template  = 'N/A'
@@ -107,6 +107,7 @@ module namelist_mod
   logical         :: pv_pole_stokes       = .true.
   integer         :: upwind_order_pv      = 3
   real(r8)        :: upwind_wgt_pv        = 1
+  real(r8)        :: pv_pole_wgt          = 1.0_r8
 
   character(8)    :: pgf_scheme           = 'lin97'
   integer         :: coriolis_scheme      = 1
@@ -121,8 +122,7 @@ module namelist_mod
 
   integer         :: weno_order           = -1 ! -1, 3
   integer         :: upwind_order         = 3  ! -1, 1, 3
-  real(r8)        :: upwind_wgt           = 1.0_r8
-  real(r8)        :: upwind_wgt_pt        = 0.25_r8
+  real(r8)        :: upwind_wgt           = 0.75_r8
 
   integer         :: vert_weno_order      = -1 ! -1, 3
   integer         :: vert_upwind_order    = 3  ! -1, 1, 3
@@ -130,16 +130,12 @@ module namelist_mod
 
   character(30)   :: time_scheme          = 'wrfrk3'
 
-  real(r8)        :: coarse_pole_mul      = 0
-  real(r8)        :: coarse_pole_decay    = 100.0
-
   ! Filter settings
-  real(r8)        :: max_wave_speed       = 300
-  real(r8)        :: max_cfl              = 0.5
-  real(r8)        :: filter_coef_a        = 1.5
-  real(r8)        :: filter_coef_b        = 0.2
+  real(r8)        :: filter_coef_a        = 2.0
+  real(r8)        :: filter_coef_b        = 0.4
   real(r8)        :: filter_coef_c        = 0.5
-  real(r8)        :: filter_min_width     = 0.0
+  real(r8)        :: filter_gauss_sigma   = 8.0
+  real(r8)        :: filter_min_width     = 4.0
 
   ! Damping settings
   logical         :: use_topo_smooth      = .false.
@@ -148,24 +144,20 @@ module namelist_mod
   logical         :: use_div_damp         = .false.
   integer         :: div_damp_cycles      = 1
   integer         :: div_damp_order       = 2
-  real(r8)        :: div_damp_top         = 3
+  real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 0
-  real(r8)        :: div_damp_pole_x      = 10
-  real(r8)        :: div_damp_pole_y      = 10
+  real(r8)        :: div_damp_pole        = 1
   real(r8)        :: div_damp_lat0        = 70
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
   logical         :: use_vor_damp         = .false.
   integer         :: vor_damp_cycles      = 1
   integer         :: vor_damp_order       = 2
-  real(r8)        :: vor_damp_coef2       = 0.001_r8
+  real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 0
-  real(r8)        :: vor_damp_pole_x      = 200
-  real(r8)        :: vor_damp_pole_y      = 200
-  real(r8)        :: vor_damp_lat0        = 60
+  real(r8)        :: vor_damp_pole        = 1
+  real(r8)        :: vor_damp_lat0        = 70
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
   logical         :: use_smag_damp        = .false.
@@ -184,9 +176,13 @@ module namelist_mod
   logical         :: output_h0            = .true.
   character(8)    :: output_h0_dtype      = 'r4'
   logical         :: output_h1            = .false.
+  logical         :: output_h2            = .false.
   character(30)   :: output_h0_new_file   = ''
   character(8)    :: output_h0_vars(100)  = ''
-  integer         :: output_ngroup        = 0
+  integer         :: output_ngroups       = 0
+
+  integer         :: output_nlev          = 0
+  real(r8)        :: output_plev_hPa(100) = 0
 
   namelist /gmcore_control/     &
     planet                    , &
@@ -251,6 +247,7 @@ module namelist_mod
     pv_pole_stokes            , &
     upwind_order_pv           , &
     upwind_wgt_pv             , &
+    pv_pole_wgt               , &
     pgf_scheme                , &
     coriolis_scheme           , &
     pt_adv_scheme             , &
@@ -262,19 +259,15 @@ module namelist_mod
     weno_order                , &
     upwind_order              , &
     upwind_wgt                , &
-    upwind_wgt_pt             , &
     vert_weno_order           , &
     vert_upwind_order         , &
     vert_upwind_wgt           , &
     time_scheme               , &
-    max_wave_speed            , &
-    max_cfl                   , &
     filter_coef_a             , &
     filter_coef_b             , &
     filter_coef_c             , &
+    filter_gauss_sigma        , &
     filter_min_width          , &
-    coarse_pole_mul           , &
-    coarse_pole_decay         , &
     physics_suite             , &
     mp_scheme                 , &
     pbl_scheme                , &
@@ -292,18 +285,14 @@ module namelist_mod
     div_damp_k0               , &
     div_damp_top              , &
     div_damp_pole             , &
-    div_damp_pole_x           , &
-    div_damp_pole_y           , &
     div_damp_lat0             , &
     use_vor_damp              , &
     vor_damp_cycles           , &
     vor_damp_order            , &
-    vor_damp_k0               , &
     vor_damp_coef2            , &
+    vor_damp_k0               , &
     vor_damp_top              , &
     vor_damp_pole             , &
-    vor_damp_pole_x           , &
-    vor_damp_pole_y           , &
     vor_damp_lat0             , &
     rayleigh_damp_w_coef      , &
     rayleigh_damp_top         , &
@@ -314,9 +303,12 @@ module namelist_mod
     output_h0                 , &
     output_h0_dtype           , &
     output_h1                 , &
+    output_h2                 , &
     output_h0_new_file        , &
     output_h0_vars            , &
-    output_ngroup
+    output_ngroups            , &
+    output_nlev              , &
+    output_plev_hPa
 
 contains
 
@@ -348,6 +340,12 @@ contains
       nonhydrostatic = .false.
     end if
 
+    ! Set default for nonhydrostatic temporally.
+    if (nonhydrostatic) then
+      pgf_scheme     = 'ptb'
+      pt_adv_scheme  = 'upwind'
+    end if
+
     if (dt_dyn  == 0) dt_dyn  = dt_adv
     if (dt_adv  == 0) dt_adv  = dt_dyn
     if (dt_phys == 0) dt_phys = dt_adv
@@ -367,16 +365,10 @@ contains
 
     if (.not. use_div_damp) then
       div_damp_order = 0
-    else if (div_damp_pole /= 0) then
-      div_damp_pole_x = div_damp_pole
-      div_damp_pole_y = div_damp_pole
     end if
 
     if (.not. use_vor_damp) then
       vor_damp_order = 0
-    else if (vor_damp_pole /= 0) then
-      vor_damp_pole_x = vor_damp_pole
-      vor_damp_pole_y = vor_damp_pole
     end if
 
   end subroutine parse_namelist
@@ -388,10 +380,6 @@ contains
       write(*, *) 'nlon                = ', to_str(nlon)
       write(*, *) 'nlat                = ', to_str(nlat)
       write(*, *) 'nlev                = ', to_str(nlev)
-    if (coarse_pole_mul /= 0) then
-      write(*, *) 'coarse_pole_mul     = ', to_str(coarse_pole_mul, 3)
-      write(*, *) 'coarse_pole_decay   = ', to_str(coarse_pole_decay, 3)
-    end if
       write(*, *) 'physics_suite       = ', trim(physics_suite)
       write(*, *) 'mp_scheme           = ', trim(mp_scheme)
       write(*, *) 'pbl_scheme          = ', trim(pbl_scheme)
@@ -404,12 +392,12 @@ contains
       write(*, *) 'dt_dyn              = ', to_str(dt_dyn , 2)
       write(*, *) 'dt_adv              = ', to_str(dt_adv , 2)
       write(*, *) 'dt_phys             = ', to_str(dt_phys, 2)
+      write(*, *) 'time_scheme         = ', trim(time_scheme)
       write(*, *) 'pdc_type            = ', to_str(pdc_type)
-      write(*, *) 'max_wave_speed      = ', to_str(max_wave_speed, 2)
-      write(*, *) 'max_cfl             = ', to_str(max_cfl, 2)
       write(*, *) 'filter_coef_a       = ', filter_coef_a
       write(*, *) 'filter_coef_b       = ', filter_coef_b
       write(*, *) 'filter_coef_c       = ', filter_coef_c
+      write(*, *) 'filter_gauss_sigma  = ', filter_gauss_sigma
       write(*, *) 'filter_min_width    = ', filter_min_width
       write(*, *) 'filter_ptend        = ', to_str(filter_ptend)
       write(*, *) 'pgf_scheme          = ', trim(pgf_scheme)
@@ -425,15 +413,17 @@ contains
     end if
       write(*, *) 'pv_scheme           = ', trim(pv_scheme)
       write(*, *) 'pv_pole_stokes      = ', to_str(pv_pole_stokes)
+      write(*, *) 'pv_pole_wgt         = ', to_str(pv_pole_wgt, 2)
     if (pv_scheme == 'upwind') then
       write(*, *) 'upwind_order_pv     = ', to_str(upwind_order_pv)
       write(*, *) 'upwind_wgt_pv       = ', to_str(upwind_wgt_pv, 2)
     end if
-      write(*, *) 'time_scheme         = ', trim(time_scheme)
+    if (pt_adv_scheme == 'upwind' .or. nh_adv_scheme == 'upwind') then
       write(*, *) 'upwind_order        = ', to_str(upwind_order)
+      write(*, *) 'upwind_wgt          = ', to_str(upwind_wgt, 4)
+    end if
       write(*, *) 'use_topo_smooth     = ', to_str(use_topo_smooth)
     if (use_topo_smooth) then
-      write(*, *) 'topo_max_slope      = ', topo_max_slope
       write(*, *) 'topo_smooth_cycles  = ', to_str(topo_smooth_cycles)
     end if
       write(*, *) 'use_div_damp        = ', to_str(use_div_damp)
@@ -443,8 +433,7 @@ contains
       write(*, *) 'div_damp_coef2      = ', div_damp_coef2
       write(*, *) 'div_damp_coef4      = ', div_damp_coef4
       write(*, *) 'div_damp_top        = ', to_str(div_damp_top, 3)
-      write(*, *) 'div_damp_pole_x     = ', to_str(div_damp_pole_x, 3)
-      write(*, *) 'div_damp_pole_y     = ', to_str(div_damp_pole_y, 3)
+      write(*, *) 'div_damp_pole       = ', to_str(div_damp_pole, 3)
       write(*, *) 'div_damp_lat0       = ', to_str(div_damp_lat0, 3)
     end if
     if (use_vor_damp) then
@@ -453,8 +442,7 @@ contains
       write(*, *) 'vor_damp_coef2      = ', vor_damp_coef2
       write(*, *) 'vor_damp_k0         = ', to_str(vor_damp_k0)
       write(*, *) 'vor_damp_top        = ', to_str(vor_damp_top, 3)
-      write(*, *) 'vor_damp_pole_x     = ', to_str(vor_damp_pole_x, 3)
-      write(*, *) 'vor_damp_pole_y     = ', to_str(vor_damp_pole_y, 3)
+      write(*, *) 'vor_damp_pole       = ', to_str(vor_damp_pole, 3)
       write(*, *) 'vor_damp_lat0       = ', to_str(vor_damp_lat0, 3)
     end if
     if (nonhydrostatic) then

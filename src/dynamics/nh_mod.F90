@@ -6,6 +6,19 @@
 ! GMCORE is distributed in the hope that it will be useful, but WITHOUT ANY
 ! WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
+! Description:
+!
+!   This module implements the semi-implicit solver for the nonhydrostatic
+!   dynamical core.
+!
+! History:
+!
+!   20240303: Change calculation method of half level pressure from w equation.
+!
+! Authors:
+!
+!   - Li Dong (Institute of Atmospheric Physics, Chinese Academy of Sciences)
+! ==============================================================================
 
 module nh_mod
 
@@ -13,8 +26,10 @@ module nh_mod
   use namelist_mod
   use block_mod
   use latlon_field_types_mod
+  use latlon_operators_mod
   use latlon_parallel_mod
   use process_mod
+  use perf_mod
   use interp_mod
   use math_mod
   use adv_mod
@@ -42,9 +57,8 @@ contains
     call calc_adv_lev(block, star_dstate%w_lev , block%aux%adv_w_lev , star_dstate%dmg_lev, dt)
     call calc_adv_lev(block, star_dstate%gz_lev, block%aux%adv_gz_lev, star_dstate%dmg_lev, dt)
     call implicit_w_solver(block, old_dstate, star_dstate, new_dstate, dt)
-    call calc_rhod(block, new_dstate)
-    call calc_p(block, new_dstate)
-    call interp_run(new_dstate%gz_lev, new_dstate%gz)
+    call calc_p(block, old_dstate, new_dstate, dt)
+    call average_run(new_dstate%gz_lev, new_dstate%gz)
     call fill_halo(new_dstate%gz, west_halo=.false., south_halo=.false.)
 
   end subroutine nh_solve
@@ -63,7 +77,8 @@ contains
                v_lev_lat   => block%aux%v_lev_lat  , & ! out
                we          => dstate%we            , & ! out
                mfx_lev_lon => block%aux%mfx_lev_lon, & ! out
-               mfy_lev_lat => block%aux%mfy_lev_lat)   ! out
+               mfy_lev_lat => block%aux%mfy_lev_lat, & ! out
+               dmf_lev     => block%aux%dmf_lev    )   ! out
     call interp_run(u_lon, u_lev_lon)
     call interp_run(v_lat, v_lev_lat)
     call interp_run(dmg_lev, mfx_lev_lon)
@@ -76,6 +91,7 @@ contains
     call fill_halo(mfx_lev_lon)
     call fill_halo(mfy_lev_lat)
     call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg)
+    call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)
     end associate
 
   end subroutine interp_wind
@@ -88,74 +104,34 @@ contains
     type(latlon_field3d_type), intent(in   ) :: dmg_lev
     real(r8), intent(in) :: dt
 
-    real(r8) work(block%mesh%full_ids:block%mesh%full_ide,block%mesh%half_kds:block%mesh%half_nlev)
-    real(r8) pole(block%mesh%half_nlev)
     integer i, j, k
 
-    associate (mesh        => block%mesh                , &
-               mfx_lev_lon => block%aux%mfx_lev_lon     , & ! in
-               mfy_lev_lat => block%aux%mfy_lev_lat     , & ! in
-               we          => block%adv_batch_nh%we     , & ! in
-               qmf_lon     => block%adv_batch_nh%qmf_lon, &
-               qmf_lat     => block%adv_batch_nh%qmf_lat, &
-               qmf_lev     => block%adv_batch_nh%qmf_lev)
-    call adv_calc_tracer_hflx(block%adv_batch_nh, q_lev, qmf_lon, qmf_lat, dt)
-    call fill_halo(qmf_lon, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(qmf_lat, west_halo=.false., east_halo=.false., north_halo=.false.)
+    associate (mesh     => block%mesh             , &
+               dmf_lev  => block%aux%dmf_lev      , & ! in
+               we       => block%adv_batch_nh%we  , & ! in
+               qmfx     => block%adv_batch_nh%qmfx, &
+               qmfy     => block%adv_batch_nh%qmfy, &
+               qmfz     => block%adv_batch_nh%qmfz)
+    call adv_calc_tracer_hflx(block%adv_batch_nh, q_lev, qmfx, qmfy, dt)
+    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)
+    call fill_halo(qmfy, west_halo=.false., east_halo=.false., north_halo=.false.)
+    call div_operator(qmfx, qmfy, dqdt_lev)
+    ! Remove horizontal mass flux divergence part.
     do k = mesh%half_kds, mesh%half_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+      do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dqdt_lev%d(i,j,k) = -((                         &
-            qmf_lon%d(i,j,k) - qmf_lon%d(i-1,j,k)         &
-          ) * mesh%le_lon(j) + (                          &
-            qmf_lat%d(i,j  ,k) * mesh%le_lat(j  ) -       &
-            qmf_lat%d(i,j-1,k) * mesh%le_lat(j-1)         &
-          ) - q_lev%d(i,j,k) * ((                         &
-            mfx_lev_lon%d(i,j,k) - mfx_lev_lon%d(i-1,j,k) &
-          ) * mesh%le_lon(j) + (                          &
-            mfy_lev_lat%d(i,j  ,k) * mesh%le_lat(j  ) -   &
-            mfy_lev_lat%d(i,j-1,k) * mesh%le_lat(j-1)     &
-          ))) / mesh%area_cell(j)
+          dqdt_lev%d(i,j,k) = -dqdt_lev%d(i,j,k) + q_lev%d(i,j,k) * dmf_lev%d(i,j,k)
         end do
       end do
     end do
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%half_kds, mesh%half_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = qmf_lat%d(i,j,k) - q_lev%d(i,j,k) * mfy_lev_lat%d(i,j,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%half_kds, mesh%half_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dqdt_lev%d(i,j,k) = -pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%half_kds, mesh%half_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = qmf_lat%d(i,j-1,k) - q_lev%d(i,j,k) * mfy_lev_lat%d(i,j-1,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j-1) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%half_kds, mesh%half_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dqdt_lev%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
     call adv_fill_vhalo(q_lev)
-    call adv_calc_tracer_vflx(block%adv_batch_nh, q_lev, qmf_lev, dt)
+    call adv_calc_tracer_vflx(block%adv_batch_nh, q_lev, qmfz, dt)
+    ! Remove vertical mass flux divergence part.
     do k = mesh%half_kds + 1, mesh%half_kde - 1
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dqdt_lev%d(i,j,k) = dqdt_lev%d(i,j,k) - (       &
-            qmf_lev%d(i,j,k) - qmf_lev%d(i,j,k-1) -       &
+          dqdt_lev%d(i,j,k) = dqdt_lev%d(i,j,k) - ( &
+            qmfz%d(i,j,k) - qmfz%d(i,j,k-1) -       &
             q_lev%d(i,j,k) * (we%d(i,j,k) - we%d(i,j,k-1)))
         end do
       end do
@@ -332,5 +308,63 @@ contains
     end do
 
   end subroutine rayleigh_damp_w
+
+  subroutine calc_p(block, old_dstate, new_dstate, dt)
+
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(in) :: old_dstate
+    type(dstate_type), intent(inout) :: new_dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j, k
+
+    call perf_start('calc_p')
+
+    associate (mesh       => block%mesh              , & ! in
+               old_p      => old_dstate%p            , & ! in
+               new_p      => new_dstate%p            , & ! out
+               new_p_lev  => new_dstate%p_lev        , & ! out
+               old_pt     => old_dstate%pt           , & ! in
+               new_pt     => new_dstate%pt           , & ! in
+               old_dmg    => old_dstate%dmg          , & ! in
+               new_dmg    => new_dstate%dmg          , & ! in
+               old_gz_lev => old_dstate%gz_lev       , & ! in
+               new_gz_lev => new_dstate%gz_lev       , & ! in
+               old_w_lev  => old_dstate%w_lev        , & ! in
+               new_w_lev  => new_dstate%w_lev        , & ! in
+               adv_w_lev  => block%aux%adv_w_lev     , & ! in
+               qm_lev     => tracers(block%id)%qm_lev)   ! in
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
+        do i = mesh%full_ids, mesh%full_ide + 1
+          new_p%d(i,j,k) = old_p%d(i,j,k) + cpd_o_cvd * old_p%d(i,j,k) * (                                &
+            (new_dmg%d(i,j,k) * new_pt%d(i,j,k)) / (old_dmg%d(i,j,k) * old_pt%d(i,j,k)) -                 &
+            (new_gz_lev%d(i,j,k) - new_gz_lev%d(i,j,k+1)) / (old_gz_lev%d(i,j,k) - old_gz_lev%d(i,j,k+1)) &
+          )
+          ! Do 3D divergence damping?
+          new_p%d(i,j,k) = new_p%d(i,j,k) + 0.12_r8 * (new_p%d(i,j,k) - old_p%d(i,j,k))
+        end do
+      end do
+    end do
+    ! Calculate half level pressure from w equation.
+    new_p_lev%d(:,:,1) = ptop
+    do k = mesh%half_kds + 1, mesh%half_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          new_p_lev%d(i,j,k) = new_p_lev%d(i,j,k-1) + (            &
+            ((new_w_lev%d(i,j,k-1) - old_w_lev%d(i,j,k-1)) / dt -  &
+             adv_w_lev%d(i,j,k-1) + g) * (1 + qm_lev%d(i,j,k-1)) + &
+            ((new_w_lev%d(i,j,k  ) - old_w_lev%d(i,j,k  )) / dt -  &
+             adv_w_lev%d(i,j,k  ) + g) * (1 + qm_lev%d(i,j,k  ))   &
+          ) * 0.5_r8 / g * new_dmg%d(i,j,k-1)
+        end do
+      end do
+    end do
+    call fill_halo(new_p_lev)
+    end associate
+
+    call perf_stop('calc_p')
+
+  end subroutine calc_p
 
 end module nh_mod

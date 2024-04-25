@@ -5,6 +5,8 @@ module operators_mod
   use vert_coord_mod
   use block_mod
   use latlon_parallel_mod
+  use latlon_field_types_mod
+  use latlon_operators_mod
   use process_mod, only: proc, process_stop
   use formula_mod
   use namelist_mod
@@ -23,7 +25,6 @@ module operators_mod
   public operators_prepare
   public calc_mg
   public calc_ph
-  public calc_p
   public calc_omg
   public calc_dmg
   public calc_t
@@ -71,6 +72,8 @@ contains
 
   end subroutine operators_init
 
+  ! First time call before main model loop.
+
   subroutine operators_prepare_1(blocks, itime, dt)
 
     type(block_type), intent(inout) :: blocks(:)
@@ -83,14 +86,18 @@ contains
       if (baroclinic    ) call calc_mg    (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_dmg                       (blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_ph    (blocks(iblk), blocks(iblk)%dstate(itime))
+      if (nonhydrostatic) then
+        ! Set pressure to hydrostatic pressure in the initial condition.
+        blocks(iblk)%dstate(itime)%p    %d = blocks(iblk)%dstate(itime)%ph    %d
+        blocks(iblk)%dstate(itime)%p_lev%d = blocks(iblk)%dstate(itime)%ph_lev%d
+      end if
       if (baroclinic    ) call calc_t     (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_mf                        (blocks(iblk), blocks(iblk)%dstate(itime), dt)
-      call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime))
+      call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime))
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
       if (baroclinic    ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
-      if (nonhydrostatic) call calc_p     (blocks(iblk), blocks(iblk)%dstate(itime))
       call pgf_prepare                    (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
       if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
@@ -110,7 +117,7 @@ contains
     ! --------------------------------------------------------------------------
     case (all_pass)
       call calc_mf                        (block, dstate, dt)
-      call calc_ke                        (block, dstate)
+      call calc_ke                        (block, dstate,     substep)
       call calc_pv                        (block, dstate)
       call interp_pv                      (block, dstate, dt, substep)
       if (baroclinic    ) call calc_t     (block, dstate)
@@ -120,14 +127,14 @@ contains
     ! --------------------------------------------------------------------------
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
-      call calc_ke                        (block, dstate)
+      call calc_ke                        (block, dstate,     substep)
       call calc_pv                        (block, dstate)
       call interp_pv                      (block, dstate, dt, substep)
     ! --------------------------------------------------------------------------
     case (backward_pass)
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
-      if (hydrostatic   ) call calc_rhod  (block, dstate)
+      if (baroclinic    ) call calc_rhod  (block, dstate)
       call pgf_prepare                    (block, dstate)
     end select
 
@@ -210,37 +217,6 @@ contains
 
   end subroutine calc_ph
 
-  subroutine calc_p(block, dstate)
-
-    type(block_type), intent(in) :: block
-    type(dstate_type), intent(inout) :: dstate
-
-    real(r8), parameter :: p0 = 1.0e5_r8
-    integer i, j, k
-
-    call perf_start('calc_p')
-
-    associate (mesh  => block%mesh  , & ! in
-               rhod  => dstate%rhod , & ! in
-               pt    => dstate%pt   , & ! in
-               p     => dstate%p    , & ! out
-               p_lev => dstate%p_lev)   ! out
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
-          p%d(i,j,k) = p0 * (Rd * pt%d(i,j,k) * rhod%d(i,j,k) / p0)**cpd_o_cvd
-        end do
-      end do
-    end do
-    call interp_run(p, p_lev)
-    p_lev%d(:,:,1) = ptop
-    call fill_halo(p_lev)
-    end associate
-
-    call perf_stop('calc_p')
-
-  end subroutine calc_p
-
   subroutine calc_omg(block, dstate)
 
     type(block_type), intent(inout) :: block
@@ -287,7 +263,7 @@ contains
 
     associate (mesh => block%mesh         , &
                pt   => dstate%pt          , & ! in
-               ph   => dstate%ph          , & ! in
+               p    => dstate%p           , & ! in
                q    => tracers(block%id)%q, & ! in
                t    => dstate%t           , & ! out
                tv   => dstate%tv          )   ! out
@@ -295,8 +271,8 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
           do i = mesh%full_ids, mesh%full_ide + 1
-            t%d(i,j,k) = temperature(pt%d(i,j,k), ph%d(i,j,k), q%d(i,j,k,idx_qv))
-            tv%d(i,j,k) = virtual_temperature_from_modified_potential_temperature(pt%d(i,j,k), ph%d(i,j,k)**rd_o_cpd, q%d(i,j,k,idx_qv))
+            t%d(i,j,k) = temperature(pt%d(i,j,k), p%d(i,j,k), q%d(i,j,k,idx_qv))
+            tv%d(i,j,k) = virtual_temperature_from_modified_potential_temperature(pt%d(i,j,k), p%d(i,j,k)**rd_o_cpd, q%d(i,j,k,idx_qv))
           end do
         end do
       end do
@@ -304,7 +280,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
           do i = mesh%full_ids, mesh%full_ide + 1
-            t%d(i,j,k) = temperature(pt%d(i,j,k), ph%d(i,j,k), 0.0_r8)
+            t%d(i,j,k) = temperature(pt%d(i,j,k), p%d(i,j,k), 0.0_r8)
             tv%d(i,j,k) = t%d(i,j,k)
           end do
         end do
@@ -376,10 +352,11 @@ contains
 
   end subroutine calc_we_lev
 
-  subroutine calc_ke(block, dstate)
+  subroutine calc_ke(block, dstate, substep)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
+    integer, intent(in) :: substep
 
     integer i, j, k
     real(r8) ke_vtx(4)
@@ -403,6 +380,41 @@ contains
         end do
       end do
     end do
+    if (mesh%has_south_pole()) then
+      j = mesh%full_jds
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = v%d(i,j,k)**2
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole / global_mesh%full_nlon
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          ke%d(i,j,k) = pole(k)
+        end do
+      end do
+    end if
+    if (mesh%has_north_pole()) then
+      j = mesh%full_jde
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = v%d(i,j-1,k)**2
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole / global_mesh%full_nlon
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          ke%d(i,j,k) = pole(k)
+        end do
+      end do
+    end if
+
+    if (substep < total_substeps) then
+      call perf_stop('calc_ke')
+      return
+    end if
 
     if (ke_scheme == 2) then
       !
@@ -462,38 +474,6 @@ contains
         end do
       end do
     end if
-
-    ! Note: area_lat_south and area_lat_north at the Poles is the same as area_cell.
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = 0.5_r8 * (v%d(i,j,k)**2 + block%aux%u_lat%d(i,j,k)**2)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole / global_mesh%full_nlon
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          ke%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = 0.5_r8 * (v%d(i,j-1,k)**2 + block%aux%u_lat%d(i,j-1,k)**2)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole / global_mesh%full_nlon
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          ke%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
     end associate
 
     call perf_stop('calc_ke')
@@ -505,8 +485,6 @@ contains
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
-    real(r8) work(block%mesh%full_ids:block%mesh%full_ide,block%mesh%full_nlev)
-    real(r8) pole(block%mesh%full_nlev)
     integer i, j, k
 
     call perf_start('calc_div')
@@ -516,46 +494,7 @@ contains
                v    => dstate%v_lat  , & ! in
                div  => block%aux%div , & ! out
                div2 => block%aux%div2)   ! out
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
-          div%d(i,j,k) = (                                                      &
-            (u%d(i,j,k) * mesh%le_lon(j) - u%d(i-1,  j,k) * mesh%le_lon(j  )) + &
-            (v%d(i,j,k) * mesh%le_lat(j) - v%d(i  ,j-1,k) * mesh%le_lat(j-1))   &
-          ) / mesh%area_cell(j)
-        end do
-      end do
-    end do
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = v%d(i,j,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          div%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = -v%d(i,j-1,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j-1) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          div%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
+    call div_operator(u, v, div, with_halo=.true.)
     if (div_damp_order == 4) then
       call fill_halo(div)
       do k = mesh%full_kds, mesh%full_kde
@@ -729,22 +668,20 @@ contains
       end do
     end do
 
+    call interp_run(mfx_lon, mfx_lat)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          mfx_lat%d(i,j,k) = block%static%tg_wgt_lat(1,j) * (mfx_lon%d(i-1,j  ,k) + mfx_lon%d(i,j  ,k)) + &
-                             block%static%tg_wgt_lat(2,j) * (mfx_lon%d(i-1,j+1,k) + mfx_lon%d(i,j+1,k))
           u_lat%d(i,j,k) = mfx_lat%d(i,j,k) / dmg_lat%d(i,j,k)
         end do
       end do
     end do
     call fill_halo(u_lat)
 
+    call interp_run(mfy_lat, mfy_lon)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          mfy_lon%d(i,j,k) = block%static%tg_wgt_lon(1,j) * (mfy_lat%d(i,j-1,k) + mfy_lat%d(i+1,j-1,k)) + &
-                             block%static%tg_wgt_lon(2,j) * (mfy_lat%d(i,j  ,k) + mfy_lat%d(i+1,j  ,k))
           v_lon%d(i,j,k) = mfy_lon%d(i,j,k) / dmg_lon%d(i,j,k)
         end do
       end do
@@ -772,30 +709,21 @@ contains
                v_lat => dstate%v_lat   , & ! in
                u_lat => block%aux%u_lat, & ! in
                vor   => block%aux%vor  )   ! out
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%half_ids, mesh%half_ide
-          vor%d(i,j,k) = (                                                            &
-            u_lon%d(i  ,j,k) * mesh%de_lon(j) - u_lon%d(i,j+1,k) * mesh%de_lon(j+1) + &
-            v_lat%d(i+1,j,k) * mesh%de_lat(j) - v_lat%d(i,j  ,k) * mesh%de_lat(j  )   &
-          ) / mesh%area_vtx(j)
-        end do
-      end do
-    end do
+    call curl_operator(u_lon, v_lat, vor)
     if (pv_pole_stokes) then
       ! Special treatment of vorticity around Poles
       if (mesh%has_south_pole()) then
         j = mesh%half_jds
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            work(i,k) = -u_lat%d(i,j,k) * mesh%le_lat(j)
+            work(i,k) = u_lat%d(i,j,k)
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = pole / global_mesh%full_nlon / mesh%area_cell(j)
+        pole = -pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j+1,k) - vor%d(i,j+2,k))
           end do
         end do
       end if
@@ -803,14 +731,14 @@ contains
         j = mesh%half_jde
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            work(i,k) = u_lat%d(i,j,k) * mesh%le_lat(j)
+            work(i,k) = u_lat%d(i,j,k)
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = pole / global_mesh%full_nlon / mesh%area_cell(j+1)
+        pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pole(k)
+            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j-1,k) - vor%d(i,j-2,k))
           end do
         end do
       end if
@@ -838,7 +766,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%half_ids, mesh%half_ide
-          pv%d(i,j,k) = (vor%d(i,j,k) + block%static%f_lat(j)) / dmg_vtx%d(i,j,k)
+          pv%d(i,j,k) = (vor%d(i,j,k) + mesh%f_lat(j)) / dmg_vtx%d(i,j,k)
         end do
       end do
     end do
@@ -857,6 +785,8 @@ contains
     integer, intent(in) :: substep
 
     integer i, j, k
+
+    call perf_start('interp_pv_midpoint')
 
     associate (mesh   => block%mesh      , &
                pv     => block%aux%pv    , & ! in
@@ -880,6 +810,8 @@ contains
     call fill_halo(pv_lat, west_halo=.false., north_halo=.false.)
     end associate
 
+    call perf_start('interp_pv_midpoint')
+
   end subroutine interp_pv_midpoint
 
   subroutine interp_pv_upwind(block, dstate, dt, substep)
@@ -892,10 +824,10 @@ contains
     real(r8) b
     integer i, j, k
 
-    ! if (substep < total_substeps) then
-    !   call interp_pv_midpoint(block, dstate, dt, substep)
-    !   return
-    ! end if
+    if (substep < total_substeps) then
+      call interp_pv_midpoint(block, dstate, dt, substep)
+      return
+    end if
 
     call perf_start('interp_pv_upwind')
 
@@ -995,11 +927,11 @@ contains
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
             tmp = - (                                                            &
-              block%static%tg_wgt_lat(1,j) * (                                   &
+              mesh%tg_wgt_lat(1,j) * (                                           &
                 mfx_lon%d(i-1,j  ,k) * (pv_lat%d(i,j,k) + pv_lon%d(i-1,j  ,k)) + &
                 mfx_lon%d(i  ,j  ,k) * (pv_lat%d(i,j,k) + pv_lon%d(i  ,j  ,k))   &
               ) +                                                                &
-              block%static%tg_wgt_lat(2,j) * (                                   &
+              mesh%tg_wgt_lat(2,j) * (                                           &
                 mfx_lon%d(i-1,j+1,k) * (pv_lat%d(i,j,k) + pv_lon%d(i-1,j+1,k)) + &
                 mfx_lon%d(i  ,j+1,k) * (pv_lat%d(i,j,k) + pv_lon%d(i  ,j+1,k))   &
               )                                                                  &
@@ -1015,11 +947,11 @@ contains
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
             tmp = (                                                              &
-              block%static%tg_wgt_lon(1,j) * (                                   &
+              mesh%tg_wgt_lon(1,j) * (                                           &
                 mfy_lat%d(i  ,j-1,k) * (pv_lon%d(i,j,k) + pv_lat%d(i  ,j-1,k)) + &
                 mfy_lat%d(i+1,j-1,k) * (pv_lon%d(i,j,k) + pv_lat%d(i+1,j-1,k))   &
               ) +                                                                &
-              block%static%tg_wgt_lon(2,j) * (                                   &
+              mesh%tg_wgt_lon(2,j) * (                                           &
                 mfy_lat%d(i  ,j  ,k) * (pv_lon%d(i,j,k) + pv_lat%d(i  ,j  ,k)) + &
                 mfy_lat%d(i+1,j  ,k) * (pv_lon%d(i,j,k) + pv_lat%d(i+1,j  ,k))   &
               )                                                                  &
@@ -1104,58 +1036,13 @@ contains
     type(dtend_type), intent(inout) :: dtend
     real(r8), intent(in) :: dt
 
-    integer i, j, k
-    real(r8) work(block%mesh%full_ids:block%mesh%full_ide,block%mesh%full_nlev)
-    real(r8) pole(block%mesh%full_nlev)
-
     call perf_start('calc_grad_mf')
 
     associate (mesh    => block%mesh       , &
                mfx_lon => block%aux%mfx_lon, & ! in
                mfy_lat => block%aux%mfy_lat, & ! in
                dmf     => block%aux%dmf    )   ! out
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%full_ids, mesh%full_ide
-          dmf%d(i,j,k) = ((                         &
-            mfx_lon%d(i,j,k) - mfx_lon%d(i-1,j,k)   &
-          ) * mesh%le_lon(j) + (                    &
-            mfy_lat%d(i,j  ,k) * mesh%le_lat(j  ) - &
-            mfy_lat%d(i,j-1,k) * mesh%le_lat(j-1)   &
-          )) / mesh%area_cell(j)
-        end do
-      end do
-    end do
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = mfy_lat%d(i,j,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dmf%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = -mfy_lat%d(i,j-1,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j-1) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dmf%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
+    call div_operator(mfx_lon, mfy_lat, dmf)
     end associate
 
     call perf_stop('calc_grad_mf')
@@ -1170,76 +1057,32 @@ contains
     real(r8), intent(in) :: dt
 
     integer i, j, k
-    real(r8) work(block%mesh%full_ids:block%mesh%full_ide,block%mesh%full_nlev)
-    real(r8) pole(block%mesh%full_nlev)
 
     call perf_start('calc_grad_ptf')
 
-    associate (mesh     => block%filter_mesh, &
-               u_lon    => dstate%u_lon     , & ! in
-               v_lat    => dstate%v_lat     , & ! in
-               we_lev   => dstate%we_lev    , & ! in
-               mfx_lon  => block%aux%mfx_lon, & ! in
-               mfy_lat  => block%aux%mfy_lat, & ! in
-               dmg_lev  => dstate%dmg_lev   , & ! in
-               pt       => dstate%pt        , & ! in
-               ptf_lon  => block%aux%ptf_lon, & ! out
-               ptf_lat  => block%aux%ptf_lat, & ! out
-               ptf_lev  => block%aux%ptf_lev, & ! out
-               dpt      => dtend%dpt        )   ! out
+    associate (mesh    => block%filter_mesh, &
+               u_lon   => dstate%u_lon     , & ! in
+               v_lat   => dstate%v_lat     , & ! in
+               we_lev  => dstate%we_lev    , & ! in
+               mfx_lon => block%aux%mfx_lon, & ! in
+               mfy_lat => block%aux%mfy_lat, & ! in
+               dmg_lev => dstate%dmg_lev   , & ! in
+               pt      => dstate%pt        , & ! in
+               ptfx    => block%aux%ptfx   , & ! out
+               ptfy    => block%aux%ptfy   , & ! out
+               ptfz    => block%aux%ptfz   , & ! out
+               dpt     => dtend%dpt        )   ! out
     call block%adv_batch_pt%set_wind(u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev)
-    call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptf_lon, ptf_lat, dt)
-    call fill_halo(ptf_lon, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(ptf_lat, north_halo=.false.,  west_halo=.false., east_halo=.false.)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%full_ids, mesh%full_ide
-          dpt%d(i,j,k) = -((                        &
-            ptf_lon%d(i,j,k) - ptf_lon%d(i-1,j,k)   &
-          ) * mesh%le_lon(j) + (                    &
-            ptf_lat%d(i,j  ,k) * mesh%le_lat(j  ) - &
-            ptf_lat%d(i,j-1,k) * mesh%le_lat(j-1)   &
-          )) / mesh%area_cell(j)
-        end do
-      end do
-    end do
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = ptf_lat%d(i,j,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dpt%d(i,j,k) = -pole(k)
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = ptf_lat%d(i,j-1,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j-1) / global_mesh%full_nlon / mesh%area_cell(j)
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          dpt%d(i,j,k) = pole(k)
-        end do
-      end do
-    end if
-    ! --------------------------------- FFSL -----------------------------------
+    call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
+    call fill_halo(ptfx, south_halo=.false., north_halo=.false., east_halo=.false.)
+    call fill_halo(ptfy, north_halo=.false.,  west_halo=.false., east_halo=.false.)
+    call div_operator(ptfx, ptfy, dpt)
     call adv_fill_vhalo(pt)
-    call adv_calc_tracer_vflx(block%adv_batch_pt, pt, ptf_lev, dt)
+    call adv_calc_tracer_vflx(block%adv_batch_pt, pt, ptfz, dt)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dpt%d(i,j,k) = dpt%d(i,j,k) - (ptf_lev%d(i,j,k+1) - ptf_lev%d(i,j,k))
+          dpt%d(i,j,k) = -dpt%d(i,j,k) - (ptfz%d(i,j,k+1) - ptfz%d(i,j,k))
         end do
       end do
     end do

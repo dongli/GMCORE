@@ -45,6 +45,9 @@ module latlon_field_types_mod
     character(field_long_name_len) :: long_name = 'N/A'
     character(field_units_len    ) :: units     = 'N/A'
     character(field_loc_len      ) :: loc       = 'N/A'
+    integer :: nlon             = 0
+    integer :: nlat             = 0
+    integer :: nlev             = 0
     logical :: full_lon         = .true.
     logical :: full_lat         = .true.
     logical :: full_lev         = .true.
@@ -98,7 +101,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
 
     call this%clear()
@@ -108,7 +111,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     select case (loc)
@@ -127,6 +130,9 @@ contains
     end select
 
     this%d = 0
+    this%nlon = merge(mesh%full_nlon, mesh%half_nlon, this%full_lon)
+    this%nlat = merge(mesh%full_nlat, mesh%half_nlat, this%full_lat)
+    this%nlev = 1
     this%initialized = .true.
 
   end subroutine latlon_field2d_init
@@ -148,6 +154,9 @@ contains
     this%halo_cross_pole = .false.
     this%full_lon        = .true.
     this%full_lat        = .true.
+    this%nlon            = 0
+    this%nlat            = 0
+    this%nlev            = 0
     this%initialized     = .false.
     this%linked          = .false.
     this%restart         = .false.
@@ -172,6 +181,9 @@ contains
       this%halo_cross_pole = other%halo_cross_pole
       this%full_lon        = other%full_lon
       this%full_lat        = other%full_lat
+      this%nlon            = other%nlon
+      this%nlat            = other%nlat
+      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     this%d => other%d
@@ -191,10 +203,23 @@ contains
 
     if (this%initialized .and. .not. (this%full_lon .eqv. other%full_lon .and. this%full_lat .eqv. other%full_lat)) then
       call log_error('latlon_field2d_link: cannot link fields with different loc!', __FILE__, __LINE__)
+    else
+      this%name            = other%name
+      this%long_name       = other%long_name
+      this%units           = other%units
+      this%loc             = other%loc
+      this%mesh            => other%mesh
+      this%halo            => other%halo
+      this%halo_cross_pole = other%halo_cross_pole
+      this%full_lon        = other%full_lon
+      this%full_lat        = other%full_lat
+      this%nlon            = other%nlon
+      this%nlat            = other%nlat
+      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     select case (this%loc)
-    case ('cell')
+    case ('cell', 'lev')
       is = this%mesh%full_ims; ie = this%mesh%full_ime
       js = this%mesh%full_jms; je = this%mesh%full_jme
     case ('lon')
@@ -206,6 +231,8 @@ contains
     case ('vtx')
       is = this%mesh%half_ims; ie = this%mesh%half_ime
       js = this%mesh%half_jms; je = this%mesh%half_jme
+    case default
+      stop 'Unhandled branch in latlon_field2d_link_3d!'
     end select
     ! Use a temporary array pointer to fix compile error.
     tmp => other%d(:,:,i3)
@@ -231,7 +258,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     type(latlon_field3d_type), intent(in), optional, target :: ptr_to
 
@@ -242,7 +269,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     if (present(ptr_to)) then
@@ -275,6 +302,9 @@ contains
     end if
 
     this%d = 0
+    this%nlon = merge(mesh%full_nlon, mesh%half_nlon, this%full_lon)
+    this%nlat = merge(mesh%full_nlat, mesh%half_nlat, this%full_lat)
+    this%nlev = merge(mesh%full_nlev, mesh%half_nlev, this%full_lev)
     this%initialized = .true.
 
   end subroutine latlon_field3d_init
@@ -297,6 +327,9 @@ contains
     this%full_lon        = .true.
     this%full_lat        = .true.
     this%full_lev        = .true.
+    this%nlon            = 0
+    this%nlat            = 0
+    this%nlev            = 0
     this%initialized     = .false.
     this%linked          = .false.
     this%restart         = .false.
@@ -322,6 +355,9 @@ contains
       this%full_lon        = other%full_lon
       this%full_lat        = other%full_lat
       this%full_lev        = other%full_lev
+      this%nlon            = other%nlon
+      this%nlat            = other%nlat
+      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     this%d => other%d
@@ -352,6 +388,9 @@ contains
       this%full_lon        = other%full_lon
       this%full_lat        = other%full_lat
       this%full_lev        = other%full_lev
+      this%nlon            = other%nlon
+      this%nlat            = other%nlat
+      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     select case (this%loc)
@@ -375,6 +414,8 @@ contains
       is = this%mesh%half_ims; ie = this%mesh%half_ime
       js = this%mesh%half_jms; je = this%mesh%half_jme
       ks = this%mesh%full_kms; ke = this%mesh%full_kme
+    case default
+      stop 'Unhandled branch in latlon_field3d_link_4d!'
     end select
     ! Use a temporary array pointer to fix compile error.
     tmp => other%d(:,:,:,i4)
@@ -400,7 +441,7 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in), target :: mesh
-    type(latlon_halo_type), intent(in), target :: halo(:)
+    type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     integer, intent(in) :: n4
 
@@ -411,7 +452,7 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
-    this%halo      => halo
+    if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
     select case (loc)
@@ -421,6 +462,9 @@ contains
     end select
 
     this%d = 0
+    this%nlon = merge(mesh%full_nlon, mesh%half_nlon, this%full_lon)
+    this%nlat = merge(mesh%full_nlat, mesh%half_nlat, this%full_lat)
+    this%nlev = merge(mesh%full_nlev, mesh%half_nlev, this%full_lev)
     this%linked = .false.
     this%initialized = .true.
 
@@ -441,6 +485,12 @@ contains
     this%mesh            => null()
     this%halo            => null()
     this%halo_cross_pole = .false.
+    this%full_lon        = .true.
+    this%full_lat        = .true.
+    this%full_lev        = .true.
+    this%nlon            = 0
+    this%nlat            = 0
+    this%nlev            = 0
     this%initialized     = .false.
     this%linked          = .false.
     this%restart         = .false.
@@ -466,6 +516,9 @@ contains
       this%full_lon        = other%full_lon
       this%full_lat        = other%full_lat
       this%full_lev        = other%full_lev
+      this%nlon            = other%nlon
+      this%nlat            = other%nlat
+      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     this%d => other%d

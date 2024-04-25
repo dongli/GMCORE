@@ -4,11 +4,16 @@ import argparse
 import cdsapi
 import pendulum
 import os
+import subprocess
 
 parser = argparse.ArgumentParser(description='Get ERA5 reanalysis data for creating initial data.')
 parser.add_argument('-t', dest='time', help='Time (YYYYMMDDHH)', required=True)
 parser.add_argument('--res', help='Resoultion (1p0, 0p25)', default='0p25')
 args = parser.parse_args()
+
+def run(cmd):
+	print(f'==> {cmd}')
+	res = subprocess.run(['bash', '-l', '-c', cmd])
 
 args.time = pendulum.from_format(args.time, 'YYYYMMDDHH')
 
@@ -78,12 +83,12 @@ if not os.path.isfile(sfc_file):
 		},
 		sfc_file
 	)
-	os.system(f'cdo chname,z,zs {sfc_file} {sfc_file}.tmp')
-	os.system(f'mv {sfc_file}.tmp {sfc_file}')
+	run(f'cdo chname,z,zs {sfc_file} {sfc_file}.tmp')
+	run(f'mv {sfc_file}.tmp {sfc_file}')
 
 out_file = f'era5_{args.time.format("YYYYMMDDHH")}.nc'
 if not os.path.isfile(out_file):
-	os.system(f'cdo merge {plev_file} {sfc_file} {out_file}.tmp')
-	os.system(f'nccopy -d 6 {out_file}.tmp {out_file}')
+	run(f'cdo merge {plev_file} {sfc_file} {out_file}.tmp')
+	run(f'nccopy -d 6 {out_file}.tmp {out_file}')
 	if os.path.isfile(out_file):
-		os.system(f'rm -f {plev_file} {sfc_file} {out_file}.tmp')
+		run(f'rm -f {plev_file} {sfc_file} {out_file}.tmp')

@@ -30,6 +30,7 @@ module latlon_parallel_mod
   public zonal_avg
   public global_sum
   public global_max
+  public global_min
 
   interface fill_halo
     module procedure fill_halo_2d
@@ -47,6 +48,12 @@ module latlon_parallel_mod
     module procedure global_max_0d_r8
     module procedure global_max_0d_i4
   end interface global_max
+
+  interface global_min
+    module procedure global_min_0d_r4
+    module procedure global_min_0d_r8
+    module procedure global_min_0d_i4
+  end interface global_min
 
 contains
 
@@ -78,7 +85,7 @@ contains
       nx = field%mesh%full_nlon
       mx = field%mesh%full_nlon / 2
     else
-      nx = field%mesh%full_nlon
+      nx = field%mesh%half_nlon
       mx = field%mesh%half_nlon / 2
     end if
     if (field%full_lat) then
@@ -134,14 +141,14 @@ contains
                         field%d, 1, field%halo(south)%recv_type_2d(t1,t2), field%halo(south)%proc_id, 25, &
                         proc%comm, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
-      tmp = field%d(:,js:0)
+      tmp = field%d(:,js:js+hy-1)
       if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(   1:mx,j) = tmp(hx+1+mx:hx+nx,hy+js-j)
           field%d(mx+1:nx,j) = tmp(hx+1   :hx+mx,hy+js-j)
         end do
       else
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(:,j) = tmp(:,hy+js-j)
         end do
       end if
@@ -255,14 +262,14 @@ contains
                         field%d, 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 35, &
                         proc%comm, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
-      tmp = field%d(:,js:0,:)
+      tmp = field%d(:,js:js+hy-1,:)
       if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(   1:mx,j,:) = tmp(hx+1+mx:hx+nx,hy+js-j,:)
           field%d(mx+1:nx,j,:) = tmp(hx+1   :hx+mx,hy+js-j,:)
         end do
       else
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(:,j,:) = tmp(:,hy+js-j,:)
         end do
       end if
@@ -377,14 +384,14 @@ contains
                         field%d(:,:,:,i4), 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 45, &
                         proc%comm, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
-      tmp = field%d(:,js:0,:,i4)
+      tmp = field%d(:,js:js+hy-1,:,i4)
       if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(   1:mx,j,:,i4) = tmp(hx+1+mx:hx+nx,hy+js-j,:)
           field%d(mx+1:nx,j,:,i4) = tmp(hx+1   :hx+mx,hy+js-j,:)
         end do
       else
-        do j = js, 0
+        do j = js, js + hy - 1
           field%d(:,j,:,i4) = tmp(:,hy+js-j,:)
         end do
       end if
@@ -477,5 +484,44 @@ contains
     value = res
 
   end subroutine global_max_0d_i4
+
+  subroutine global_min_0d_r4(comm, value)
+
+    integer, intent(in) :: comm
+    real(4), intent(inout) :: value
+
+    integer ierr
+    real(4) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_REAL, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_r4
+
+  subroutine global_min_0d_r8(comm, value)
+
+    integer, intent(in) :: comm
+    real(8), intent(inout) :: value
+
+    integer ierr
+    real(8) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_DOUBLE, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_r8
+
+  subroutine global_min_0d_i4(comm, value)
+
+    integer, intent(in) :: comm
+    integer(4), intent(inout) :: value
+
+    integer ierr
+    integer(4) res
+
+    call MPI_ALLREDUCE(value, res, 1, MPI_INT, MPI_MIN, comm, ierr)
+    value = res
+
+  end subroutine global_min_0d_i4
 
 end module latlon_parallel_mod

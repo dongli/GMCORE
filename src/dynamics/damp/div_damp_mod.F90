@@ -49,7 +49,7 @@ contains
         do j = global_mesh%full_jds_no_pole, global_mesh%full_jde_no_pole
           cx(j,k) = div_damp_coef2 * global_mesh%full_cos_lat(j)**(r - 1) * &
             exp_two_values(div_damp_top, 1.0_r8, 1.0_r8, real(div_damp_k0, r8), real(k, r8)) * &
-            exp_two_values(div_damp_pole_x, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%full_lat_deg(j))) * &
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%full_lat_deg(j))) * &
             global_mesh%le_lon(j) * global_mesh%de_lon(j) / dt_dyn
         end do
       end do
@@ -58,7 +58,7 @@ contains
         do j = global_mesh%half_jds, global_mesh%half_jde
           cy(j,k) = div_damp_coef2 * global_mesh%half_cos_lat(j)**(r - 1) * &
             exp_two_values(div_damp_top, 1.0_r8, 1.0_r8, real(div_damp_k0, r8), real(k, r8)) * &
-            exp_two_values(div_damp_pole_y, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%half_lat_deg(j))) * &
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%half_lat_deg(j))) * &
             global_mesh%le_lat(j) * global_mesh%de_lat(j) / dt_dyn
         end do
       end do
@@ -115,7 +115,7 @@ contains
         end do
       end do
       call fill_halo(du, south_halo=.false., north_halo=.false.)
-      call filter_run(block%small_filter, du)
+      call filter_run(block%big_filter, du)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
@@ -139,7 +139,7 @@ contains
         end do
       end do
       call fill_halo(du, south_halo=.false., north_halo=.false.)
-      call filter_run(block%big_filter, du)
+      call filter_run(block%small_filter, du)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
