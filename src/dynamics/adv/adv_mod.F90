@@ -65,13 +65,13 @@ contains
         call blocks(iblk)%adv_batch_pt%init(                  &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true.)
+          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., ieva=use_ieva)
       end if
       if (nonhydrostatic) then
         call blocks(iblk)%adv_batch_nh%init(                  &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true.)
+          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., ieva=use_ieva)
       end if
     end do
 
@@ -93,7 +93,7 @@ contains
         call blocks(iblk)%adv_batches(ibat)%init(             &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., idx=idx(1:n))
+          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=.false., idx=idx(1:n))
       end do
     end do
 

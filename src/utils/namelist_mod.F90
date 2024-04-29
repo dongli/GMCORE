@@ -124,9 +124,11 @@ module namelist_mod
   integer         :: upwind_order         = 3  ! -1, 1, 3
   real(r8)        :: upwind_wgt           = 0.75_r8
 
-  integer         :: vert_weno_order      = -1 ! -1, 3
-  integer         :: vert_upwind_order    = 3  ! -1, 1, 3
-  real(r8)        :: vert_upwind_wgt      = 1.0_r8
+  ! IEVA settings
+  logical         :: use_ieva             = .false.
+  real(r8)        :: ieva_cfl_min         = 0.8
+  real(r8)        :: ieva_cfl_max         = 1.1
+  real(r8)        :: ieva_eps             = 0.9
 
   character(30)   :: time_scheme          = 'wrfrk3'
 
@@ -259,9 +261,6 @@ module namelist_mod
     weno_order                , &
     upwind_order              , &
     upwind_wgt                , &
-    vert_weno_order           , &
-    vert_upwind_order         , &
-    vert_upwind_wgt           , &
     time_scheme               , &
     filter_coef_a             , &
     filter_coef_b             , &
