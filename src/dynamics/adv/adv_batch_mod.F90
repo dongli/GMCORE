@@ -402,8 +402,8 @@ contains
     call this%mfy%link(mfy_lat)
     call this%mz %link(dmg_lev)
 
-    if (this%scheme == 'ffsl') call this%prepare_ffsl()
     if (this%ieva) call this%prepare_ieva()
+    if (this%scheme == 'ffsl') call this%prepare_ffsl()
 
   end subroutine adv_batch_set_wind
 
@@ -527,6 +527,7 @@ contains
                cflz => this%cflz  , &
                divx => this%divx  , &
                divy => this%divy  )
+    ! Calculate horizontal CFL number and divergence along each axis.
     select case (this%loc)
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
@@ -581,7 +582,7 @@ contains
       end if
     case ('vtx')
     end select
-
+    ! Calculate vertical CFL number.
     select case (this%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1
@@ -608,10 +609,10 @@ contains
 
     class(adv_batch_type), intent(inout) :: this
 
-    real(r8) work(this%u%mesh%full_ids:this%u%mesh%full_ide,this%u%mesh%half_kds+1:this%u%mesh%half_kde-1)
-    real(r8) pole(this%u%mesh%half_kds+1:this%u%mesh%half_kde-1)
+    real(r8) work(this%u%mesh%full_ids:this%u%mesh%full_ide,this%u%mesh%half_nlev)
+    real(r8) pole(this%u%mesh%half_nlev)
     real(r8) cfl_min, cfl_max, cfl_v, b
-    integer i, j, k, ku
+    integer i, j, k, ks, ke, ku
 
     associate (mesh   => this%u%mesh, &
                dt     => this%dt    , &
@@ -621,52 +622,101 @@ contains
                we     => this%we    , & ! in
                cfl_h  => this%we_imp, & ! working array
                we_imp => this%we_imp)   ! out
+    ks = merge(this%u%mesh%half_kds, this%u%mesh%full_kds, we%loc == 'lev') + 1
+    ke = merge(this%u%mesh%half_kde, this%u%mesh%full_kde, we%loc == 'lev') - 1
     ! Calculate horizontal CFL number.
-    do k = mesh%half_kds + 1, mesh%half_kde - 1
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%full_ids, mesh%full_ide
-          ku = merge(k - 1, k, we%d(i,j,k) >= 0)
-          cfl_h%d(i,j,k) = dt * (                                                    &
-            max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8) / mesh%de_lon(j) + &
-            max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8) / mesh%le_lon(j)   &
-          )
+    select case (we%loc)
+    case ('lev')
+      do k = ks, ke
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k - 1, k, we%d(i,j,k) >= 0)
+            cfl_h%d(i,j,k) = dt * (                                                    &
+              max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8) / mesh%de_lon(j) + &
+              max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8) / mesh%le_lon(j)   &
+            )
+          end do
         end do
       end do
-    end do
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do i = mesh%full_ids, mesh%full_ide
-          ku = merge(k - 1, k, we%d(i,j,k) >= 0)
-          work(i,k) = max(v%d(i,j,ku), 0.0_r8)
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k - 1, k, we%d(i,j,k) >= 0)
+            work(i,k) = max(v%d(i,j,ku), 0.0_r8)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = pole * mesh%le_lat(j) / mesh%area_pole_cap
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            cfl_h%d(i,j,k) = pole(k)
+          end do
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k - 1, k, we%d(i,j,k) >= 0)
+            work(i,k) = min(v%d(i,j-1,ku), 0.0_r8)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -pole * mesh%le_lat(j-1) / mesh%area_pole_cap
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            cfl_h%d(i,j,k) = pole(k)
+          end do
+        end do
+      end if
+    case ('cell')
+      do k = ks, ke
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k, k + 1, we%d(i,j,k) >= 0)
+            cfl_h%d(i,j,k) = dt * (                                                    &
+              max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8) / mesh%de_lon(j) + &
+              max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8) / mesh%le_lon(j)   &
+            )
+          end do
         end do
       end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / mesh%area_pole_cap
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do i = mesh%full_ids, mesh%full_ide
-          cfl_h%d(i,j,k) = pole(k)
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k, k + 1, we%d(i,j,k) >= 0)
+            work(i,k) = max(v%d(i,j,ku), 0.0_r8)
+          end do
         end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do i = mesh%full_ids, mesh%full_ide
-          ku = merge(k - 1, k, we%d(i,j,k) >= 0)
-          work(i,k) = min(v%d(i,j-1,ku), 0.0_r8)
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = pole * mesh%le_lat(j) / mesh%area_pole_cap
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            cfl_h%d(i,j,k) = pole(k)
+          end do
         end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = -pole * mesh%le_lat(j-1) / mesh%area_pole_cap
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do i = mesh%full_ids, mesh%full_ide
-          cfl_h%d(i,j,k) = pole(k)
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            ku = merge(k, k + 1, we%d(i,j,k) >= 0)
+            work(i,k) = min(v%d(i,j-1,ku), 0.0_r8)
+          end do
         end do
-      end do
-    end if
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -pole * mesh%le_lat(j-1) / mesh%area_pole_cap
+        do k = ks, ke
+          do i = mesh%full_ids, mesh%full_ide
+            cfl_h%d(i,j,k) = pole(k)
+          end do
+        end do
+      end if
+    end select
     ! Partition vertical mass flux into explicit and implicit parts.
-    do k = mesh%half_kds + 1, mesh%half_kde - 1
+    do k = ks, ke
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           cfl_max = ieva_cfl_max - ieva_eps * cfl_h%d(i,j,k)
