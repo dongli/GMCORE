@@ -26,9 +26,7 @@ module dynamics_types_mod
   ! NOTE:
   !   Variables with '_lon', '_lat' and '_lev' are on the half grids on the corresponding direction.
   type dstate_type
-    ! For nesting
     integer :: id = 0
-    type(dstate_type), pointer :: parent => null()
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
     type(latlon_field3d_type) u_lon
@@ -335,7 +333,7 @@ contains
     if (nonhydrostatic) then
       call this%p%init(name, long_name, units, 'cell', mesh, halo)
     else if (baroclinic) then
-      call this%p%init(name, long_name, units, 'cell', mesh, halo, ptr_to=this%ph)
+      call this%p%init(name, long_name, units, 'cell', mesh, halo, link=this%ph)
     end if
 
     name      = 'p_lev'
@@ -344,7 +342,7 @@ contains
     if (nonhydrostatic) then
       call this%p_lev%init(name, long_name, units, 'lev', mesh, halo)
     else if (baroclinic) then
-      call this%p_lev%init(name, long_name, units, 'lev', mesh, halo, ptr_to=this%ph_lev)
+      call this%p_lev%init(name, long_name, units, 'lev', mesh, halo, link=this%ph_lev)
     end if
 
     name      = 'ps'

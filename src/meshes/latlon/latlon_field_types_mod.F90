@@ -93,7 +93,7 @@ module latlon_field_types_mod
 
 contains
 
-  subroutine latlon_field2d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole)
+  subroutine latlon_field2d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link)
 
     class(latlon_field2d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -103,6 +103,7 @@ contains
     type(latlon_mesh_type), intent(in), target :: mesh
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
+    type(latlon_field2d_type), intent(in), optional, target :: link
 
     call this%clear()
 
@@ -114,20 +115,25 @@ contains
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
-    select case (loc)
-    case ('cell')
-      this%full_lon = .true. ; this%full_lat = .true.
-      allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-    case ('lon')
-      this%full_lon = .false.; this%full_lat = .true.
-      allocate(this%d(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme))
-    case ('lat')
-      this%full_lon = .true. ; this%full_lat = .false.
-      allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme))
-    case ('vtx')
-      this%full_lon = .false.; this%full_lat = .false.
-      allocate(this%d(mesh%half_ims:mesh%half_ime,mesh%half_jms:mesh%half_jme))
-    end select
+    if (present(link)) then
+      this%d => link%d
+      this%linked = .true.
+    else
+      select case (loc)
+      case ('cell')
+        this%full_lon = .true. ; this%full_lat = .true.
+        allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
+      case ('lon')
+        this%full_lon = .false.; this%full_lat = .true.
+        allocate(this%d(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme))
+      case ('lat')
+        this%full_lon = .true. ; this%full_lat = .false.
+        allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme))
+      case ('vtx')
+        this%full_lon = .false.; this%full_lat = .false.
+        allocate(this%d(mesh%half_ims:mesh%half_ime,mesh%half_jms:mesh%half_jme))
+      end select
+    end if
 
     this%d = 0
     this%nlon = merge(mesh%full_nlon, mesh%half_nlon, this%full_lon)
@@ -250,7 +256,7 @@ contains
 
   end subroutine latlon_field2d_final
 
-  subroutine latlon_field3d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, ptr_to)
+  subroutine latlon_field3d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link)
 
     class(latlon_field3d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -260,7 +266,7 @@ contains
     type(latlon_mesh_type), intent(in), target :: mesh
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
-    type(latlon_field3d_type), intent(in), optional, target :: ptr_to
+    type(latlon_field3d_type), intent(in), optional, target :: link
 
     call this%clear()
 
@@ -272,8 +278,8 @@ contains
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
 
-    if (present(ptr_to)) then
-      this%d => ptr_to%d
+    if (present(link)) then
+      this%d => link%d
       this%linked = .true.
     else
       select case (loc)

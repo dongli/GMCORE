@@ -114,7 +114,6 @@ contains
     integer, intent(in) :: substep
 
     select case (pass)
-    ! --------------------------------------------------------------------------
     case (all_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
@@ -124,13 +123,11 @@ contains
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
       if (hydrostatic   ) call calc_rhod  (block, dstate)
       call pgf_prepare                    (block, dstate)
-    ! --------------------------------------------------------------------------
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
       call calc_pv                        (block, dstate)
       call interp_pv                      (block, dstate, dt, substep)
-    ! --------------------------------------------------------------------------
     case (backward_pass)
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
