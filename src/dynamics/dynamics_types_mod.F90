@@ -224,7 +224,7 @@ contains
 
   end subroutine add_var3d
 
-  subroutine add_var4d(fields, name, long_name, units, loc, mesh, n4, halo, output, restart, ptr, halo_cross_pole)
+  subroutine add_var4d(fields, name, long_name, units, loc, mesh, dim4_name, dim4_size, var4_names, halo, output, restart, ptr, halo_cross_pole)
 
     type(array_type), intent(inout) :: fields
     character(*), intent(in) :: name
@@ -232,7 +232,9 @@ contains
     character(*), intent(in) :: units
     character(*), intent(in) :: loc
     type(latlon_mesh_type), intent(in) :: mesh
-    integer, intent(in) :: n4
+    character(*), intent(in) :: dim4_name
+    integer, intent(in) :: dim4_size
+    character(*), intent(in) :: var4_names(:)
     type(latlon_halo_type), intent(in) :: halo(:)
     character(*), intent(in) :: output
     logical, intent(in) :: restart
@@ -242,7 +244,8 @@ contains
     if (associated(ptr)) deallocate(ptr)
     allocate(ptr)
     call fields%append_ptr(ptr)
-    call ptr%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, n4=n4, output=output, restart=restart)
+    call ptr%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, &
+      dim4_name=dim4_name, dim4_size=dim4_size, var4_names=var4_names, output=output, restart=restart)
 
   end subroutine add_var4d
 
@@ -1343,6 +1346,8 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         ptr             =this%dmf_lev                                        )
+    end if
+    if (baroclinic) then
       call add_var(this%fields                                               , &
         name            ='omg'                                               , &
         long_name       ='Omega'                                             , &
@@ -1506,7 +1511,9 @@ contains
         units           ='kg kg-1 s-1'                                       , &
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
-        n4              =ntracers                                            , &
+        dim4_name       ='tracers'                                           , &
+        dim4_size       =ntracers                                            , &
+        var4_names      =tracer_names                                        , &
         halo            =halo                                                , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &

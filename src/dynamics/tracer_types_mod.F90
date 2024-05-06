@@ -107,7 +107,9 @@ contains
         halo_cross_pole   =.true.                   , &
         output            ='h0'                     , &
         restart           =.true.                   , &
-        n4=ntracers)
+        dim4_name         ='tracers'                , &
+        dim4_size         =ntracers                 , &
+        var4_names        =tracer_names(:ntracers)  )
     end if
 
   end subroutine tracers_init_stage2

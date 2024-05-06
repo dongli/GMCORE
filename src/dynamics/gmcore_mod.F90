@@ -129,7 +129,7 @@ contains
   !
   !   This subroutine creates blocks which include dynamics mesh, state, tend
   !   objects. Users can prepare some surface static data, such as topography,
-  !   after it.
+  !   after it, and add tracers.
   ! ============================================================================
 
   subroutine gmcore_init_stage1(namelist_path)

@@ -47,6 +47,11 @@ contains
 
     character(*), intent(in) :: namelist_path
 
+    select case (physics_suite)
+    case ('simple_physics')
+      call simple_physics_init_stage1(namelist_path, dt_adv, dt_phys)
+    end select
+
   end subroutine physics_init_stage1
 
   subroutine physics_init_stage2(namelist_path)
@@ -95,7 +100,7 @@ contains
 
     select case (physics_suite)
     case ('simple_physics')
-      call simple_physics_init(namelist_path, mesh, dt_adv, dt_phys)
+      call simple_physics_init_stage2(mesh)
     case ('cam')
 #ifdef HAS_CAM
       call cam_physics_init(namelist_path, mesh, dt_adv, dt_phys)

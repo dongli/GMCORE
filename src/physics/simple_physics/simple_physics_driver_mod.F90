@@ -18,7 +18,8 @@ module simple_physics_driver_mod
 
   private
 
-  public simple_physics_init
+  public simple_physics_init_stage1
+  public simple_physics_init_stage2
   public simple_physics_final
   public simple_physics_run
   public simple_physics_p2d
@@ -30,24 +31,27 @@ module simple_physics_driver_mod
 
 contains
 
-  subroutine simple_physics_init(namelist_path, mesh, dt_adv, dt_phys)
+  subroutine simple_physics_init_stage1(namelist_path, dt_adv, dt_phys)
 
     character(*), intent(in) :: namelist_path
-    type(physics_mesh_type), intent(in), target :: mesh(:)
     real(r8), intent(in) :: dt_adv
     real(r8), intent(in) :: dt_phys
-
-    integer nblk, iblk
 
     call simple_physics_final()
 
     call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
 
-    call simple_physics_objects_init(mesh)
-
     dt = dt_phys
 
-  end subroutine simple_physics_init
+  end subroutine simple_physics_init_stage1
+
+  subroutine simple_physics_init_stage2(mesh)
+
+    type(physics_mesh_type), intent(in), target :: mesh(:)
+
+    call simple_physics_objects_init(mesh)
+
+  end subroutine simple_physics_init_stage2
 
   subroutine simple_physics_final()
 

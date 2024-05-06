@@ -84,6 +84,9 @@ module latlon_field_types_mod
   end type latlon_field3d_type
 
   type, extends(latlon_field_meta_type) :: latlon_field4d_type
+    character(30) :: dim4_name = ''
+    character(30), allocatable :: var4_names(:)
+    integer :: dim4_size = 0
     real(r8), contiguous, pointer :: d(:,:,:,:) => null()
   contains
     procedure :: init  => latlon_field4d_init
@@ -436,7 +439,7 @@ contains
 
   end subroutine latlon_field3d_final
 
-  subroutine latlon_field4d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, n4, output, restart)
+  subroutine latlon_field4d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, dim4_name, dim4_size, var4_names, output, restart)
 
     class(latlon_field4d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -446,7 +449,9 @@ contains
     type(latlon_mesh_type), intent(in), target :: mesh
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
-    integer, intent(in) :: n4
+    character(*), intent(in) :: dim4_name
+    integer, intent(in) :: dim4_size
+    character(*), intent(in) :: var4_names(:)
     character(*), intent(in), optional :: output
     logical, intent(in), optional :: restart
 
@@ -457,6 +462,10 @@ contains
     this%units     = units
     this%loc       = loc
     this%mesh      => mesh
+    this%dim4_name = dim4_name
+    this%dim4_size = dim4_size
+    allocate(this%var4_names(dim4_size))
+    this%var4_names = var4_names
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
     if (present(output)) this%output = output
@@ -465,7 +474,7 @@ contains
     select case (loc)
     case ('cell')
       this%full_lon = .true. ; this%full_lat = .true. ; this%full_lev = .true.
-      allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,mesh%full_kms:mesh%full_kme,n4))
+      allocate(this%d(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,mesh%full_kms:mesh%full_kme,dim4_size))
     end select
 
     this%d = 0
@@ -485,6 +494,7 @@ contains
       deallocate(this%d)
       this%d => null()
     end if
+    if (allocated(this%var4_names)) deallocate(this%var4_names)
     this%name            = 'N/A'
     this%long_name       = 'N/A'
     this%units           = 'N/A'

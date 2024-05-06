@@ -134,6 +134,7 @@ contains
 
   subroutine history_setup_h0()
 
+    class(*), pointer :: field
     integer i
 
     call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
@@ -163,9 +164,8 @@ contains
     call add_fields('h0', blocks(1)%dtend (1)%fields)
     call add_fields('h0', blocks(1)%static   %fields, static=.true.)
     call add_fields('h0', blocks(1)%aux      %fields)
-    do i = 1, ntracers
-      call fiona_add_var('h0', tracer_names(i), long_name=tracer_long_names(i), units=tracer_units(i), dim_names=cell_dims_3d, dtype=output_h0_dtype)
-    end do
+    field => tracers(1)%q
+    call add_field ('h0', field)
 
     call physics_add_output()
 
@@ -217,7 +217,7 @@ contains
       call write_fields('h0', mesh, static%fields)
       call write_fields('h0', mesh, aux   %fields)
       do i = 1, ntracers
-        call write_field('h0', mesh, q, tracer_names(i), i)
+        call write_field('h0', mesh, q, i)
       end do
       end associate
     end do
@@ -233,6 +233,8 @@ contains
 
   subroutine history_setup_h1()
 
+    integer i
+
     call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
     call fiona_add_att('h1', 'time_step_size', dt)
     call fiona_add_dim('h1', 'time' , add_var=.true.)
@@ -247,6 +249,12 @@ contains
     call add_fields('h1', blocks(1)%dtend (1)%fields)
     call add_fields('h1', blocks(1)%static   %fields)
     call add_fields('h1', blocks(1)%aux      %fields)
+    if (physics_suite /= 'N/A' .or. physics_suite /= '') then
+      do i = 1, ntracers
+        call fiona_add_var('h1', 'd' // trim(tracer_names(i)) // '_phys', long_name='Physics tendency of ' // tracer_long_names(i), &
+          units=tracer_units(i) // ' s-1', dim_names=cell_dims_3d, dtype=output_h0_dtype)
+      end do
+    end if
 
   end subroutine history_setup_h1
 
@@ -363,46 +371,61 @@ contains
     logical, intent(in), optional :: static
 
     class(*), pointer :: field
-    integer i, n
+    integer i
 
     do i = 1, fields%size
       field => fields%value_at(i)
-      select type (field)
-      type is (latlon_field2d_type)
-        if (field%output /= dtag) cycle
-        n = merge(2, 3, present(static))
-        select case (field%loc)
-        case ('cell')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=cell_dims_2d(:n), dtype=output_h0_dtype)
-        case ('lon')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lon_dims_2d(:n), dtype=output_h0_dtype)
-        case ('lat')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lat_dims_2d(:n), dtype=output_h0_dtype)
-        case ('vtx')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_2d(:n), dtype=output_h0_dtype)
-        end select
-      type is (latlon_field3d_type)
-        if (field%output /= dtag) cycle
-        n = merge(3, 4, present(static))
-        select case (field%loc)
-        case ('cell')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=cell_dims_3d(:n), dtype=output_h0_dtype)
-        case ('lon')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lon_dims_3d(:n), dtype=output_h0_dtype)
-        case ('lat')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lat_dims_3d(:n), dtype=output_h0_dtype)
-        case ('vtx')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_3d(:n), dtype=output_h0_dtype)
-        case ('lev')
-          call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lev_dims_3d(:n), dtype=output_h0_dtype)
-        end select
-      type is (latlon_field4d_type)
-        if (field%output /= dtag) cycle
-        call log_error('Handle latlon_field4d_type ' // trim(field%name) // ' output!', __FILE__, __LINE__, pid=proc%id)
-      end select
+      call add_field(dtag, field, static)
     end do
 
   end subroutine add_fields
+
+  subroutine add_field(dtag, field, static)
+
+    character(*), intent(in) :: dtag
+    class(*), pointer :: field
+    logical, intent(in), optional :: static
+
+    integer i, n
+
+    select type (field)
+    type is (latlon_field2d_type)
+      if (field%output /= dtag) return
+      n = merge(2, 3, present(static))
+      select case (field%loc)
+      case ('cell')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=cell_dims_2d(:n), dtype=output_h0_dtype)
+      case ('lon')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lon_dims_2d(:n), dtype=output_h0_dtype)
+      case ('lat')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lat_dims_2d(:n), dtype=output_h0_dtype)
+      case ('vtx')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_2d(:n), dtype=output_h0_dtype)
+      end select
+    type is (latlon_field3d_type)
+      if (field%output /= dtag) return
+      n = merge(3, 4, present(static))
+      select case (field%loc)
+      case ('cell')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=cell_dims_3d(:n), dtype=output_h0_dtype)
+      case ('lon')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lon_dims_3d(:n), dtype=output_h0_dtype)
+      case ('lat')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lat_dims_3d(:n), dtype=output_h0_dtype)
+      case ('vtx')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_3d(:n), dtype=output_h0_dtype)
+      case ('lev')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lev_dims_3d(:n), dtype=output_h0_dtype)
+      end select
+    type is (latlon_field4d_type)
+      if (field%output /= dtag) return
+      do i = 1, field%dim4_size
+        call fiona_add_var(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), long_name=trim(field%long_name) // ' of ' // trim(field%var4_names(i)), &
+          units=field%units, dim_names=cell_dims_3d, dtype=output_h0_dtype)
+      end do
+    end select
+
+  end subroutine add_field
 
   subroutine write_fields(dtag, mesh, fields)
 
@@ -420,12 +443,11 @@ contains
 
   end subroutine write_fields
 
-  subroutine write_field(dtag, mesh, field, name, i4)
+  subroutine write_field(dtag, mesh, field, i4)
 
     character(*), intent(in) :: dtag
     type(latlon_mesh_type), intent(in) :: mesh
     class(*), intent(in) :: field
-    character(*), intent(in), optional :: name
     integer, intent(in), optional :: i4
 
     integer is, ie, js, je, ks, ke
@@ -488,7 +510,8 @@ contains
       end select
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
-      call fiona_output(dtag, name, field%d(is:ie,js:je,ks:ke,i4), start=start3d, count=count3d)
+      call fiona_output(dtag, trim(field%name) // '_' // trim(field%var4_names(i4)), &
+        field%d(is:ie,js:je,ks:ke,i4), start=start3d, count=count3d)
     end select
 
   end subroutine write_field
