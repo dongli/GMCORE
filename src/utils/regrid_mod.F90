@@ -12,6 +12,7 @@ module regrid_mod
   use container
   use namelist_mod
   use block_mod
+  use tracer_mod
   use latlon_mesh_mod
   use latlon_field_types_mod
   use latlon_interp_mod
@@ -68,6 +69,7 @@ contains
       j = j + 1; call regrids(i)%fields(j)%init('u', 'U wind component', 'm/s', 'cell', regrids(i)%mesh)
       j = j + 1; call regrids(i)%fields(j)%init('v', 'V wind component', 'm/s', 'cell', regrids(i)%mesh)
       j = j + 1; call regrids(i)%fields(j)%init('t', 'Temperature'     , 'K'  , 'cell', regrids(i)%mesh)
+      if (idx_qv > 0) j = j + 1; call regrids(i)%fields(j)%init('qv', 'Water vapor dry mixing ratio', 'kg kg-1', 'cell', regrids(i)%mesh)
       regrids(i)%nfields = j
     end do
 
@@ -93,11 +95,12 @@ contains
     if (.not. regrid_initialized) return
 
     do i = 1, size(regrids)
-      associate (dstate => blocks(i)%dstate(itime))
+      associate (dstate => blocks(i)%dstate(itime), q => tracers(i)%q)
       j = 0
       j = j + 1; call latlon_interp_plev(dstate%ph, dstate%u, regrid_plev, regrids(i)%fields(j))
       j = j + 1; call latlon_interp_plev(dstate%ph, dstate%v, regrid_plev, regrids(i)%fields(j))
       j = j + 1; call latlon_interp_plev(dstate%ph, dstate%t, regrid_plev, regrids(i)%fields(j))
+      if (idx_qv > 0) j = j + 1; call latlon_interp_plev(dstate%ph, q, idx_qv, regrid_plev, regrids(i)%fields(j))
       end associate
     end do
 

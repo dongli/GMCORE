@@ -148,7 +148,7 @@ module namelist_mod
   integer         :: div_damp_order       = 2
   real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 1
+  real(r8)        :: div_damp_pole        = 10
   real(r8)        :: div_damp_lat0        = 80
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
@@ -158,7 +158,7 @@ module namelist_mod
   real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 1
+  real(r8)        :: vor_damp_pole        = 10
   real(r8)        :: vor_damp_lat0        = 80
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
@@ -325,10 +325,6 @@ contains
       hydrostatic    = .false.
       nonhydrostatic = .false.
       ke_scheme      = 1
-      if (use_div_damp) then
-        use_div_damp   = .false.
-        call log_warning('In shallow water mode, no need to use divergence damping! Turn it off for you.')
-      end if
     else
       hydrostatic = .not. nonhydrostatic
     end if

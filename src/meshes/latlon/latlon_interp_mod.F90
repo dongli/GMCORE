@@ -26,6 +26,11 @@ module latlon_interp_mod
   public latlon_interp_plev
   public latlon_interp_zlev
 
+  interface latlon_interp_plev
+    module procedure latlon_interp_plev_3d
+    module procedure latlon_interp_plev_4d
+  end interface latlon_interp_plev
+
 contains
 
   subroutine latlon_interp_bilinear_cell(src_lon, src_lat, src_data, dst_mesh, dst_data, extrap, zero_pole, ierr)
@@ -569,7 +574,7 @@ contains
 
   end subroutine latlon_interp_bilinear_column
 
-  subroutine latlon_interp_plev(pi, xi, po, xo)
+  subroutine latlon_interp_plev_3d(pi, xi, po, xo)
 
     type(latlon_field3d_type), intent(in) :: pi
     type(latlon_field3d_type), intent(in) :: xi
@@ -603,7 +608,44 @@ contains
       end do
     end do
 
-  end subroutine latlon_interp_plev
+  end subroutine latlon_interp_plev_3d
+
+  subroutine latlon_interp_plev_4d(pi, xi, i4, po, xo)
+
+    type(latlon_field3d_type), intent(in) :: pi
+    type(latlon_field4d_type), intent(in) :: xi
+    integer, intent(in) :: i4
+    real(r8), intent(in) :: po(:)
+    type(latlon_field3d_type), intent(inout) :: xo
+
+    integer is, ie, js, je, ks, ke
+    integer i, j, k, ko
+    real(r8) dp1, dp2
+
+    is = merge(xi%mesh%half_ids, xi%mesh%full_ids, xi%loc == 'lon' .or. xi%loc == 'lev_lon')
+    ie = merge(xi%mesh%half_ide, xi%mesh%full_ide, xi%loc == 'lon' .or. xi%loc == 'lev_lon')
+    js = merge(xi%mesh%half_jds, xi%mesh%full_jds, xi%loc == 'lat' .or. xi%loc == 'lev_lat')
+    je = merge(xi%mesh%half_jde, xi%mesh%full_jde, xi%loc == 'lat' .or. xi%loc == 'lev_lat')
+    ks = merge(xi%mesh%half_kds, xi%mesh%full_kds, xi%loc(1:3) == 'lev')
+    ke = merge(xi%mesh%half_kde, xi%mesh%full_kde, xi%loc(1:3) == 'lev')
+
+    xo%d = inf
+    do j = js, je
+      do i = is, ie
+        do ko = 1, size(po)
+          do k = ks + 1, ke
+            if (pi%d(i,j,k-1) <= po(ko) .and. po(ko) <= pi%d(i,j,k)) then
+              dp1 = po(ko) - pi%d(i,j,k-1)
+              dp2 = pi%d(i,j,k) - po(ko)
+              xo%d(i,j,xo%mesh%full_kds+ko-1) = (dp2 * xi%d(i,j,k-1,i4) + dp1 * xi%d(i,j,k,i4)) / (dp1 + dp2)
+              exit
+            end if
+          end do
+        end do
+      end do
+    end do
+
+  end subroutine latlon_interp_plev_4d
 
   subroutine latlon_interp_zlev(zi, xi, zo, xo)
 

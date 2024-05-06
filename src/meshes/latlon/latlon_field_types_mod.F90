@@ -45,6 +45,7 @@ module latlon_field_types_mod
     character(field_long_name_len) :: long_name = 'N/A'
     character(field_units_len    ) :: units     = 'N/A'
     character(field_loc_len      ) :: loc       = 'N/A'
+    character(5)                   :: output    = 'N/A'
     integer :: nlon             = 0
     integer :: nlat             = 0
     integer :: nlev             = 0
@@ -93,7 +94,7 @@ module latlon_field_types_mod
 
 contains
 
-  subroutine latlon_field2d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link)
+  subroutine latlon_field2d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link, output, restart)
 
     class(latlon_field2d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -104,6 +105,8 @@ contains
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     type(latlon_field2d_type), intent(in), optional, target :: link
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
 
     call this%clear()
 
@@ -114,6 +117,8 @@ contains
     this%mesh      => mesh
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
+    if (present(output)) this%output = output
+    if (present(restart)) this%restart = restart
 
     if (present(link)) then
       this%d => link%d
@@ -155,6 +160,7 @@ contains
     this%long_name       = 'N/A'
     this%units           = 'N/A'
     this%loc             = 'N/A'
+    this%output          = 'N/A'
     this%mesh            => null()
     this%halo            => null()
     this%halo_cross_pole = .false.
@@ -178,9 +184,6 @@ contains
     if (this%initialized .and. this%loc /= other%loc) then
       call log_error('latlon_field2d_link: cannot link fields with different loc!', __FILE__, __LINE__)
     else
-      this%name            = other%name
-      this%long_name       = other%long_name
-      this%units           = other%units
       this%loc             = other%loc
       this%mesh            => other%mesh
       this%halo            => other%halo
@@ -210,10 +213,6 @@ contains
     if (this%initialized .and. .not. (this%full_lon .eqv. other%full_lon .and. this%full_lat .eqv. other%full_lat)) then
       call log_error('latlon_field2d_link: cannot link fields with different loc!', __FILE__, __LINE__)
     else
-      this%name            = other%name
-      this%long_name       = other%long_name
-      this%units           = other%units
-      this%loc             = other%loc
       this%mesh            => other%mesh
       this%halo            => other%halo
       this%halo_cross_pole = other%halo_cross_pole
@@ -221,7 +220,6 @@ contains
       this%full_lat        = other%full_lat
       this%nlon            = other%nlon
       this%nlat            = other%nlat
-      this%nlev            = other%nlev
     end if
     if (this%initialized .and. .not. this%linked .and. associated(this%d)) deallocate(this%d)
     select case (this%loc)
@@ -256,7 +254,7 @@ contains
 
   end subroutine latlon_field2d_final
 
-  subroutine latlon_field3d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link)
+  subroutine latlon_field3d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, link, output, restart)
 
     class(latlon_field3d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -267,6 +265,8 @@ contains
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     type(latlon_field3d_type), intent(in), optional, target :: link
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
 
     call this%clear()
 
@@ -277,6 +277,8 @@ contains
     this%mesh      => mesh
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
+    if (present(output)) this%output = output
+    if (present(restart)) this%restart = restart
 
     if (present(link)) then
       this%d => link%d
@@ -327,6 +329,7 @@ contains
     this%long_name       = 'N/A'
     this%units           = 'N/A'
     this%loc             = 'N/A'
+    this%output          = 'N/A'
     this%mesh            => null()
     this%halo            => null()
     this%halo_cross_pole = .false.
@@ -351,9 +354,6 @@ contains
     if (this%initialized .and. this%loc /= other%loc) then
       call log_error('latlon_field3d_link_3d: cannot link fields with different loc!', __FILE__, __LINE__)
     else
-      this%name            = other%name
-      this%long_name       = other%long_name
-      this%units           = other%units
       this%loc             = other%loc
       this%mesh            => other%mesh
       this%halo            => other%halo
@@ -384,9 +384,6 @@ contains
     if (this%initialized .and. this%loc /= other%loc) then
       call log_error('latlon_field3d_link_4d: cannot link fields with different loc!', __FILE__, __LINE__)
     else
-      this%name            = other%name
-      this%long_name       = other%long_name
-      this%units           = other%units
       this%loc             = other%loc
       this%mesh            => other%mesh
       this%halo            => other%halo
@@ -439,7 +436,7 @@ contains
 
   end subroutine latlon_field3d_final
 
-  subroutine latlon_field4d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, n4)
+  subroutine latlon_field4d_init(this, name, long_name, units, loc, mesh, halo, halo_cross_pole, n4, output, restart)
 
     class(latlon_field4d_type), intent(inout) :: this
     character(*), intent(in) :: name
@@ -450,6 +447,8 @@ contains
     type(latlon_halo_type), intent(in), optional, target :: halo(:)
     logical, intent(in), optional :: halo_cross_pole
     integer, intent(in) :: n4
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
 
     call this%clear()
 
@@ -460,6 +459,8 @@ contains
     this%mesh      => mesh
     if (present(halo)) this%halo => halo
     if (present(halo_cross_pole)) this%halo_cross_pole = halo_cross_pole
+    if (present(output)) this%output = output
+    if (present(restart)) this%restart = restart
 
     select case (loc)
     case ('cell')
@@ -488,6 +489,7 @@ contains
     this%long_name       = 'N/A'
     this%units           = 'N/A'
     this%loc             = 'N/A'
+    this%output          = 'N/A'
     this%mesh            => null()
     this%halo            => null()
     this%halo_cross_pole = .false.
@@ -512,9 +514,6 @@ contains
     if (this%initialized .and. this%loc /= other%loc) then
       call log_error('latlon_field4d_link: cannot link fields with different loc!', __FILE__, __LINE__)
     else
-      this%name            = other%name
-      this%long_name       = other%long_name
-      this%units           = other%units
       this%loc             = other%loc
       this%mesh            => other%mesh
       this%halo            => other%halo

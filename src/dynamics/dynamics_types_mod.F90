@@ -9,6 +9,7 @@
 
 module dynamics_types_mod
 
+  use container
   use const_mod
   use namelist_mod
   use latlon_field_types_mod
@@ -27,32 +28,33 @@ module dynamics_types_mod
   !   Variables with '_lon', '_lat' and '_lev' are on the half grids on the corresponding direction.
   type dstate_type
     integer :: id = 0
-    type(latlon_field3d_type) u
-    type(latlon_field3d_type) v
-    type(latlon_field3d_type) u_lon
-    type(latlon_field3d_type) v_lat
-    type(latlon_field3d_type) we_lev
-    type(latlon_field3d_type) gz
-    type(latlon_field3d_type) gz_lev
-    type(latlon_field3d_type) dmg
-    type(latlon_field3d_type) dmg_lev
-    type(latlon_field3d_type) pt
-    type(latlon_field3d_type) t
-    type(latlon_field3d_type) tv
-    type(latlon_field3d_type) mg
-    type(latlon_field3d_type) mg_lev
-    type(latlon_field2d_type) mgs
-    type(latlon_field3d_type) ph
-    type(latlon_field3d_type) ph_lev
-    type(latlon_field2d_type) phs
-    type(latlon_field3d_type) rhod
+    type(array_type) fields
+    type(latlon_field3d_type), pointer :: u       => null()
+    type(latlon_field3d_type), pointer :: v       => null()
+    type(latlon_field3d_type), pointer :: u_lon   => null()
+    type(latlon_field3d_type), pointer :: v_lat   => null()
+    type(latlon_field3d_type), pointer :: we_lev  => null()
+    type(latlon_field3d_type), pointer :: gz      => null()
+    type(latlon_field3d_type), pointer :: gz_lev  => null()
+    type(latlon_field3d_type), pointer :: dmg     => null()
+    type(latlon_field3d_type), pointer :: dmg_lev => null()
+    type(latlon_field3d_type), pointer :: pt      => null()
+    type(latlon_field3d_type), pointer :: t       => null()
+    type(latlon_field3d_type), pointer :: tv      => null()
+    type(latlon_field3d_type), pointer :: mg      => null()
+    type(latlon_field3d_type), pointer :: mg_lev  => null()
+    type(latlon_field2d_type), pointer :: mgs     => null()
+    type(latlon_field3d_type), pointer :: ph      => null()
+    type(latlon_field3d_type), pointer :: ph_lev  => null()
+    type(latlon_field2d_type), pointer :: phs     => null()
+    type(latlon_field3d_type), pointer :: rhod    => null()
     ! Nonhydrostatic variable
-    type(latlon_field3d_type) we
-    type(latlon_field3d_type) w
-    type(latlon_field3d_type) w_lev
-    type(latlon_field3d_type) p
-    type(latlon_field3d_type) p_lev
-    type(latlon_field2d_type) ps
+    type(latlon_field3d_type), pointer :: we      => null()
+    type(latlon_field3d_type), pointer :: w       => null()
+    type(latlon_field3d_type), pointer :: w_lev   => null()
+    type(latlon_field3d_type), pointer :: p       => null()
+    type(latlon_field3d_type), pointer :: p_lev   => null()
+    type(latlon_field2d_type), pointer :: ps      => null()
     ! Total diagnostics
     real(r8) tm
     real(r8) te, te_ke, te_ie, te_pe
@@ -66,20 +68,21 @@ module dynamics_types_mod
   end type dstate_type
 
   type dtend_type
-    type(latlon_field3d_type) du
-    type(latlon_field3d_type) dv
-    type(latlon_field3d_type) dgz
-    type(latlon_field3d_type) dpt
-    type(latlon_field2d_type) dmgs
+    type(array_type) fields
+    type(latlon_field3d_type), pointer :: du    => null()
+    type(latlon_field3d_type), pointer :: dv    => null()
+    type(latlon_field3d_type), pointer :: dgz   => null()
+    type(latlon_field3d_type), pointer :: dpt   => null()
+    type(latlon_field2d_type), pointer :: dmgs  => null()
 #ifdef OUTPUT_H1_DTEND
-    type(latlon_field3d_type) dudt_coriolis
-    type(latlon_field3d_type) dvdt_coriolis
-    type(latlon_field3d_type) dudt_wedudeta
-    type(latlon_field3d_type) dvdt_wedvdeta
-    type(latlon_field3d_type) dudt_dkedx
-    type(latlon_field3d_type) dvdt_dkedy
-    type(latlon_field3d_type) dudt_pgf
-    type(latlon_field3d_type) dvdt_pgf
+    type(latlon_field3d_type), pointer :: dudt_coriolis => null()
+    type(latlon_field3d_type), pointer :: dvdt_coriolis => null()
+    type(latlon_field3d_type), pointer :: dudt_wedudeta => null()
+    type(latlon_field3d_type), pointer :: dvdt_wedvdeta => null()
+    type(latlon_field3d_type), pointer :: dudt_dkedx    => null()
+    type(latlon_field3d_type), pointer :: dvdt_dkedy    => null()
+    type(latlon_field3d_type), pointer :: dudt_pgf      => null()
+    type(latlon_field3d_type), pointer :: dvdt_pgf      => null()
 #endif
     logical :: update_u   = .false.
     logical :: update_v   = .false.
@@ -94,16 +97,17 @@ module dynamics_types_mod
   end type dtend_type
 
   type static_type
-    type(latlon_field2d_type) landmask
+    type(array_type) fields
+    type(latlon_field2d_type), pointer :: landmask    => null()
     ! Topography
-    type(latlon_field2d_type) gzs
-    type(latlon_field2d_type) zs_std
-    type(latlon_field2d_type) dzsdx
-    type(latlon_field2d_type) dzsdy
+    type(latlon_field2d_type), pointer :: gzs         => null()
+    type(latlon_field2d_type), pointer :: zs_std      => null()
+    type(latlon_field2d_type), pointer :: dzsdx       => null()
+    type(latlon_field2d_type), pointer :: dzsdy       => null()
     ! Reference surface pressure
-    type(latlon_field2d_type) ref_ps
-    type(latlon_field2d_type) ref_ps_smth
-    type(latlon_field2d_type) ref_ps_perb
+    type(latlon_field2d_type), pointer :: ref_ps      => null()
+    type(latlon_field2d_type), pointer :: ref_ps_smth => null()
+    type(latlon_field2d_type), pointer :: ref_ps_perb => null()
   contains
     procedure :: init_stage1 => static_init_stage1
     procedure :: init_stage2 => static_init_stage2
@@ -112,55 +116,56 @@ module dynamics_types_mod
   end type static_type
 
   type aux_array_type
+    type(array_type) fields
     ! Smagorinsky damping variables
-    type(latlon_field3d_type) smag_t            ! tension strain
-    type(latlon_field3d_type) smag_s            ! shear strain on vertex
-    type(latlon_field3d_type) kmh               ! nonlinear diffusion coef
-    type(latlon_field3d_type) kmh_lon           ! nonlinear diffusion coef on zonal edge
-    type(latlon_field3d_type) kmh_lat           ! nonlinear diffusion coef on meridional edge
+    type(latlon_field3d_type), pointer :: smag_t      => null() ! tension strain
+    type(latlon_field3d_type), pointer :: smag_s      => null() ! shear strain on vertex
+    type(latlon_field3d_type), pointer :: kmh         => null() ! nonlinear diffusion coef
+    type(latlon_field3d_type), pointer :: kmh_lon     => null() ! nonlinear diffusion coef on zonal edge
+    type(latlon_field3d_type), pointer :: kmh_lat     => null() ! nonlinear diffusion coef on meridional edge
     ! Other variables
-    type(latlon_field3d_type) v_lon             ! Meridional wind speed at lon edge (m s-1)
-    type(latlon_field3d_type) u_lat             ! Zonal wind speed at lat edge (m s-1)
-    type(latlon_field3d_type) ke                ! Kinetic energy
-    type(latlon_field3d_type) pv_lon            ! Potential vorticity on zonal edge
-    type(latlon_field3d_type) pv_lat            ! Potential vorticity on merdional edge
-    type(latlon_field3d_type) dmg_lon           ! Mass on zonal edge
-    type(latlon_field3d_type) dmg_lat           ! Mass on merdional edge
-    type(latlon_field3d_type) dmg_vtx           ! Mass on vertex
-    type(latlon_field3d_type) pkh_lev           ! Exner pressure on half levels
-    type(latlon_field3d_type) we_lev_lon        ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
-    type(latlon_field3d_type) we_lev_lat        ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
-    type(latlon_field3d_type) ptfx              ! Potential temperature on the zonal edge
-    type(latlon_field3d_type) ptfy              ! Potential temperature on the merdional edge
-    type(latlon_field3d_type) ptfz              ! Potential temperature on the vertical edge
-    type(latlon_field3d_type) mfx_lon           ! Normal mass flux on zonal edge
-    type(latlon_field3d_type) mfy_lat           ! Normal mass flux on merdional edge
-    type(latlon_field3d_type) mfx_lat           ! Tangient mass flux on zonal edge
-    type(latlon_field3d_type) mfy_lon           ! Tangient mass flux on merdional edge
-    type(latlon_field3d_type) vor               ! Vorticity (s-1)
-    type(latlon_field3d_type) pv                ! Potential vorticity
-    type(latlon_field3d_type) div               ! Divergence (s-1)
-    type(latlon_field3d_type) div2              ! Laplacian of divergence (s-1)
-    type(latlon_field3d_type) dmf               ! Mass flux divergence on full level (Pa s-1)
-    type(latlon_field3d_type) dmf_lev           ! Mass flux divergence on half level (Pa s-1)
-    type(latlon_field3d_type) omg               ! Vertical pressure velocity (Pa s-1)
+    type(latlon_field3d_type), pointer :: v_lon       => null() ! Meridional wind speed at lon edge (m s-1)
+    type(latlon_field3d_type), pointer :: u_lat       => null() ! Zonal wind speed at lat edge (m s-1)
+    type(latlon_field3d_type), pointer :: ke          => null() ! Kinetic energy
+    type(latlon_field3d_type), pointer :: pv_lon      => null() ! Potential vorticity on zonal edge
+    type(latlon_field3d_type), pointer :: pv_lat      => null() ! Potential vorticity on merdional edge
+    type(latlon_field3d_type), pointer :: dmg_lon     => null() ! Mass on zonal edge
+    type(latlon_field3d_type), pointer :: dmg_lat     => null() ! Mass on merdional edge
+    type(latlon_field3d_type), pointer :: dmg_vtx     => null() ! Mass on vertex
+    type(latlon_field3d_type), pointer :: pkh_lev     => null() ! Exner pressure on half levels
+    type(latlon_field3d_type), pointer :: we_lev_lon  => null() ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
+    type(latlon_field3d_type), pointer :: we_lev_lat  => null() ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
+    type(latlon_field3d_type), pointer :: ptfx        => null() ! Potential temperature on the zonal edge
+    type(latlon_field3d_type), pointer :: ptfy        => null() ! Potential temperature on the merdional edge
+    type(latlon_field3d_type), pointer :: ptfz        => null() ! Potential temperature on the vertical edge
+    type(latlon_field3d_type), pointer :: mfx_lon     => null() ! Normal mass flux on zonal edge
+    type(latlon_field3d_type), pointer :: mfy_lat     => null() ! Normal mass flux on merdional edge
+    type(latlon_field3d_type), pointer :: mfx_lat     => null() ! Tangient mass flux on zonal edge
+    type(latlon_field3d_type), pointer :: mfy_lon     => null() ! Tangient mass flux on merdional edge
+    type(latlon_field3d_type), pointer :: vor         => null() ! Vorticity (s-1)
+    type(latlon_field3d_type), pointer :: pv          => null() ! Potential vorticity
+    type(latlon_field3d_type), pointer :: div         => null() ! Divergence (s-1)
+    type(latlon_field3d_type), pointer :: div2        => null() ! Laplacian of divergence (s-1)
+    type(latlon_field3d_type), pointer :: dmf         => null() ! Mass flux divergence on full level (Pa s-1)
+    type(latlon_field3d_type), pointer :: dmf_lev     => null() ! Mass flux divergence on half level (Pa s-1)
+    type(latlon_field3d_type), pointer :: omg         => null() ! Vertical pressure velocity (Pa s-1)
     ! Tendencies from physics
-    type(latlon_field3d_type) dudt_phys
-    type(latlon_field3d_type) dvdt_phys
-    type(latlon_field3d_type) dptdt_phys
-    type(latlon_field4d_type) dqdt_phys
+    type(latlon_field3d_type), pointer :: dudt_phys   => null()
+    type(latlon_field3d_type), pointer :: dvdt_phys   => null()
+    type(latlon_field3d_type), pointer :: dptdt_phys  => null()
+    type(latlon_field4d_type), pointer :: dqdt_phys   => null()
     ! Perturbed quantities for calculating HPGF
-    type(latlon_field3d_type) p_ptb
-    type(latlon_field3d_type) gz_ptb
-    type(latlon_field3d_type) dp_ptb
-    type(latlon_field3d_type) ad_ptb
+    type(latlon_field3d_type), pointer :: p_ptb       => null()
+    type(latlon_field3d_type), pointer :: gz_ptb      => null()
+    type(latlon_field3d_type), pointer :: dp_ptb      => null()
+    type(latlon_field3d_type), pointer :: ad_ptb      => null()
     ! Nonhydrostatic variables
-    type(latlon_field3d_type) u_lev_lon
-    type(latlon_field3d_type) v_lev_lat
-    type(latlon_field3d_type) mfx_lev_lon
-    type(latlon_field3d_type) mfy_lev_lat
-    type(latlon_field3d_type) adv_w_lev
-    type(latlon_field3d_type) adv_gz_lev
+    type(latlon_field3d_type), pointer :: u_lev_lon   => null()
+    type(latlon_field3d_type), pointer :: v_lev_lat   => null()
+    type(latlon_field3d_type), pointer :: mfx_lev_lon => null()
+    type(latlon_field3d_type), pointer :: mfy_lev_lat => null()
+    type(latlon_field3d_type), pointer :: adv_w_lev   => null()
+    type(latlon_field3d_type), pointer :: adv_gz_lev  => null()
   contains
     procedure :: init      => aux_array_init
     procedure :: init_phys => aux_array_init_phys
@@ -168,7 +173,78 @@ module dynamics_types_mod
     final aux_array_final
   end type aux_array_type
 
+  interface add_var
+    module procedure add_var2d
+    module procedure add_var3d
+    module procedure add_var4d
+  end interface add_var
+
 contains
+
+  subroutine add_var2d(fields, name, long_name, units, loc, mesh, halo, output, restart, ptr, link)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    type(latlon_halo_type), intent(in) :: halo(:)
+    character(*), intent(in) :: output
+    logical, intent(in) :: restart
+    type(latlon_field2d_type), intent(inout), pointer :: ptr
+    type(latlon_field2d_type), intent(in), optional :: link
+
+    if (associated(ptr)) deallocate(ptr)
+    allocate(ptr)
+    call fields%append_ptr(ptr)
+    call ptr%init(name, long_name, units, loc, mesh, halo, link=link, output=output, restart=restart)
+
+  end subroutine add_var2d
+
+  subroutine add_var3d(fields, name, long_name, units, loc, mesh, halo, output, restart, ptr, halo_cross_pole, link)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    type(latlon_halo_type), intent(in) :: halo(:)
+    character(*), intent(in) :: output
+    logical, intent(in) :: restart
+    type(latlon_field3d_type), intent(inout), pointer :: ptr
+    logical, intent(in), optional :: halo_cross_pole
+    type(latlon_field3d_type), intent(in), optional :: link
+
+    if (associated(ptr)) deallocate(ptr)
+    allocate(ptr)
+    call fields%append_ptr(ptr)
+    call ptr%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, link=link, output=output, restart=restart)
+
+  end subroutine add_var3d
+
+  subroutine add_var4d(fields, name, long_name, units, loc, mesh, n4, halo, output, restart, ptr, halo_cross_pole)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    integer, intent(in) :: n4
+    type(latlon_halo_type), intent(in) :: halo(:)
+    character(*), intent(in) :: output
+    logical, intent(in) :: restart
+    type(latlon_field4d_type), intent(inout), pointer :: ptr
+    logical, intent(in), optional :: halo_cross_pole
+
+    if (associated(ptr)) deallocate(ptr)
+    allocate(ptr)
+    call fields%append_ptr(ptr)
+    call ptr%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, n4=n4, output=output, restart=restart)
+
+  end subroutine add_var4d
 
   subroutine dstate_init(this, filter_mesh, filter_halo, mesh, halo)
 
@@ -184,172 +260,348 @@ contains
 
     call this%clear()
 
-    name      = 'u'
-    long_name = 'U wind component'
-    units     = 'm s-1'
-    call this%u%init(name, long_name, units, 'cell', mesh, halo)
+    this%fields = array(30)
 
-    name      = 'v'
-    long_name = 'V wind component'
-    units     = 'm s-1'
-    call this%v%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'u_lon'
-    long_name = 'U wind component on lon edge'
-    units     = 'm s-1'
-    call this%u_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'v_lat'
-    long_name = 'V wind component on lat edge'
-    units     = 'm s-1'
-    call this%v_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'we_lev'
-    long_name = 'Vertical coordinate velocity multiplied by dmg/deta on half level'
-    units     = 'Pa s-1'
-    if (baroclinic .or. advection) then
-      call this%we_lev%init(name, long_name, units, 'lev', mesh, halo)
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='u'                                                 , &
+        long_name       ='Zonal wind component'                              , &
+        units           ='m s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%u                                              )
     end if
-
-    name      = 'gz'
-    long_name = 'Geopotential'
-    units     = 'm2 s-2'
-    call this%gz%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'gz_lev'
-    long_name = 'Geopotential on half level'
-    units     = 'm2 s-2'
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='v'                                                 , &
+        long_name       ='Meridional wind component'                         , &
+        units           ='m s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%v                                              )
+    end if
+    call add_var(this%fields                                                 , &
+      name              ='u_lon'                                             , &
+      long_name         ='Zonal wind component'                              , &
+      units             ='m s-1'                                             , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%u_lon                                          )
+    call add_var(this%fields                                                 , &
+      name              ='v_lat'                                             , &
+      long_name         ='Meridional wind component'                         , &
+      units             ='m s-1'                                             , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%v_lat                                          )
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='we_lev'                                            , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%we_lev                                         )
+    end if
+    call add_var(this%fields                                                 , &
+      name              ='gz'                                                , &
+      long_name         ='Geopotential'                                      , &
+      units             ='m2 s-2'                                            , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h0'                                                , &
+      restart           =.not. baroclinic                                    , & ! FIXME: Revise this.
+      ptr               =this%gz                                             )
     if (nonhydrostatic) then
-      call this%gz_lev%init(name, long_name, units, 'lev', filter_mesh, filter_halo, halo_cross_pole=.true.)
+      call add_var(this%fields                                               , &
+        name            ='gz_lev'                                            , &
+        long_name       ='Geopotential'                                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%gz_lev                                         , &
+        halo_cross_pole =.true.                                              )
     else
-      call this%gz_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='gz_lev'                                            , &
+        long_name       ='Geopotential'                                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%gz_lev                                         )
     end if
-
-    name      = 'dmg'
-    long_name = 'Dry-air weight between two half levels'
-    units     = 'Pa'
-    call this%dmg%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'dmg_lev'
-    long_name = 'Dry-air weight between two full levels'
-    units     = 'Pa'
+    call add_var(this%fields                                                 , &
+      name              ='dmg'                                               , &
+      long_name         ='Dry-air weight'                                    , &
+      units             ='Pa'                                                , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dmg                                            )
     if (baroclinic .or. advection) then
-      call this%dmg_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='dmg_lev'                                           , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%dmg_lev                                        )
     end if
-
-    name      = 't'
-    long_name = 'Temperature'
-    units     = 'K'
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='pt'                                                , &
+        long_name       ='Modified potential temperature'                    , &
+        units           ='K'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%pt                                             , &
+        halo_cross_pole =.true.                                              )
+    end if
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='t'                                                 , &
+        long_name       ='Temperature'                                       , &
+        units           ='K'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%t                                              )
+    end if
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='tv'                                                , &
+        long_name       ='Virtual temperature'                               , &
+        units           ='K'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%tv                                             )
+    end if
+    call add_var(this%fields                                                 , &
+      name              ='mg'                                                , &
+      long_name         ='Dry-air weight'                                    , &
+      units             ='Pa'                                                , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%mg                                             )
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='mg_lev'                                            , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%mg_lev                                         )
+    end if
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='mgs'                                               , &
+        long_name       ='Dry-air weight on surface'                         , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.true.                                              , &
+        ptr             =this%mgs                                            )
+    end if
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='ph'                                                , &
+        long_name       ='Hydrostatic pressure'                              , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ph                                             )
+    end if
+    if (baroclinic .or. advection) then
+      call add_var(this%fields                                               , &
+        name            ='ph_lev'                                            , &
+        long_name       ='Hydrostatic pressure'                              , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ph_lev                                         )
+    end if
     if (baroclinic) then
-      call this%t%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'tv'
-    long_name = 'Virtual temperature'
-    units     = 'K'
-    if (baroclinic .or. advection) then
-      call this%tv%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'mg'
-    long_name = 'Dry-air weight'
-    units     = 'Pa'
-    call this%mg%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'mg_lev'
-    long_name = 'Dry-air weight on half level'
-    units     = 'Pa'
-    if (baroclinic .or. advection) then
-      call this%mg_lev%init(name, long_name, units, 'lev', mesh, halo)
-    end if
-
-    name      = 'mgs'
-    long_name = 'Dry-air weight on surface'
-    units     = 'Pa'
-    if (baroclinic .or. advection) then
-      call this%mgs%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'ph'
-    long_name = 'Hydrostatic pressure'
-    units     = 'Pa'
-    if (baroclinic .or. advection) then
-      call this%ph%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'ph_lev'
-    long_name = 'Hydrostatic pressure on half level'
-    units     = 'Pa'
-    if (baroclinic .or. advection) then
-      call this%ph_lev%init(name, long_name, units, 'lev', mesh, halo)
-    end if
-
-    name      = 'rhod'
-    long_name = 'Dry-air density'
-    units     = 'kg m-3'
-    if (baroclinic) then
-      call this%rhod%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'pt'
-    long_name = 'Modified potential temperature'
-    units     = 'K'
-    if (baroclinic) then
-      call this%pt%init(name, long_name, units, 'cell', filter_mesh, filter_halo, halo_cross_pole=.true.)
-    end if
-
-    name      = 'phs'
-    long_name = 'Hydrostatic pressure on surface'
-    units     = 'Pa'
-    if (baroclinic) then
-      call this%phs%init(name, long_name, units, 'cell', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='phs'                                               , &
+        long_name       ='Hydrostatic pressure on surface'                   , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%phs                                            )
       call this%phs%link(this%ph_lev, mesh%half_nlev)
     end if
-
-    name      = 'we'
-    long_name = 'Vertical coordinate velocity multiplied by dmg/deta on full level'
-    units     = 'Pa s-1'
-    if (nonhydrostatic) then
-      call this%we%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'w'
-    long_name = 'Vertical wind speed'
-    units     = 'm s-1'
-    if (nonhydrostatic) then
-      call this%w%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
-    name      = 'w_lev'
-    long_name = 'Vertical wind speed on half level'
-    units     = 'm s-1'
-    if (nonhydrostatic) then
-      call this%w_lev%init(name, long_name, units, 'lev', filter_mesh, filter_halo, halo_cross_pole=.true.)
-    end if
-
-    name      = 'p'
-    long_name = 'Pressure'
-    units     = 'Pa'
-    if (nonhydrostatic) then
-      call this%p%init(name, long_name, units, 'cell', mesh, halo)
-    else if (baroclinic) then
-      call this%p%init(name, long_name, units, 'cell', mesh, halo, link=this%ph)
-    end if
-
-    name      = 'p_lev'
-    long_name = 'Pressure on half level'
-    units     = 'Pa'
-    if (nonhydrostatic) then
-      call this%p_lev%init(name, long_name, units, 'lev', mesh, halo)
-    else if (baroclinic) then
-      call this%p_lev%init(name, long_name, units, 'lev', mesh, halo, link=this%ph_lev)
-    end if
-
-    name      = 'ps'
-    long_name = 'Surface pressure'
-    units     = 'Pa'
     if (baroclinic) then
-      call this%ps%init(name, long_name, units, 'cell', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='rhod'                                              , &
+        long_name       ='Dry-air density'                                   , &
+        units           ='kg m-3'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%rhod                                           )
+    end if
+    if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='we'                                                , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%we                                             )
+    end if
+    if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='w'                                                 , &
+        long_name       ='Vertical wind speed'                               , &
+        units           ='m s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%w                                              )
+    end if
+    if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='w_lev'                                             , &
+        long_name       ='Vertical wind speed'                               , &
+        units           ='m s-1'                                             , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%w_lev                                          , &
+        halo_cross_pole =.true.                                              )
+    end if
+    if (hydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='p'                                                 , &
+        long_name       ='Pressure'                                          , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%p                                              , &
+        link            =this%ph                                             )
+    else if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='p'                                                 , &
+        long_name       ='Pressure'                                          , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%p                                              )
+    end if
+    if (hydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='p_lev'                                             , &
+        long_name       ='Pressure'                                          , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%p_lev                                          , &
+        link            =this%ph_lev                                         )
+    else if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='p_lev'                                             , &
+        long_name       ='Pressure'                                          , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%p_lev                                          )
+    end if
+    if (hydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='ps'                                                , &
+        long_name       ='Surface pressure'                                  , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ps                                             , &
+        link            =this%phs                                            )
+    else if (nonhydrostatic) then
+      call add_var(this%fields                                               , &
+        name            ='ps'                                                , &
+        long_name       ='Surface pressure'                                  , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ps                                             )
     end if
 
   end subroutine dstate_init
@@ -358,31 +610,22 @@ contains
 
     class(dstate_type), intent(inout) :: this
 
-    call this%u      %clear()
-    call this%v      %clear()
-    call this%u_lon  %clear()
-    call this%v_lat  %clear()
-    call this%we_lev %clear()
-    call this%gz     %clear()
-    call this%gz_lev %clear()
-    call this%dmg    %clear()
-    call this%dmg_lev%clear()
-    call this%pt     %clear()
-    call this%t      %clear()
-    call this%tv     %clear()
-    call this%mg     %clear()
-    call this%mg_lev %clear()
-    call this%mgs    %clear()
-    call this%ph     %clear()
-    call this%ph_lev %clear()
-    call this%phs    %clear()
-    call this%rhod   %clear()
-    call this%we     %clear()
-    call this%w      %clear()
-    call this%w_lev  %clear()
-    call this%p      %clear()
-    call this%p_lev  %clear()
-    call this%ps     %clear()
+    class(*), pointer :: field
+    integer i
+
+    do i = 1, this%fields%size
+      field => this%fields%value_at(i)
+      select type (field)
+      type is (latlon_field2d_type)
+        call field%clear()
+      type is (latlon_field3d_type)
+        call field%clear()
+      type is (latlon_field4d_type)
+        call field%clear()
+      end select
+      deallocate(field)
+    end do
+    call this%fields%clear()
 
   end subroutine dstate_clear
 
@@ -458,81 +701,147 @@ contains
 
     call this%clear()
 
-    name      = 'dudt'
-    long_name = 'Dynamic tendency of U wind component'
-    units     = 'm s-2'
-    call this%du%init(name, long_name, units, 'lon', filter_mesh, filter_halo)
+    this%fields = array(30)
 
-    name      = 'dvdt'
-    long_name = 'Dynamic tendency of V wind component'
-    units     = 'm s-2'
-    call this%dv%init(name, long_name, units, 'lat', filter_mesh, filter_halo)
-
-    name      = 'dptdt'
-    long_name = 'Dynamic tendency of modified potential temperature'
-    units     = 'K s-1'
+    call add_var(this%fields                                                 , &
+      name              ='dudt'                                              , &
+      long_name         ='Dynamic tendency of u'                             , &
+      units             ='m s-2'                                             , &
+      loc               ='lon'                                               , &
+      mesh              =filter_mesh                                         , &
+      halo              =filter_halo                                         , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%du                                             )
+    call add_var(this%fields                                                 , &
+      name              ='dvdt'                                              , &
+      long_name         ='Dynamic tendency of v'                             , &
+      units             ='m s-2'                                             , &
+      loc               ='lat'                                               , &
+      mesh              =filter_mesh                                         , &
+      halo              =filter_halo                                         , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dv)
     if (baroclinic) then
-      call this%dpt%init(name, long_name, units, 'cell', filter_mesh, filter_halo)
+      call add_var(this%fields                                               , &
+        name            ='dptdt'                                             , &
+        long_name       ='Dynamic tendency of pt'                            , &
+        units           ='K s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dpt                                            )
+      call add_var(this%fields                                               , &
+        name            ='dmgsdt'                                            , &
+        long_name       ='Dynamic tendency of mgs'                           , &
+        units           ='Pa s-1'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dmgs                                           )
     end if
 
-    name      = 'dmgsdt'
-    long_name = 'Dynamic tendency of dry-air weight on surface'
-    units     = 'Pa s-1'
-    if (baroclinic) then
-      call this%dmgs%init(name, long_name, units, 'cell', filter_mesh, filter_halo)
-    end if
-
-    name      = 'dgzdt'
-    long_name = 'Dynamic tendency of geopotential'
-    units     = 'm2 s-2'
     if (nonhydrostatic .or. .not. baroclinic) then
-      call this%dgz%init(name, long_name, units, 'cell', filter_mesh, filter_halo)
+      call add_var(this%fields                                               , &
+        name            ='dgzdt'                                             , &
+        long_name       ='Dynamic tendency of gz'                            , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dgz                                            )
     end if
 
 #ifdef OUTPUT_H1_DTEND
-    name      = 'dudt_coriolis'
-    long_name = 'Dynamic tendency of U wind component due to Coriolis force'
-    units     = 'm s-2'
-    call this%dudt_coriolis%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'dvdt_coriolis'
-    long_name = 'Dynamic tendency of V wind component due to Coriolis force'
-    units     = 'm s-2'
-    call this%dvdt_coriolis%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'dudt_wedudeta'
-    long_name = 'Dynamic tendency of U wind component due to vertical advection'
-    units     = 'm s-2'
+    call add_var(this%fields                                                 , &
+      name              ='dudt_coriolis'                                     , &
+      long_name         ='Dynamic tendency of u due to Coriolis force'       , &
+      units             ='m s-2'                                             , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dudt_coriolis                                  )
+    call add_var(this%fields                                                 , &
+      name              ='dvdt_coriolis'                                     , &
+      long_name         ='Dynamic tendency of v due to Coriolis force'       , &
+      units             ='m s-2'                                             , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dvdt_coriolis                                  )
+    call add_var(this%fields                                                 , &
+      name              ='dudt_dkedx'                                        , &
+      long_name         ='Dynamic tendency of u due to kinetic gradient'     , &
+      units             ='m s-2'                                             , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dudt_dkedx                                     )
+    call add_var(this%fields                                                 , &
+      name              ='dvdt_dkedy'                                        , &
+      long_name         ='Dynamic tendency of v due to kinetic gradient'     , &
+      units             ='m s-2'                                             , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dvdt_dkedy                                     )
+    call add_var(this%fields                                                 , &
+      name              ='dudt_pgf'                                          , &
+      long_name         ='Dynamic tendency of u due to PGF'                  , &
+      units             ='m s-2'                                             , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dudt_pgf                                       )
+    call add_var(this%fields                                                 , &
+      name              ='dvdt_pgf'                                          , &
+      long_name         ='Dynamic tendency of v due to PGF'                  , &
+      units             ='m s-2'                                             , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dvdt_pgf                                       )
     if (baroclinic) then
-      call this%dudt_wedudeta%init(name, long_name, units, 'lon', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='dudt_wedudeta'                                     , &
+        long_name       ='Dynamic tendency of u due to vertical advection'   , &
+        units           ='m s-2'                                             , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dudt_wedudeta                                  )
+      call add_var(this%fields                                               , &
+        name            ='dvdt_wedvdeta'                                     , &
+        long_name       ='Dynamic tendency of v due to vertical advection'   , &
+        units           ='m s-2'                                             , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dvdt_wedvdeta                                  )
     end if
-
-    name      = 'dvdt_wedvdeta'
-    long_name = 'Dynamic tendency of V wind component due to vertical advection'
-    units     = 'm s-2'
-    if (baroclinic) then
-      call this%dvdt_wedvdeta%init(name, long_name, units, 'lat', mesh, halo)
-    end if
-
-    name      = 'dudt_dkedx'
-    long_name = 'Dynamic tendency of U wind component due to kinetic gradient'
-    units     = 'm s-2'
-    call this%dudt_dkedx%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'dvdt_dkedy'
-    long_name = 'Dynamic tendency of V wind component due to kinetic gradient'
-    units     = 'm s-2'
-    call this%dvdt_dkedy%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'dudt_pgf'
-    long_name = 'Dynamic tendency of U wind component due to pressure gradient force'
-    units     = 'm s-2'
-    call this%dudt_pgf%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'dvdt_pgf'
-    long_name = 'Dynamic tendency of V wind component due to pressure gradient force'
-    units     = 'm s-2'
-    call this%dvdt_pgf%init(name, long_name, units, 'lat', mesh, halo)
 #endif
 
   end subroutine dtend_init
@@ -556,22 +865,22 @@ contains
 
     class(dtend_type), intent(inout) :: this
 
-    call this%du  %clear()
-    call this%dv  %clear()
-    call this%dgz %clear()
-    call this%dpt %clear()
-    call this%dmgs%clear()
+    class(*), pointer :: field
+    integer i
 
-#ifdef OUTPUT_H1_DTEND
-    call this%dudt_coriolis%clear()
-    call this%dvdt_coriolis%clear()
-    call this%dudt_wedudeta%clear()
-    call this%dvdt_wedvdeta%clear()
-    call this%dudt_dkedx   %clear()
-    call this%dvdt_dkedy   %clear()
-    call this%dudt_pgf     %clear()
-    call this%dvdt_pgf     %clear()
-#endif
+    do i = 1, this%fields%size
+      field => this%fields%value_at(i)
+      select type (field)
+      type is (latlon_field2d_type)
+        call field%clear()
+      type is (latlon_field3d_type)
+        call field%clear()
+      type is (latlon_field4d_type)
+        call field%clear()
+      end select
+      deallocate(field)
+    end do
+    call this%fields%clear()
 
   end subroutine dtend_clear
 
@@ -591,51 +900,92 @@ contains
     type(latlon_mesh_type), intent(in) :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
 
-    character(field_name_len     ) name
-    character(field_long_name_len) long_name
-    character(field_units_len    ) units
-
     call this%clear()
 
-    name      = 'gzs'
-    long_name = 'Surface geopotential'
-    units     = 'm2 s-2'
-    call this%gzs%init(name, long_name, units, 'cell', filter_mesh, filter_halo)
+    this%fields = array(30)
 
-    name      = 'landmask'
-    long_name = 'Land mask'
-    units     = '1'
-    call this%landmask%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'zs_std'
-    long_name = 'Subgrid variance of surface geopotential height'
-    units     = 'm2 s-2'
-    call this%zs_std%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'dzsdx'
-    long_name = 'Zonal gradient of surface geopotential height'
-    units     = '1'
-    call this%dzsdx%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'dzsdy'
-    long_name = 'Meridional gradient of surface geopotential height'
-    units     = '1'
-    call this%dzsdy%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'ref_ps'
-    long_name = 'Reference surface pressure'
-    units     = 'Pa'
-    call this%ref_ps%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'ref_ps_smth'
-    long_name = 'Smoothed reference surface pressure'
-    units     = 'Pa'
-    call this%ref_ps_smth%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'ref_ps_perb'
-    long_name = 'Perturbation of reference surface pressure'
-    units     = 'Pa'
-    call this%ref_ps_perb%init(name, long_name, units, 'cell', mesh, halo)
+    call add_var(this%fields                                                 , &
+      name              ='gzs'                                               , &
+      long_name         ='Surface geopotential'                              , &
+      units             ='m2 s-2'                                            , &
+      loc               ='cell'                                              , &
+      mesh              =filter_mesh                                         , &
+      halo              =filter_halo                                         , &
+      output            ='h0'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%gzs                                            )
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='landmask'                                          , &
+        long_name       ='Land mask'                                         , &
+        units           ='1'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%landmask                                       )
+      call add_var(this%fields                                               , &
+        name            ='zs_std'                                            , &
+        long_name       ='Subgrid variance of zs'                            , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%zs_std                                         )
+      call add_var(this%fields                                               , &
+        name            ='dzsdx'                                             , &
+        long_name       ='Zonal gradient of zs'                              , &
+        units           ='1'                                                 , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%dzsdx)
+      call add_var(this%fields                                               , &
+        name            ='dzsdy'                                             , &
+        long_name       ='Meridional gradient of zs'                         , &
+        units           ='1'                                                 , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        ptr             =this%dzsdy                                          )
+    end if
+    call add_var(this%fields                                                 , &
+      name              ='ref_ps'                                            , &
+      long_name         ='Reference surface pressure'                        , &
+      units             ='Pa'                                                , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%ref_ps                                         )
+    call add_var(this%fields                                                 , &
+      name              ='ref_ps_smth'                                       , &
+      long_name         ='Smoothed reference surface pressure'               , &
+      units             ='Pa'                                                , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%ref_ps_smth                                    )
+    call add_var(this%fields                                                 , &
+      name              ='ref_ps_perb'                                       , &
+      long_name         ='Perturbation of reference surface pressure'        , &
+      units             ='Pa'                                                , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.true.                                              , &
+      ptr               =this%ref_ps_perb                                    )
 
   end subroutine static_init_stage1
 
@@ -650,14 +1000,22 @@ contains
 
     class(static_type), intent(inout) :: this
 
-    call this%gzs        %clear()
-    call this%landmask   %clear()
-    call this%zs_std     %clear()
-    call this%dzsdx      %clear()
-    call this%dzsdy      %clear()
-    call this%ref_ps     %clear()
-    call this%ref_ps_smth%clear()
-    call this%ref_ps_perb%clear()
+    class(*), pointer :: field
+    integer i
+
+    do i = 1, this%fields%size
+      field => this%fields%value_at(i)
+      select type (field)
+      type is (latlon_field2d_type)
+        call field%clear()
+      type is (latlon_field3d_type)
+        call field%clear()
+      type is (latlon_field4d_type)
+        call field%clear()
+      end select
+      deallocate(field)
+    end do
+    call this%fields%clear()
 
   end subroutine static_clear
 
@@ -677,232 +1035,428 @@ contains
     type(latlon_mesh_type), intent(in) :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
 
-    character(field_name_len     ) name
-    character(field_long_name_len) long_name
-    character(field_units_len    ) units
-
     call this%clear()
 
+    this%fields = array(50)
+
     if (use_smag_damp) then
-      name      = 'smag_t'
-      long_name = 'Tension of horizontal wind for Smagorinsky damping'
-      units     = 's-2'
-      call this%smag_t%init(name, long_name, units, 'cell', mesh, halo)
-
-      name      = 'smag_s'
-      long_name = 'Shear of horizontal wind for Smagorinsky damping'
-      units     = 's-2'
-      call this%smag_s%init(name, long_name, units, 'vtx', mesh, halo)
-
-      name      = 'kmh'
-      long_name = 'Horizontal eddy viscosity for Smagorinsky damping'
-      units     = 's-1'
-      call this%kmh%init(name, long_name, units, 'cell', mesh, halo)
-
-      name      = 'kmh_lon'
-      long_name = 'Horizontal eddy viscosity for Smagorinsky damping on lon edge'
-      units     = 's-1'
-      call this%kmh_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-      name      = 'kmh_lat'
-      long_name = 'Horizontal eddy viscosity for Smagorinsky damping on lat edge'
-      units     = 's-1'
-      call this%kmh_lat%init(name, long_name, units, 'lat', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='smag_t'                                            , &
+        long_name       ='Tension of horizontal wind for Smagorinsky damping', &
+        units           ='s-2'                                               , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%smag_t                                         )
+      call add_var(this%fields                                               , &
+        name            ='smag_s'                                            , &
+        long_name       ='Shear of horizontal wind for Smagorinsky damping'  , &
+        units           ='s-2'                                               , &
+        loc             ='vtx'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%smag_s                                         )
+      call add_var(this%fields                                               , &
+        name            ='kmh'                                               , &
+        long_name       ='Horizontal eddy viscosity for Smagorinsky damping' , &
+        units           ='s-1'                                               , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%kmh                                            )
+      call add_var(this%fields                                               , &
+        name            ='kmh_lon'                                           , &
+        long_name       ='Horizontal eddy viscosity for Smagorinsky damping' , &
+        units           ='s-1'                                               , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%kmh_lon                                        )
+      call add_var(this%fields                                               , &
+        name            ='kmh_lat'                                           , &
+        long_name       ='Horizontal eddy viscosity for Smagorinsky damping' , &
+        units           ='s-1'                                               , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%kmh_lat                                        )
     end if
-
-    name      = 'v_lon'
-    long_name = 'V wind component on lon edge'
-    units     = 'm s-1'
-    call this%v_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'u_lat'
-    long_name = 'U wind component on lat edge'
-    units     = 'm s-1'
-    call this%u_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'ke'
-    long_name = 'Kinetic energy'
-    units     = 'm2 s-2'
-    call this%ke%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'pv_lon'
-    long_name = 'Potential vorticity on lon edge'
-    units     = 'Pa-1 s-1'
-    call this%pv_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'pv_lat'
-    long_name = 'Potential vorticity on lat edge'
-    units     = 'Pa-1 s-1'
-    call this%pv_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'dmg_lon'
-    long_name = 'Dry-air weight between two half levels on lon edge'
-    units     = 'Pa'
-    call this%dmg_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'dmg_lat'
-    long_name = 'Dry-air weight between two half levels on lat edge'
-    units     = 'Pa'
-    call this%dmg_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'dmg_vtx'
-    long_name = 'Dry-air weight between two half levels on vtx edge'
-    units     = 'Pa'
-    call this%dmg_vtx%init(name, long_name, units, 'vtx', mesh, halo)
-
-    name      = 'pkh_lev'
-    long_name = 'Hydrostatic pressure under Kappa exponent on half level'
-    units     = 'Pa'
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='v_lon'                                             , &
+        long_name       ='Zonal wind component'                              , &
+        units           ='m s-1'                                             , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%v_lon                                          )
+      call add_var(this%fields                                               , &
+        name            ='u_lat'                                             , &
+        long_name       ='Meridional wind component'                         , &
+        units           ='m s-1'                                             , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%u_lat                                          )
+      call add_var(this%fields                                               , &
+        name            ='ke'                                                , &
+        long_name       ='Kinetic energy'                                    , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%ke                                             )
+      call add_var(this%fields                                               , &
+        name            ='pv_lon'                                            , &
+        long_name       ='Potential vorticity'                               , &
+        units           ='Pa-1 s-1'                                          , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%pv_lon                                         )
+      call add_var(this%fields                                               , &
+        name            ='pv_lat'                                            , &
+        long_name       ='Potential vorticity'                               , &
+        units           ='Pa-1 s-1'                                          , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%pv_lat                                         )
+    end if
+    call add_var(this%fields                                                 , &
+      name              ='dmg_lon'                                           , &
+      long_name         ='Dry-air weight'                                    , &
+      units             ='Pa'                                                , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%dmg_lon                                        )
+    call add_var(this%fields                                                 , &
+      name              ='dmg_lat'                                           , &
+      long_name         ='Dry-air weight'                                    , &
+      units             ='Pa'                                                , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%dmg_lat                                        )
+    call add_var(this%fields                                                 , &
+      name              ='dmg_vtx'                                           , &
+      long_name         ='Dry-air weight'                                    , &
+      units             ='Pa'                                                , &
+      loc               ='vtx'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%dmg_vtx                                        )
     if (baroclinic) then
-      call this%pkh_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='pkh_lev'                                           , &
+        long_name       ='Hydrostatic pressure under Kappa exponent'         , &
+        units           ='Pa'                                                , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%pkh_lev                                        )
+      call add_var(this%fields                                               , &
+        name            ='we_lev_lon'                                        , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='lev_lon'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%we_lev_lon                                     )
+      call add_var(this%fields                                               , &
+        name            ='we_lev_lat'                                        , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='lev_lat'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%we_lev_lat                                     )
+      call add_var(this%fields                                               , &
+        name            ='ptfx'                                              , &
+        long_name       ='Zonal flux of pt'                                  , &
+        units           ='K m s-1'                                           , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ptfx                                           )
+      call add_var(this%fields                                               , &
+        name            ='ptfy'                                              , &
+        long_name       ='Meridional flux of pt'                             , &
+        units           ='K m s-1'                                           , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ptfy                                           )
+      call add_var(this%fields                                               , &
+        name            ='ptfz'                                              , &
+        long_name       ='Vertical flux of pt'                               , &
+        units           ='K m s-1'                                           , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ptfz                                           )
     end if
-
-    name      = 'we_lev_lon'
-    long_name = 'Vertical coordinate velocity multiplied by dmg/deta on lon edge'
-    units     = 'Pa s-1'
-    if (baroclinic) then
-      call this%we_lev_lon%init(name, long_name, units, 'lev_lon', mesh, halo)
+    call add_var(this%fields                                                 , &
+      name              ='mfx_lon'                                           , &
+      long_name         ='Zonal mass flux'                                   , &
+      units             ='Pa m s-1'                                          , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%mfx_lon                                        )
+    call add_var(this%fields                                                 , &
+      name              ='mfy_lat'                                           , &
+      long_name         ='Meridional mass flux'                              , &
+      units             ='Pa m s-1'                                          , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%mfy_lat)
+    call add_var(this%fields                                                 , &
+      name              ='mfx_lat'                                           , &
+      long_name         ='Zonal mass flux'                                   , &
+      units             ='Pa m s-1'                                          , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%mfx_lat                                        )
+    call add_var(this%fields                                                 , &
+      name              ='mfy_lon'                                           , &
+      long_name         ='Meridional mass flux'                              , &
+      units             ='Pa m s-1'                                          , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%mfy_lon                                        )
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='vor'                                               , &
+        long_name       ='Relative vorticity'                                , &
+        units           ='s-1'                                               , &
+        loc             ='vtx'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%vor                                            )
     end if
-
-    name      = 'we_lev_lat'
-    long_name = 'Vertical coordinate velocity multiplied by dmg/deta on lat edge'
-    units     = 'Pa s-1'
-    if (baroclinic) then
-      call this%we_lev_lat%init(name, long_name, units, 'lev_lat', mesh, halo)
+    call add_var(this%fields                                                 , &
+      name              ='pv'                                                , &
+      long_name         ='Potential vorticity'                               , &
+      units             ='Pa-1 s-1'                                          , &
+      loc               ='vtx'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      ptr               =this%pv                                             , &
+      halo_cross_pole   =.true.                                              )
+    if (.not. advection) then
+      call add_var(this%fields                                               , &
+        name            ='div'                                               , &
+        long_name       ='Divergence'                                        , &
+        units           ='s-1'                                               , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%div                                            )
     end if
-
-    name      = 'ptfx'
-    long_name = 'Modified potential temperature flux on lon edge'
-    units     = 'K m s-1'
-    if (baroclinic) then
-      call this%ptfx%init(name, long_name, units, 'lon', mesh, halo)
+    if (use_div_damp .and. div_damp_order == 4) then
+      call add_var(this%fields                                               , &
+        name            ='div2'                                              , &
+        long_name       ='Gradient of divergence'                            , &
+        units           ='m-1 s-1'                                           , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%div2                                           )
     end if
-
-    name      = 'ptfy'
-    long_name = 'Modified potential temperature flux on lat edge'
-    units     = 'K m s-1'
-    if (baroclinic) then
-      call this%ptfy%init(name, long_name, units, 'lat', mesh, halo)
-    end if
-
-    name      = 'ptfz'
-    long_name = 'Modified potential temperature flux on half level'
-    units     = 'K m s-1'
-    if (baroclinic) then
-      call this%ptfz%init(name, long_name, units, 'lev', mesh, halo)
-    end if
-
-    name      = 'mfx_lon'
-    long_name = 'Zonal mass flux on lon edge'
-    units     = 'Pa m s-1'
-    call this%mfx_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'mfy_lat'
-    long_name = 'Meridional mass flux on lat edge'
-    units     = 'Pa m s-1'
-    call this%mfy_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'mfx_lat'
-    long_name = 'Zonal mass flux on lat edge'
-    units     = 'Pa m s-1'
-    call this%mfx_lat%init(name, long_name, units, 'lat', mesh, halo)
-
-    name      = 'mfy_lon'
-    long_name = 'Meridional mass flux on lon edge'
-    units     = 'Pa m s-1'
-    call this%mfy_lon%init(name, long_name, units, 'lon', mesh, halo)
-
-    name      = 'vor'
-    long_name = 'Relative vorticity'
-    units     = 's-1'
-    call this%vor%init(name, long_name, units, 'vtx', mesh, halo)
-
-    name      = 'pv'
-    long_name = 'Potential vorticity'
-    units     = 'Pa-1 s-1'
-    call this%pv%init(name, long_name, units, 'vtx', mesh, halo, halo_cross_pole=.true.)
-
-    name      = 'div'
-    long_name = 'Divergence'
-    units     = 's-1'
-    call this%div%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'div2'
-    long_name = 'Gradient of divergence'
-    units     = 'm-1 s-1'
-    call this%div2%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'dmf'
-    long_name = 'Mass flux divergence'
-    units     = 'Pa s-1'
-    call this%dmf%init(name, long_name, units, 'cell', mesh, halo)
-
-    name      = 'dmf_lev'
-    long_name = 'Mass flux divergence on half level'
-    units     = 'Pa s-1'
+    call add_var(this%fields                                                 , &
+      name              ='dmf'                                               , &
+      long_name         ='Mass flux divergence'                              , &
+      units             ='Pa s-1'                                            , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      ptr               =this%dmf                                            )
     if (nonhydrostatic) then
-      call this%dmf_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='dmf_lev'                                           , &
+        long_name       ='Mass flux divergence'                              , &
+        units           ='Pa s-1'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%dmf_lev                                        )
+      call add_var(this%fields                                               , &
+        name            ='omg'                                               , &
+        long_name       ='Omega'                                             , &
+        units           ='Pa s-1'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%omg                                            )
     end if
-
-    name      = 'omg'
-    long_name = 'Omega'
-    units     = 'Pa s-1'
-    if (baroclinic) then
-      call this%omg%init(name, long_name, units, 'cell', mesh, halo)
-    end if
-
     if (pgf_scheme == 'ptb') then
-      name      = 'p_ptb'
-      long_name = 'Perturbation of pressure'
-      units     = 'Pa'
-      call this%p_ptb%init(name, long_name, units, 'cell', mesh, halo)
-
-      name      = 'gz_ptb'
-      long_name = 'Perturbation of geopotential'
-      units     = 'm2 s-2'
-      call this%gz_ptb%init(name, long_name, units, 'cell', mesh, halo)
-
-      name      = 'dp_ptb'
-      long_name = 'Perturbation of dry-air weight'
-      units     = 'Pa'
-      call this%dp_ptb%init(name, long_name, units, 'cell', mesh, halo)
-
-      name      = 'ad_ptb'
-      long_name = 'Perturbation of specific density of dry-air'
-      units     = 'kg-1 m3'
-      call this%ad_ptb%init(name, long_name, units, 'cell', mesh, halo)
+      call add_var(this%fields                                               , &
+        name            ='p_ptb'                                             , &
+        long_name       ='Perturbation of pressure'                          , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%p_ptb                                          )
+      call add_var(this%fields                                               , &
+        name            ='gz_ptb'                                            , &
+        long_name       ='Perturbation of geopotential'                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%gz_ptb                                         )
+      call add_var(this%fields                                               , &
+        name            ='dp_ptb'                                            , &
+        long_name       ='Perturbation of dry-air weight'                    , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%dp_ptb                                         )
+      call add_var(this%fields                                               , &
+        name            ='ad_ptb'                                            , &
+        long_name       ='Perturbation of specific density of dry-air'       , &
+        units           ='kg-1 m3'                                           , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%ad_ptb                                         )
     end if
-
     if (nonhydrostatic) then
-      name      = 'u_lev_lon'
-      long_name = 'U wind component on lon edge on half level'
-      units     = 'm s-1'
-      call this%u_lev_lon%init(name, long_name, units, 'lev_lon', mesh, halo)
-
-      name      = 'v_lev_lat'
-      long_name = 'V wind component on lat edge on half level'
-      units     = 'm s-1'
-      call this%v_lev_lat%init(name, long_name, units, 'lev_lat', mesh, halo)
-
-      name      = 'mfx_lev_lon'
-      long_name = 'Zonal mass flux on lon edge on half level'
-      units     = 'Pa m s-1'
-      call this%mfx_lev_lon%init(name, long_name, units, 'lev_lon', mesh, halo)
-
-      name      = 'mfy_lev_lat'
-      long_name = 'Meridional mass flux on lat edge on half level'
-      units     = 'Pa m s-1'
-      call this%mfy_lev_lat%init(name, long_name, units, 'lev_lat', mesh, halo)
-
-      name      = 'adv_w_lev'
-      long_name = 'Advection tendency of vertical wind speed on half level'
-      units     = 'm s-2'
-      call this%adv_w_lev%init(name, long_name, units, 'lev', filter_mesh, filter_halo)
-
-      name      = 'adv_gz_lev'
-      long_name = 'Advection tendency of geopotential on half level'
-      units     = 'm2 s-2'
-      call this%adv_gz_lev%init(name, long_name, units, 'lev', filter_mesh, filter_halo)
+      call add_var(this%fields                                               , &
+        name            ='u_lev_lon'                                         , &
+        long_name       ='Zonal wind component'                              , &
+        units           ='m s-1'                                             , &
+        loc             ='lev_lon'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%u_lev_lon                                      )
+      call add_var(this%fields                                               , &
+        name            ='v_lev_lat'                                         , &
+        long_name       ='Meridional wind component'                         , &
+        units           ='m s-1'                                             , &
+        loc             ='lev_lat'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%v_lev_lat                                      )
+      call add_var(this%fields                                               , &
+        name            ='mfx_lev_lon'                                       , &
+        long_name       ='Zonal mass flux'                                   , &
+        units           ='Pa m s-1'                                          , &
+        loc             ='lev_lon'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%mfx_lev_lon                                    )
+      call add_var(this%fields                                               , &
+        name            ='mfy_lev_lat'                                       , &
+        long_name       ='Meridional mass flux'                              , &
+        units           ='Pa m s-1'                                          , &
+        loc             ='lev_lat'                                           , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        ptr             =this%mfy_lev_lat                                    )
+      call add_var(this%fields                                               , &
+        name            ='adv_w_lev'                                         , &
+        long_name       ='Advection tendency of w_lev'                       , &
+        units           ='m s-2'                                             , &
+        loc             ='lev'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%adv_w_lev                                      )
+      call add_var(this%fields                                               , &
+        name            ='adv_gz_lev'                                        , &
+        long_name       ='Advection tendency of gz_lev'                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%adv_gz_lev                                     )
     end if
 
   end subroutine aux_array_init
@@ -915,46 +1469,48 @@ contains
     type(latlon_mesh_type), intent(in) :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
 
-    character(field_name_len     ) name
-    character(field_long_name_len) long_name
-    character(field_units_len    ) units
-
-    if (trim(physics_suite) /= '') then
-      name      = 'dudt_phys'
-      long_name = 'Physics tendency of U wind component'
-      units     = 'm s-2'
-      if (filter_ptend) then
-        call this%dudt_phys%init(name, long_name, units, 'lon', filter_mesh, filter_halo)
-      else
-        call this%dudt_phys%init(name, long_name, units, 'lon', mesh, halo)
-      end if
-
-      name      = 'dvdt_phys'
-      long_name = 'Physics tendency of V wind component'
-      units     = 'm s-2'
-      if (filter_ptend) then
-        call this%dvdt_phys%init(name, long_name, units, 'lat', filter_mesh, filter_halo)
-      else
-        call this%dvdt_phys%init(name, long_name, units, 'lat', mesh, halo)
-      end if
-
-      name      = 'dptdt_phys'
-      long_name = 'Physics tendency of modified potential temperature'
-      units     = 'K s-1'
-      if (filter_ptend) then
-        call this%dptdt_phys%init(name, long_name, units, 'cell', filter_mesh, filter_halo)
-      else
-        call this%dptdt_phys%init(name, long_name, units, 'cell', mesh, halo)
-      end if
-
-      name      = 'dqdt_phys'
-      long_name = 'Physics tendency of tracer dry mixing ratio'
-      units     = 'kg kg-1 s-1'
-      if (filter_ptend) then
-        call this%dqdt_phys%init(name, long_name, units, 'cell', filter_mesh, filter_halo, n4=ntracers)
-      else
-        call this%dqdt_phys%init(name, long_name, units, 'cell', mesh, halo, n4=ntracers)
-      end if
+    if (physics_suite /= 'N/A' .and. physics_suite /= '') then
+      call add_var(this%fields                                               , &
+        name            ='dudt_phys'                                         , &
+        long_name       ='Physics tendency of u'                             , &
+        units           ='m s-2'                                             , &
+        loc             ='lon'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dudt_phys                                      )
+      call add_var(this%fields                                               , &
+        name            ='dvdt_phys'                                         , &
+        long_name       ='Physics tendency of v'                             , &
+        units           ='m s-2'                                             , &
+        loc             ='lat'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dvdt_phys                                      )
+      call add_var(this%fields                                               , &
+        name            ='dptdt_phys'                                        , &
+        long_name       ='Physics tendency of pt'                            , &
+        units           ='K s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dptdt_phys                                      )
+      call add_var(this%fields                                               , &
+        name            ='dqdt_phys'                                         , &
+        long_name       ='Physics tendency of q'                             , &
+        units           ='kg kg-1 s-1'                                       , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        n4              =ntracers                                            , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        ptr             =this%dqdt_phys                                      )
     end if
 
   end subroutine aux_array_init_phys
@@ -963,50 +1519,22 @@ contains
 
     class(aux_array_type), intent(inout) :: this
 
-    call this%smag_t     %clear()
-    call this%smag_s     %clear()
-    call this%kmh        %clear()
-    call this%kmh_lon    %clear()
-    call this%kmh_lat    %clear()
-    call this%v_lon      %clear()
-    call this%u_lat      %clear()
-    call this%ke         %clear()
-    call this%pv_lon     %clear()
-    call this%pv_lat     %clear()
-    call this%dmg_lon    %clear()
-    call this%dmg_lat    %clear()
-    call this%dmg_vtx    %clear()
-    call this%pkh_lev    %clear()
-    call this%we_lev_lon %clear()
-    call this%we_lev_lat %clear()
-    call this%ptfx       %clear()
-    call this%ptfy       %clear()
-    call this%ptfz       %clear()
-    call this%mfx_lon    %clear()
-    call this%mfy_lat    %clear()
-    call this%mfx_lat    %clear()
-    call this%mfy_lon    %clear()
-    call this%vor        %clear()
-    call this%pv         %clear()
-    call this%div        %clear()
-    call this%div2       %clear()
-    call this%dmf        %clear()
-    call this%dmf_lev    %clear()
-    call this%omg        %clear()
-    call this%dudt_phys  %clear()
-    call this%dvdt_phys  %clear()
-    call this%dptdt_phys %clear()
-    call this%dqdt_phys  %clear()
-    call this%p_ptb      %clear()
-    call this%gz_ptb     %clear()
-    call this%dp_ptb     %clear()
-    call this%ad_ptb     %clear()
-    call this%u_lev_lon  %clear()
-    call this%v_lev_lat  %clear()
-    call this%mfx_lev_lon%clear()
-    call this%mfy_lev_lat%clear()
-    call this%adv_w_lev  %clear()
-    call this%adv_gz_lev %clear()
+    class(*), pointer :: field
+    integer i
+
+    do i = 1, this%fields%size
+      field => this%fields%value_at(i)
+      select type (field)
+      type is (latlon_field2d_type)
+        call field%clear()
+      type is (latlon_field3d_type)
+        call field%clear()
+      type is (latlon_field4d_type)
+        call field%clear()
+      end select
+      deallocate(field)
+    end do
+    call this%fields%clear()
 
   end subroutine aux_array_clear
 

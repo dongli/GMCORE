@@ -144,7 +144,6 @@ contains
     min_lat = mesh%full_lat_deg(max(mesh%full_jms, 1))
     max_lat = mesh%full_lat_deg(min(mesh%full_jme, global_mesh%full_nlat))
     end associate
-    call regrid_init()
     call history_init_stage1()
     call damp_init()
     call tracer_init_stage1()
@@ -168,6 +167,7 @@ contains
     integer iblk
     real(r8) seconds
 
+    call regrid_init()
     call vert_coord_init(namelist_path)
     call physics_init_stage2(namelist_path)
     call restart_init()

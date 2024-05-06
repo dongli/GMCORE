@@ -96,15 +96,18 @@ contains
     type(latlon_mesh_type), intent(in) :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
 
-    character(field_name_len     ) name
-    character(field_long_name_len) long_name
-    character(field_units_len    ) units
-
-    name      = 'q'
-    long_name = 'Tracer dry mixing ratio'
-    units     = 'kg kg-1'
     if (ntracers > 0) then
-      call this%q%init(name, long_name, units, 'cell', filter_mesh, filter_halo, halo_cross_pole=.true., n4=ntracers)
+      call this%q%init(                               &
+        name              ='q'                      , &
+        long_name         ='Tracer dry mixing ratio', &
+        units             ='kg kg-1'                , &
+        loc               ='cell'                   , &
+        mesh              =filter_mesh              , &
+        halo              =filter_halo              , &
+        halo_cross_pole   =.true.                   , &
+        output            ='h0'                     , &
+        restart           =.true.                   , &
+        n4=ntracers)
     end if
 
   end subroutine tracers_init_stage2

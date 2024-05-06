@@ -89,7 +89,6 @@ program gmcore_adv_driver
   call adv_prepare(old)
   call adv_accum_wind(old)
 
-  call history_setup_h0_adv(blocks)
   call output(old)
   call diagnose(old)
   if (proc%is_root()) call log_print_diag(curr_time%isoformat())
