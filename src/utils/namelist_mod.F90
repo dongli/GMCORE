@@ -148,7 +148,7 @@ module namelist_mod
   integer         :: div_damp_order       = 2
   real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 10
+  real(r8)        :: div_damp_pole        = 50
   real(r8)        :: div_damp_lat0        = 80
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
@@ -158,7 +158,7 @@ module namelist_mod
   real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 10
+  real(r8)        :: vor_damp_pole        = 50
   real(r8)        :: vor_damp_lat0        = 80
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
@@ -167,7 +167,7 @@ module namelist_mod
   real(r8)        :: smag_damp_coef       = 0.015
 
   ! Input settings
-  integer         :: input_ngroup         = 0
+  integer         :: input_ngroups        = 0
 
   ! Output settings
 #if (REAL_KIND == 4)
@@ -298,7 +298,7 @@ module namelist_mod
     use_smag_damp             , &
     smag_damp_cycles          , &
     smag_damp_coef            , &
-    input_ngroup              , &
+    input_ngroups             , &
     output_h0                 , &
     output_h0_dtype           , &
     output_h1                 , &

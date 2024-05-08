@@ -76,6 +76,8 @@ program gmcore_swm_driver
     end do
   end if
 
+  call gmcore_init_stage3()
+
   call gmcore_run()
 
   call gmcore_final()

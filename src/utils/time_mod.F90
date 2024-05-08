@@ -183,10 +183,11 @@ contains
 
   end subroutine time_advance
 
-  subroutine time_fast_forward(time_value, time_units)
+  subroutine time_fast_forward(time_value, time_units, change_end_time)
 
     real(r8), intent(in) :: time_value
     character(*), intent(in) :: time_units
+    logical, intent(in) :: change_end_time
 
     type(timedelta_type) skipped_time
     type(hash_table_iterator_type) iter
@@ -215,7 +216,7 @@ contains
     elapsed_seconds = skipped_time%total_seconds()
     curr_time_str = curr_time%format('%Y-%m-%dT%H_%M_%S')
 
-    end_time = curr_time + (end_time - start_time)
+    if (change_end_time) end_time = curr_time + (end_time - start_time)
     start_time = curr_time
 
     ! Update alerts.

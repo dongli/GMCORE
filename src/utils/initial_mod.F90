@@ -258,10 +258,10 @@ contains
     if (proc%is_root()) call cpu_time(time1)
 
     if (present(initial_file_)) then
-      call fiona_open_dataset('i0', file_path=initial_file_, mpi_comm=proc%comm, ngroup=input_ngroup)
+      call fiona_open_dataset('i0', file_path=initial_file_, mpi_comm=proc%comm, ngroup=input_ngroups)
       if (proc%is_root()) call log_notice('Read initial data from ' // trim(initial_file_) // '.')
     else
-      call fiona_open_dataset('i0', file_path=initial_file, mpi_comm=proc%comm, ngroup=input_ngroup)
+      call fiona_open_dataset('i0', file_path=initial_file, mpi_comm=proc%comm, ngroup=input_ngroups)
       if (proc%is_root()) call log_notice('Read initial data from ' // trim(initial_file) // '.')
     end if
     call fiona_start_input('i0')

@@ -18,8 +18,6 @@ module history_mod
   use namelist_mod, dt => dt_dyn
   use time_mod
   use latlon_parallel_mod
-  use process_mod, only: proc
-  use allocator_mod
   use block_mod
   use tracer_mod
   use operators_mod, only: calc_div
@@ -32,6 +30,7 @@ module history_mod
 
   public history_init_stage1
   public history_init_stage2
+  public history_init_stage3
   public history_final
   public history_write_h0
   public history_write_h1
@@ -52,6 +51,20 @@ module history_mod
 contains
 
   subroutine history_init_stage1()
+
+    call fiona_init()
+
+  end subroutine history_init_stage1
+
+  subroutine history_init_stage2()
+
+    call history_setup_h0()
+    call history_setup_h1()
+    call history_setup_h2()
+
+  end subroutine history_init_stage2
+
+  subroutine history_init_stage3()
 
     character(10) time_value, time_units
     real(r8) seconds, months
@@ -114,17 +127,9 @@ contains
       end if
     end if
 
-    call fiona_init(time_units, start_time_str)
+    call fiona_set_time(time_units, start_time_str)
 
-  end subroutine history_init_stage1
-
-  subroutine history_init_stage2()
-
-    call history_setup_h0()
-    call history_setup_h1()
-    call history_setup_h2()
-
-  end subroutine history_init_stage2
+  end subroutine history_init_stage3
 
   subroutine history_final()
 
@@ -177,7 +182,7 @@ contains
 
     logical, save :: first_call = .true.
     real(8) time1, time2
-    integer iblk, i
+    integer iblk
 
     if (proc%is_root()) then
       call log_notice('Write h0 file.')
@@ -216,9 +221,7 @@ contains
       call write_fields('h0', mesh, dtend %fields)
       call write_fields('h0', mesh, static%fields)
       call write_fields('h0', mesh, aux   %fields)
-      do i = 1, ntracers
-        call write_field('h0', mesh, q, i)
-      end do
+      call write_field ('h0', mesh, q)
       end associate
     end do
 
@@ -443,14 +446,13 @@ contains
 
   end subroutine write_fields
 
-  subroutine write_field(dtag, mesh, field, i4)
+  subroutine write_field(dtag, mesh, field)
 
     character(*), intent(in) :: dtag
     type(latlon_mesh_type), intent(in) :: mesh
     class(*), intent(in) :: field
-    integer, intent(in), optional :: i4
 
-    integer is, ie, js, je, ks, ke
+    integer is, ie, js, je, ks, ke, i
     integer start2d(2), count2d(2), start3d(3), count3d(3)
 
     select type (field)
@@ -510,8 +512,10 @@ contains
       end select
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
-      call fiona_output(dtag, trim(field%name) // '_' // trim(field%var4_names(i4)), &
-        field%d(is:ie,js:je,ks:ke,i4), start=start3d, count=count3d)
+      do i = 1, field%dim4_size
+        call fiona_output(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), &
+          field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
+      end do
     end select
 
   end subroutine write_field

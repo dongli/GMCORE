@@ -163,14 +163,12 @@ contains
 
     character(*), intent(in) :: namelist_path
 
-    character(10) time_value, time_units
     integer iblk
-    real(r8) seconds
 
     call regrid_init()
     call vert_coord_init(namelist_path)
     call physics_init_stage2(namelist_path)
-    call restart_init()
+    call restart_init_stage2()
     call pgf_init()
     call interp_init()
     call operators_init()
@@ -179,24 +177,6 @@ contains
     call history_init_stage2()
 
     operators => space_operators
-
-    time_value = split_string(print_interval, ' ', 1)
-    time_units = split_string(print_interval, ' ', 2)
-    read(time_value, *) seconds
-    select case (time_units)
-    case ('days', 'sol')
-      seconds = seconds * 86400
-    case ('hours')
-      seconds = seconds * 3600
-    case ('minutes')
-      seconds = seconds * 60
-    case ('seconds')
-      seconds = seconds
-    case default
-      call log_error('Invalid print interval ' // trim(print_interval) // '!')
-    end select
-
-    call time_add_alert('print', seconds=seconds)
 
     if (proc%is_root()) call print_namelist()
 
@@ -219,7 +199,28 @@ contains
 
   subroutine gmcore_init_stage3()
 
+    character(10) time_value, time_units
+    real(r8) seconds
+
+    time_value = split_string(print_interval, ' ', 1)
+    time_units = split_string(print_interval, ' ', 2)
+    read(time_value, *) seconds
+    select case (time_units)
+    case ('days', 'sol')
+      seconds = seconds * 86400
+    case ('hours')
+      seconds = seconds * 3600
+    case ('minutes')
+      seconds = seconds * 60
+    case ('seconds')
+      seconds = seconds
+    case default
+      call log_error('Invalid print interval ' // trim(print_interval) // '!')
+    end select
+    call time_add_alert('print', seconds=seconds)
+
     call physics_init_stage3()
+    call history_init_stage3()
 
   end subroutine gmcore_init_stage3
 

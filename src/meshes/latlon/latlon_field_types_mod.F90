@@ -19,6 +19,7 @@
 
 module latlon_field_types_mod
 
+  use container
   use fiona
   use flogger
   use const_mod
@@ -34,6 +35,7 @@ module latlon_field_types_mod
   public latlon_field2d_type
   public latlon_field3d_type
   public latlon_field4d_type
+  public append_field
 
   integer, public, parameter :: field_name_len      = 32
   integer, public, parameter :: field_long_name_len = 128
@@ -94,6 +96,12 @@ module latlon_field_types_mod
     procedure :: link  => latlon_field4d_link
     final latlon_field4d_final
   end type latlon_field4d_type
+
+  interface append_field
+    module procedure append_field2d
+    module procedure append_field3d
+    module procedure append_field4d
+  end interface append_field
 
 contains
 
@@ -549,5 +557,79 @@ contains
     call this%clear()
 
   end subroutine latlon_field4d_final
+
+  subroutine append_field2d(fields, name, long_name, units, loc, mesh, halo, field, output, restart, link)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    type(latlon_halo_type), intent(in) :: halo(:)
+    type(latlon_field2d_type), intent(inout), target :: field
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
+    type(latlon_field2d_type), intent(in), optional :: link
+
+    type(latlon_field2d_type), pointer :: ptr
+
+    call field%init(name, long_name, units, loc, mesh, halo, link=link, output=output, restart=restart)
+    ptr => field
+    call fields%append_ptr(ptr)
+
+  end subroutine append_field2d
+
+  subroutine append_field3d(fields, name, long_name, units, loc, mesh, halo, field, &
+    output, restart, halo_cross_pole, link)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    type(latlon_halo_type), intent(in) :: halo(:)
+    type(latlon_field3d_type), intent(inout), target :: field
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
+    logical, intent(in), optional :: halo_cross_pole
+    type(latlon_field3d_type), intent(in), optional :: link
+
+    type(latlon_field3d_type), pointer :: ptr
+
+    call field%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, &
+      link=link, output=output, restart=restart)
+    ptr => field
+    call fields%append_ptr(ptr)
+
+  end subroutine append_field3d
+
+  subroutine append_field4d(fields, name, long_name, units, loc, mesh, dim4_name, dim4_size, &
+    var4_names, halo, field, output, restart, halo_cross_pole)
+
+    type(array_type), intent(inout) :: fields
+    character(*), intent(in) :: name
+    character(*), intent(in) :: long_name
+    character(*), intent(in) :: units
+    character(*), intent(in) :: loc
+    type(latlon_mesh_type), intent(in) :: mesh
+    character(*), intent(in) :: dim4_name
+    integer, intent(in) :: dim4_size
+    character(*), intent(in) :: var4_names(:)
+    type(latlon_halo_type), intent(in) :: halo(:)
+    type(latlon_field4d_type), intent(inout), target :: field
+    character(*), intent(in), optional :: output
+    logical, intent(in), optional :: restart
+    logical, intent(in), optional :: halo_cross_pole
+
+    type(latlon_field4d_type), pointer :: ptr
+
+    call field%init(name, long_name, units, loc, mesh, halo, halo_cross_pole=halo_cross_pole, &
+      dim4_name=dim4_name, dim4_size=dim4_size, var4_names=var4_names, output=output, restart=restart)
+    ptr => field
+    call fields%append_ptr(ptr)
+
+  end subroutine append_field4d
 
 end module latlon_field_types_mod

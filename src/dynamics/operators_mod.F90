@@ -7,11 +7,10 @@ module operators_mod
   use latlon_parallel_mod
   use latlon_field_types_mod
   use latlon_operators_mod
-  use process_mod, only: proc, process_stop
+  use process_mod, only: process_stop
   use formula_mod
   use namelist_mod
   use tracer_mod
-  use log_mod
   use pgf_mod
   use adv_mod
   use interp_mod

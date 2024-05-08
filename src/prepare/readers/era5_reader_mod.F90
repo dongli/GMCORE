@@ -53,7 +53,7 @@ contains
     min_lat = max(min_lat_in, -89.75)
     max_lat = min(max_lat_in,  89.75)
 
-    call fiona_open_dataset('era5', file_path=bkg_file, mpi_comm=proc%comm, ngroup=input_ngroup)
+    call fiona_open_dataset('era5', file_path=bkg_file, mpi_comm=proc%comm, ngroup=input_ngroups)
     call fiona_set_dim('era5', 'longitude', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('era5', 'latitude', span=[90, -90], flip=.true.)
     call fiona_get_dim('era5', 'level', size=era5_nlev)
@@ -61,7 +61,7 @@ contains
     call fiona_start_input('era5')
     call fiona_input('era5', 'time', time_value)
     call fiona_get_att('era5', 'time', 'units', time_units)
-    call time_fast_forward(time_value, time_units)
+    call time_fast_forward(time_value, time_units, change_end_time=.true.)
     call fiona_input_range('era5', 'longitude', era5_lon, coord_range=[min_lon, max_lon]); era5_nlon = size(era5_lon)
     call fiona_input_range('era5', 'latitude' , era5_lat, coord_range=[min_lat, max_lat]); era5_nlat = size(era5_lat)
     call fiona_input      ('era5', 'level'    , era5_lev)
@@ -93,6 +93,23 @@ contains
     era5_lev = era5_lev * 100.0_r8
     era5_z   = era5_z  / g
     era5_zs  = era5_zs / g
+
+    if (.not. allocated(era5_ql)) then
+      allocate(era5_ql(era5_nlon,era5_nlat,era5_nlev))
+      era5_ql = 0
+    end if
+    if (.not. allocated(era5_qi)) then
+      allocate(era5_qi(era5_nlon,era5_nlat,era5_nlev))
+      era5_qi = 0
+    end if
+    if (.not. allocated(era5_qr)) then
+      allocate(era5_qr(era5_nlon,era5_nlat,era5_nlev))
+      era5_qr = 0
+    end if
+    if (.not. allocated(era5_qs)) then
+      allocate(era5_qs(era5_nlon,era5_nlat,era5_nlev))
+      era5_qs = 0
+    end if
 
     ! Change moist mixing ratio to dry mixing ratio.
     do k = 1, era5_nlev
