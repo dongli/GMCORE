@@ -55,6 +55,11 @@ module time_mod
   character(30) start_time_str
   character(30) curr_time_str
 
+  interface time_fast_forward
+    module procedure time_fast_forward_1
+    module procedure time_fast_forward_2
+  end interface time_fast_forward
+
 contains
 
   subroutine time_init(dt_in_seconds)
@@ -183,7 +188,39 @@ contains
 
   end subroutine time_advance
 
-  subroutine time_fast_forward(time_value, time_units, change_end_time)
+  subroutine time_fast_forward_1(time_str, change_end_time)
+
+    character(*), intent(in) :: time_str
+    logical, intent(in) :: change_end_time
+
+    type(timedelta_type) skipped_time
+    type(hash_table_iterator_type) iter
+
+    call curr_time%init(time_str, planet=planet)
+
+    skipped_time = curr_time - start_time
+    elapsed_seconds = skipped_time%total_seconds()
+    curr_time_str = curr_time%isoformat()
+
+    if (change_end_time) end_time = curr_time + (end_time - start_time)
+    start_time = curr_time
+
+    ! Update alerts.
+    iter = hash_table_iterator(alerts)
+    do while (.not. iter%ended())
+      select type (alert => iter%value)
+      type is (alert_type)
+        if (alert%last_time <= curr_time) then
+          alert%last_time = curr_time
+          alert%ring = .true.
+        end if
+      end select
+      call iter%next()
+    end do
+
+  end subroutine time_fast_forward_1
+
+  subroutine time_fast_forward_2(time_value, time_units, change_end_time)
 
     real(r8), intent(in) :: time_value
     character(*), intent(in) :: time_units
@@ -214,7 +251,7 @@ contains
 
     skipped_time = curr_time - start_time
     elapsed_seconds = skipped_time%total_seconds()
-    curr_time_str = curr_time%format('%Y-%m-%dT%H_%M_%S')
+    curr_time_str = curr_time%isoformat()
 
     if (change_end_time) end_time = curr_time + (end_time - start_time)
     start_time = curr_time
@@ -232,7 +269,7 @@ contains
       call iter%next()
     end do
 
-  end subroutine time_fast_forward
+  end subroutine time_fast_forward_2
 
   real(r8) function time_elapsed_seconds() result(res)
 

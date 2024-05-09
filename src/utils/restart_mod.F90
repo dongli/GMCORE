@@ -27,7 +27,7 @@ module restart_mod
   use flogger
   use datetime
   use const_mod
-  use namelist_mod
+  use namelist_mod, start_time_array => start_time, end_time_array => end_time
   use time_mod, old => old_time_idx
   use block_mod
   use tracer_mod
@@ -97,6 +97,7 @@ contains
     call fiona_create_dataset('r0', desc=case_desc, file_prefix=trim(case_name) // '.' // trim(curr_time_str), &
       mpi_comm=proc%comm, ngroup=output_ngroups)
 
+    call fiona_add_att('r0', 'start_time', start_time%isoformat())
     call fiona_add_att('r0', 'time_step_size', dt_dyn)
     call fiona_add_att('r0', 'restart_interval', restart_interval)
     call fiona_add_dim('r0', 'time'     , add_var=.true.)
@@ -162,6 +163,8 @@ contains
     character(50) time_units
     class(*), pointer :: field
 
+    character(30) start_time_str
+
     if (restart_file == 'N/A') then
       call log_error('Parameter restart_file is needed to restart!')
     end if
@@ -174,10 +177,11 @@ contains
     call fiona_open_dataset('r0', file_path=restart_file, mpi_comm=proc%comm, ngroup=input_ngroups)
     call fiona_start_input('r0')
 
+    call fiona_get_att('r0', 'start_time', start_time_str)
+    call time_fast_forward(start_time_str, change_end_time=.true.)
     call fiona_input('r0', 'time', time_value)
     call fiona_get_att('r0', 'time', 'units', time_units)
     call fiona_input('r0', 'time_step', time_step)
-
     call time_fast_forward(time_value, time_units, change_end_time=.false.)
 
     do iblk = 1, size(blocks)
