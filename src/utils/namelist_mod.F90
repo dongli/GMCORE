@@ -136,7 +136,7 @@ module namelist_mod
   real(r8)        :: filter_coef_a        = 2.0
   real(r8)        :: filter_coef_b        = 0.4
   real(r8)        :: filter_coef_c        = 0.5
-  real(r8)        :: filter_gauss_sigma   = 7.0
+  real(r8)        :: filter_gauss_sigma   = 8.0
   real(r8)        :: filter_min_width     = 4.0
 
   ! Damping settings
