@@ -76,9 +76,10 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID 
       -no-wrap-margin
       -O3
       -align array64byte
-      -qopenmp
+      # -qopenmp
       # -fp-model precise
     )
+    # FIXME: OpenMP causes sigmentation faults when using ifx compiler.
   endif ()
   if (CMAKE_Fortran_COMPILER_VERSION GREATER 2021.1)
     list(APPEND fortran_flags -qmkl=sequential)
@@ -122,6 +123,18 @@ if (DEFINED ENV{GPTL_ROOT})
   include_directories("$ENV{GPTL_ROOT}/include")
   link_directories("$ENV{GPTL_ROOT}/lib")
   list(APPEND EXTERNAL_LIBS gptlf gptl)
+endif ()
+
+if (DEFINED ENV{PAPI} AND (NOT DEFINED ENV{PAPI_ROOT}))
+  set(ENV{PAPI_ROOT} $ENV{PAPI})
+endif ()
+if (DEFINED ENV{PAPI_ROOT})
+  message(STATUS "Found PAPI in $ENV{PAPI_ROOT}.")
+  add_definitions(-DHAS_PAPI)
+  set(HAS_PAPI TRUE)
+  include_directories("$ENV{PAPI_ROOT}/include")
+  link_directories("$ENV{PAPI_ROOT}/lib")
+  list(APPEND EXTERNAL_LIBS papi)
 endif ()
 
 if (DEFINED ENV{PIO} AND (NOT DEFINED ENV{PIO_ROOT}))
@@ -417,7 +430,12 @@ if (USE_CAM AND HAS_GPTL AND HAS_PIO AND HAS_LAPACK AND HAS_ESMF AND HAS_MCT)
   add_subdirectory(src/physics/cam)
   add_subdirectory(src/chemistry)
 else ()
-  message(WARNING "GPTL, PIO, LAPACK, ESMF, and/or MCT are not found. Skipping CAM physics and chemistry.")
+  message(WARNING "GPTL, PIO, LAPACK, ESMF, and MCT are not found. Skipping CAM physics and chemistry.")
+  message(STATUS "HAS_GPTL = ${HAS_GPTL}")
+  message(STATUS "HAS_PIO = ${HAS_PIO}")
+  message(STATUS "HAS_LAPACK = ${HAS_LAPACK}")
+  message(STATUS "HAS_ESMF = ${HAS_ESMF}")
+  message(STATUS "HAS_MCT = ${HAS_MCT}")
 endif ()
 
 add_executable(gmcore_prepare.exe src/drivers/gmcore_prepare.F90)

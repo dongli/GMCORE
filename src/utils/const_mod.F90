@@ -33,6 +33,7 @@ module const_mod
   real(r8), parameter :: eps    = epsilon(1.0_r8)
   real(r8), parameter :: inf    = huge(1.0_r8)
   real(r8), parameter :: ka     = 0.4_r8             ! Karman constant
+  real(r8), parameter :: stbo   = 5.6704e-8_r8       ! Stefan-Boltzmann constant (W m-2 K-4)
 
   real(r8)            :: omega        = 0 ! s-1
   real(r8)            :: radius       = 0 ! m
@@ -62,8 +63,7 @@ module const_mod
   integer, parameter :: all_pass      = 0
   integer, parameter :: forward_pass  = 1
   integer, parameter :: backward_pass = 2
-  integer, parameter :: nh_pass_1     = 3
-  integer, parameter :: nh_pass_2     = 4
+
   integer            :: total_substeps = 0
 
   real(r8)           :: min_lon
