@@ -147,7 +147,11 @@ contains
     call fiona_add_att('h0', 'planet', planet)
     call fiona_add_att('h0', 'time_step_size', dt)
     ! Dimensions
-    call fiona_add_dim('h0', 'time', add_var=.true.)
+    if (output_h0_new_file == history_interval(1)) then
+      call fiona_add_dim('h0', 'time', size=1, add_var=.true.)
+    else
+      call fiona_add_dim('h0', 'time', add_var=.true.)
+    end if
     call fiona_add_dim('h0', 'lon' , size=global_mesh%full_nlon, add_var=.true., decomp=.true.)
     call fiona_add_dim('h0', 'lat' , size=global_mesh%full_nlat, add_var=.true., decomp=.true.)
     call fiona_add_dim('h0', 'lev' , size=global_mesh%full_nlev)
@@ -195,23 +199,26 @@ contains
       call fiona_start_output('h0', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
 
-    first_call = .false.
-
     select case (planet)
     case ('mars')
       call fiona_output('h0', 'Ls', curr_time%solar_longitude() * deg)
     end select
 
-    call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
-    call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
-    call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
-    call fiona_output('h0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat))
+    if (first_call .or. time_has_alert('h0_new_file')) then
+      if (proc%is_root()) print *, 'write lon, lat, ilon, ilat'
+      call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
+      call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
+      call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
+      call fiona_output('h0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat))
+      do iblk = 1, size(blocks)
+        call write_fields('h0', blocks(iblk)%mesh, blocks(iblk)%static%fields)
+      end do
+    end if
 
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh         , &
                  dstate => blocks(iblk)%dstate(itime), &
                  dtend  => blocks(iblk)%dtend (itime), &
-                 static => blocks(iblk)%static       , &
                  aux    => blocks(iblk)%aux          , &
                  q      => tracers(iblk)%q           )
       if (.not. use_div_damp .and. .not. advection) then
@@ -219,7 +226,6 @@ contains
       end if
       call write_fields('h0', mesh, dstate%fields)
       call write_fields('h0', mesh, dtend %fields)
-      call write_fields('h0', mesh, static%fields)
       call write_fields('h0', mesh, aux   %fields)
       call write_field ('h0', mesh, q)
       end associate
@@ -231,6 +237,8 @@ contains
       time2 = MPI_WTIME()
       call log_notice('Done write h0 file cost ' // to_str(time2 - time1, 5) // ' seconds.')
     end if
+
+    first_call = .false.
 
   end subroutine history_write_h0
 
@@ -337,6 +345,11 @@ contains
     integer is, ie, js, je, ks, ke, i
     integer start(3), count(3)
     real(8) time1, time2
+
+    if (proc%is_root()) then
+      call log_notice('Write h2 file.')
+      time1 = MPI_WTIME()
+    end if
 
     if (.not. time_has_alert('h0_new_file')) then
       call fiona_start_output('h2', dble(elapsed_seconds), new_file=time_step==0)

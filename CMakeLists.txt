@@ -46,6 +46,7 @@ if (CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
   list(APPEND fortran_flags
     -ffree-line-length-none
     -fno-range-check
+    -ffpe-summary=none
   )
   if (CMAKE_Fortran_COMPILER_VERSION GREATER 10)
     list(APPEND fortran_flags
