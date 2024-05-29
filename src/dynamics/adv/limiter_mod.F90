@@ -42,7 +42,7 @@ contains
     case ('pd')
       slope => slope_pd
     case default
-      call log_error('Invalid limiter_type ' // trim(limiter_type) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Invalid limiter_type ' // trim(limiter_type) // '!')
     end select
 
   end subroutine limiter_init

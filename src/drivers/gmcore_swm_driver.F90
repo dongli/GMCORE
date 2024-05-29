@@ -68,12 +68,14 @@ program gmcore_swm_driver
     case ('splash')
       set_ic => splash_test_set_ic
     case default
-      call log_error('Unknown test case ' // trim(test_case) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
     end select
 
-    do iblk = 1, size(blocks)
-      call set_ic(blocks(iblk))
-    end do
+    if (proc%is_model()) then
+      do iblk = 1, size(blocks)
+        call set_ic(blocks(iblk))
+      end do
+    end if
   end if
 
   call gmcore_init_stage3()

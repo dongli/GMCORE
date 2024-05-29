@@ -76,7 +76,7 @@ contains
     end do
 
     if (nbatches == 0) then
-      call log_warning('No advection batches have been defined yet!', pid=proc%id)
+      if (proc%is_root()) call log_warning('No advection batches have been defined yet!')
       return
     end if
 

@@ -66,8 +66,10 @@ module latlon_field_types_mod
   type, extends(latlon_field_meta_type) :: latlon_field2d_type
     real(r8), contiguous, pointer :: d(:,:) => null()
   contains
-    procedure :: init  => latlon_field2d_init
-    procedure :: clear => latlon_field2d_clear
+    procedure :: init   => latlon_field2d_init
+    procedure :: clear  => latlon_field2d_clear
+    procedure :: copy   => latlon_field2d_copy
+    procedure :: absmax => latlon_field2d_absmax
     procedure, private :: latlon_field2d_link_2d
     procedure, private :: latlon_field2d_link_3d
     generic :: link => latlon_field2d_link_2d, latlon_field2d_link_3d
@@ -186,6 +188,43 @@ contains
     this%initial         = .false.
 
   end subroutine latlon_field2d_clear
+
+  subroutine latlon_field2d_copy(this, other)
+
+    class(latlon_field2d_type), intent(inout) :: this
+    type(latlon_field2d_type), intent(in) :: other
+
+    integer i, j, is, ie, js, je
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+
+    do j = js, je
+      do i = is, ie
+        this%d(i,j) = other%d(i,j)
+      end do
+    end do
+
+  end subroutine latlon_field2d_copy
+
+  pure real(r8) function latlon_field2d_absmax(this) result(res)
+
+    class(latlon_field2d_type), intent(in) :: this
+
+    integer is, ie, js, je
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+
+    res = maxval(abs(this%d(is:ie,js:je)))
+
+  end function latlon_field2d_absmax
 
   subroutine latlon_field2d_link_2d(this, other)
 

@@ -50,38 +50,38 @@ contains
     proc%decomp_type = decomp_2d_simple
     proc%decomp_loc  = decomp_normal_region
 
-    if (nproc_x(1) * nproc_y(1) /= proc%np) then
+    if (nproc_x(1) * nproc_y(1) /= proc%np_model) then
       ! User does not set process dimensions in the namelist, so we set them here.
-      nproc_y(1) = min(proc%np, nlat / 3)
-      if (mod(proc%np, nproc_y(1)) /= 0) then
-        if (mod(proc%np, 2) == 0) then
+      nproc_y(1) = min(proc%np_model, nlat / 3)
+      if (mod(proc%np_model, nproc_y(1)) /= 0) then
+        if (mod(proc%np_model, 2) == 0) then
           nproc_x(1) = 2
         else
           ierr = 3
           return
         end if
-        nproc_y(1) = proc%np / nproc_x(1)
+        nproc_y(1) = proc%np_model / nproc_x(1)
       end if
-      nproc_x(1) = proc%np / nproc_y(1)
+      nproc_x(1) = proc%np_model / nproc_y(1)
     end if
     if (proc%is_root()) then
       call log_notice('Process layout is ' // to_str(nproc_x(1)) // 'x' // to_str(nproc_y(1)) // '.')
     end if
 
-    if (nproc_x(1) * nproc_y(1) == proc%np) then
+    if (nproc_x(1) * nproc_y(1) == proc%np_model) then
       ! Check if process topology in namelist is compatible with MPI runtime.
       np = 0
       do i = 1, 1
         np = np + nproc_x(i) * nproc_y(i)
       end do
-      if (proc%np /= np .and. proc%is_root()) then
-        nproc_y(1) = proc%np
+      if (proc%np_model /= np .and. proc%is_root()) then
+        nproc_y(1) = proc%np_model
       end if
       ! Set the process topology into proc object.
       np = 0
       do i = 1, 1
         np = np + nproc_x(i) * nproc_y(i)
-        if (proc%id + 1 <= np) then
+        if (proc%id_model + 1 <= np) then
           proc%cart_dims(cart_dim_lon) = nproc_x(i)
           proc%cart_dims(cart_dim_lat) = nproc_y(i)
           proc%idom = i
@@ -89,7 +89,7 @@ contains
         end if
       end do
     else
-      proc%cart_dims = [merge(1, proc%np, cart_dim_lon == 1), merge(proc%np, 1, cart_dim_lat == 2)]
+      proc%cart_dims = [merge(1, proc%np_model, cart_dim_lon == 1), merge(proc%np_model, 1, cart_dim_lat == 2)]
       proc%idom = 1
     end if
     ! Check decomposition dimensions.
@@ -99,7 +99,7 @@ contains
     end if
     ! Set MPI process topology.
     periods = [cart_dim_lon==1,cart_dim_lon==2]
-    call MPI_COMM_SPLIT(proc%comm, proc%idom, proc%id, tmp_comm, ierr)
+    call MPI_COMM_SPLIT(proc%comm_model, proc%idom, proc%id_model, tmp_comm, ierr)
     call MPI_CART_CREATE(tmp_comm, 2, proc%cart_dims, periods, .true., proc%cart_comm, ierr)
     call MPI_COMM_GROUP(proc%cart_comm, proc%cart_group, ierr)
     call MPI_COMM_FREE(tmp_comm, ierr)
@@ -126,10 +126,10 @@ contains
     ! Handle processes at poles.
     if (proc%ngb(south)%id == MPI_PROC_NULL) then
       if (cart_dim_lon == 1) then
-        i = proc%id + proc%cart_dims(cart_dim_lon) / 2 * proc%cart_dims(cart_dim_lat)
-        if (i >= proc%np) i = i - proc%np
+        i = proc%id_model + proc%cart_dims(cart_dim_lon) / 2 * proc%cart_dims(cart_dim_lat)
+        if (i >= proc%np_model) i = i - proc%np_model
       else
-        i = proc%id + proc%cart_dims(cart_dim_lon) / 2
+        i = proc%id_model + proc%cart_dims(cart_dim_lon) / 2
         if (i >= proc%cart_dims(cart_dim_lon)) i = i - proc%cart_dims(cart_dim_lon)
       end if
       proc%ngb(south)%id = i
@@ -137,11 +137,11 @@ contains
     end if
     if (proc%ngb(north)%id == MPI_PROC_NULL) then
       if (cart_dim_lon == 1) then
-        i = proc%id + proc%cart_dims(cart_dim_lon) / 2 * proc%cart_dims(cart_dim_lat)
-        if (i >= proc%np) i = i - proc%np
+        i = proc%id_model + proc%cart_dims(cart_dim_lon) / 2 * proc%cart_dims(cart_dim_lat)
+        if (i >= proc%np_model) i = i - proc%np_model
       else
-        i = proc%id + proc%cart_dims(cart_dim_lon) / 2
-        if (i >= proc%np) i = i - proc%cart_dims(cart_dim_lon)
+        i = proc%id_model + proc%cart_dims(cart_dim_lon) / 2
+        if (i >= proc%np_model) i = i - proc%cart_dims(cart_dim_lon)
       end if
       proc%ngb(north)%id = i
       proc%at_north_pole = .true.
@@ -161,7 +161,7 @@ contains
     if (proc%nlat < 3) then
       correct = .false.
     end if
-    call MPI_ALLREDUCE(correct, all_correct, 1, MPI_LOGICAL, MPI_LAND, proc%comm, ierr)
+    call MPI_ALLREDUCE(correct, all_correct, 1, MPI_LOGICAL, MPI_LAND, proc%comm_model, ierr)
     if (.not. all_correct) then
       ierr = 2 ! Decomposed grid size along latitude should be >= 3!
       return
@@ -171,14 +171,14 @@ contains
     allocate(proc%grid_proc_idmap(nlon,nlat))
     allocate(proc%global_grid_id (nlon,nlat))
     allocate(proc%local_grid_id  (nlon,nlat))
-    allocate(all_ids(proc%np), all_ide(proc%np))
-    allocate(all_jds(proc%np), all_jde(proc%np))
+    allocate(all_ids(proc%np_model), all_ide(proc%np_model))
+    allocate(all_jds(proc%np_model), all_jde(proc%np_model))
     call MPI_ALLGATHER(proc%ids, 1, MPI_INTEGER, all_ids, 1, MPI_INTEGER, proc%cart_comm, ierr)
     call MPI_ALLGATHER(proc%ide, 1, MPI_INTEGER, all_ide, 1, MPI_INTEGER, proc%cart_comm, ierr)
     call MPI_ALLGATHER(proc%jds, 1, MPI_INTEGER, all_jds, 1, MPI_INTEGER, proc%cart_comm, ierr)
     call MPI_ALLGATHER(proc%jde, 1, MPI_INTEGER, all_jde, 1, MPI_INTEGER, proc%cart_comm, ierr)
     global_ig = 1
-    do ip = 1, proc%np
+    do ip = 1, proc%np_model
       proc%grid_proc_idmap(all_ids(ip):all_ide(ip), all_jds(ip):all_jde(ip)) = ip
       local_ig = 1
       do j = all_jds(ip), all_jde(ip)

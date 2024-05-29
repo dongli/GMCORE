@@ -104,7 +104,7 @@ program gmcore_driver
     case ('tropical_cyclone')
       set_ic => tropical_cyclone_test_set_ic
     case default
-      call log_error('Unknown test case ' // trim(test_case) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
     end select
 
     do iblk = 1, size(blocks)

@@ -45,7 +45,7 @@ contains
     is = x%mesh%full_ids
     ie = x%mesh%full_ide
     select case (x%loc)
-    case ('cell')
+    case ('cell', 'lon')
       js = x%mesh%full_jds
       je = x%mesh%full_jde
       wgt => filter%wgt_lon

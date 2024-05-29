@@ -123,8 +123,8 @@ contains
     min_val = minval(field%d(is:ie,js:je,ks:ke))
     max_val = maxval(field%d(is:ie,js:je,ks:ke))
 
-    call global_min(proc%comm, min_val)
-    call global_max(proc%comm, max_val)
+    call global_min(proc%comm_model, min_val)
+    call global_max(proc%comm_model, max_val)
 
     if (proc%is_root()) write(6, *) trim(field%name), min_val, max_val
 

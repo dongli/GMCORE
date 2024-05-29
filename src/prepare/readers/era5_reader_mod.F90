@@ -53,7 +53,7 @@ contains
     min_lat = max(min_lat_in, -89.75)
     max_lat = min(max_lat_in,  89.75)
 
-    call fiona_open_dataset('era5', file_path=bkg_file, mpi_comm=proc%comm, ngroup=input_ngroups)
+    call fiona_open_dataset('era5', file_path=bkg_file, mpi_comm=proc%comm_io, ngroups=input_ngroups)
     call fiona_set_dim('era5', 'longitude', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('era5', 'latitude', span=[90, -90], flip=.true.)
     call fiona_get_dim('era5', 'level', size=era5_nlev)

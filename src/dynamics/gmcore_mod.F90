@@ -101,13 +101,17 @@ contains
     call time_init(dt_dyn)
     call process_init(comm)
 
+    if (nproc_io > 0 .and. nproc_io * proc_io_stride /= proc%np_io) then
+      if (proc%is_root()) call log_error('Parameter nproc_io * proc_io_stride /= proc%np_io!')
+    end if
+
 #ifdef FC_IS_INTEL
     inquire(directory=gmcore_root, exist=is_exist)
 #else
     inquire(file=gmcore_root, exist=is_exist)
 #endif
     if (.not. is_exist) then
-      call log_error('Cannot find the root directory of GMCORE!', pid=proc%id)
+      if (proc%is_root()) call log_error('Cannot find the root directory of GMCORE!')
     end if
 
     if (proc%is_root()) then
@@ -138,16 +142,18 @@ contains
 
     call global_mesh%init_global(nlon, nlat, nlev, lon_hw=lon_hw, lat_hw=lat_hw, lev_hw=3)
     call process_create_blocks()
-    associate (mesh => blocks(1)%mesh)
-    min_lon = mesh%full_lon_deg(mesh%full_ims)
-    max_lon = mesh%full_lon_deg(mesh%full_ime)
-    min_lat = mesh%full_lat_deg(max(mesh%full_jms, 1))
-    max_lat = mesh%full_lat_deg(min(mesh%full_jme, global_mesh%full_nlat))
-    end associate
-    call history_init_stage1()
+    if (proc%is_model()) then
+      associate (mesh => blocks(1)%mesh)
+      min_lon = mesh%full_lon_deg(mesh%full_ims)
+      max_lon = mesh%full_lon_deg(mesh%full_ime)
+      min_lat = mesh%full_lat_deg(max(mesh%full_jms, 1))
+      max_lat = mesh%full_lat_deg(min(mesh%full_jme, global_mesh%full_nlat))
+      end associate
+    end if
     call damp_init()
     call tracer_init_stage1()
     call physics_init_stage1(namelist_path)
+    call history_init_stage1()
 
   end subroutine gmcore_init_stage1
 
@@ -168,12 +174,12 @@ contains
     call regrid_init()
     call vert_coord_init(namelist_path)
     call physics_init_stage2(namelist_path)
-    call restart_init_stage2()
     call pgf_init()
     call interp_init()
     call operators_init()
     call tracer_init_stage2()
     call adv_init()
+    call restart_init_stage2()
     call history_init_stage2()
 
     operators => space_operators
@@ -228,65 +234,73 @@ contains
 
     integer i, j, m, iblk, itime
 
-    do iblk = 1, size(blocks)
-      associate (block => blocks(iblk)     , &
-                 mesh  => blocks(iblk)%mesh, &
-                 dstate => blocks(iblk)%dstate(old))
-      if (baroclinic) then
-        ! Ensure bottom gz_lev is the same as gzs.
-        do itime = lbound(block%dstate, 1), ubound(block%dstate, 1)
-          do j = mesh%full_jms, mesh%full_jme
-            do i = mesh%full_ims, mesh%full_ime
-              block%dstate(itime)%gz_lev%d(i,j,global_mesh%half_kde) = block%static%gzs%d(i,j)
+    if (proc%is_model()) then
+      do iblk = 1, size(blocks)
+        associate (block => blocks(iblk)     , &
+                   mesh  => blocks(iblk)%mesh, &
+                   dstate => blocks(iblk)%dstate(old))
+        if (baroclinic) then
+          ! Ensure bottom gz_lev is the same as gzs.
+          do itime = lbound(block%dstate, 1), ubound(block%dstate, 1)
+            do j = mesh%full_jms, mesh%full_jme
+              do i = mesh%full_ims, mesh%full_ime
+                block%dstate(itime)%gz_lev%d(i,j,global_mesh%half_kde) = block%static%gzs%d(i,j)
+              end do
             end do
           end do
-        end do
-      end if
-      call dstate%c2a()
-      call calc_div(block, dstate)
-      end associate
-    end do
+        end if
+        call dstate%c2a()
+        call calc_div(block, dstate)
+        end associate
+      end do
+    end if
 
-    call prepare_run()
-    call pgf_init_after_ic()
-    call operators_prepare(blocks, old, dt_dyn)
-    call adv_prepare(old)
-    call diagnose(blocks, old)
-    call regrid_run(old)
-    if (proc%is_root()) call log_print_diag(curr_time%isoformat())
+    if (proc%is_model()) then
+      call prepare_run()
+      call pgf_init_after_ic()
+      call operators_prepare(blocks, old, dt_dyn)
+      call adv_prepare(old)
+      call diagnose(blocks, old)
+      call regrid_run(old)
+      if (proc%is_root()) call log_print_diag(curr_time%isoformat())
+    end if
     call output(old)
 
     model_main_loop: do while (.not. time_is_finished())
-      ! ------------------------------------------------------------------------
-      !                              Dynamical Core
-      do iblk = 1, size(blocks)
-        call time_integrator(operators, blocks(iblk), old, new, dt_dyn)
-        call damp_run(blocks(iblk), blocks(iblk)%dstate(new), dt_dyn)
-        if (pdc_type == 1) call physics_update_dynamics(blocks(iblk), new, dt_dyn)
-        call blocks(iblk)%dstate(new)%c2a()
-      end do
-      ! ------------------------------------------------------------------------
-      ! Advance to n+1 time level.
-      ! NOTE: Time indices are swapped, e.g. new <=> old.
-      call time_advance(dt_dyn)
-      ! ------------------------------------------------------------------------
-      !                            Tracer Advection
-      call adv_run(old)
-      ! ------------------------------------------------------------------------
-      !                                Physics
-      call test_forcing_run(dt_dyn, old)
-      if (baroclinic) then
+      if (proc%is_model()) then
+        ! ----------------------------------------------------------------------
+        !                              Dynamical Core
         do iblk = 1, size(blocks)
-          call physics_run(blocks(iblk), old, dt_phys)
-          if (pdc_type == 3) call physics_update(blocks(iblk), old, dt_phys)
+          call time_integrator(operators, blocks(iblk), old, new, dt_dyn)
+          call damp_run(blocks(iblk), blocks(iblk)%dstate(new), dt_dyn)
+          if (pdc_type == 1) call physics_update_dynamics(blocks(iblk), new, dt_dyn)
+          call blocks(iblk)%dstate(new)%c2a()
         end do
+        ! ----------------------------------------------------------------------
+        ! Advance to n+1 time level.
+        ! NOTE: Time indices are swapped, e.g. new <=> old.
+        call time_advance(dt_dyn)
+        ! ----------------------------------------------------------------------
+        !                            Tracer Advection
+        call adv_run(old)
+        ! ----------------------------------------------------------------------
+        !                                Physics
+        call test_forcing_run(dt_dyn, old)
+        if (baroclinic) then
+          do iblk = 1, size(blocks)
+            call physics_run(blocks(iblk), old, dt_phys)
+            if (pdc_type == 3) call physics_update(blocks(iblk), old, dt_phys)
+          end do
+        end if
+        ! ----------------------------------------------------------------------
+        if (time_is_alerted('print')) then
+          call diagnose(blocks, old)
+          if (proc%is_root()) call log_print_diag(curr_time%isoformat())
+        end if
+        call blocks(1)%accum(old)
+      else
+        call time_advance(dt_dyn)
       end if
-      ! ------------------------------------------------------------------------
-      if (time_is_alerted('print')) then
-        call diagnose(blocks, old)
-        if (proc%is_root()) call log_print_diag(curr_time%isoformat())
-      end if
-      call blocks(1)%accum(old)
       call output(old)
     end do model_main_loop
 
@@ -319,7 +333,6 @@ contains
 
     if (first_call .or. time_is_alerted('history_write')) then
       if (first_call) time1 = MPI_WTIME()
-      call process_barrier()
       time2 = MPI_WTIME()
       if (.not. first_call) then
         if (proc%is_root()) call log_notice('Time cost ' // to_str(time2 - time1, 5) // ' seconds.')
@@ -446,13 +459,13 @@ contains
       end if
       end associate
     end do
-                    call global_sum(proc%comm, tm   )
-    if (idx_qv > 0) call global_sum(proc%comm, tqv  )
-                    call global_sum(proc%comm, te_ke)
-                    call global_sum(proc%comm, te_ie)
-                    call global_sum(proc%comm, te_pe)
-                    call global_sum(proc%comm, tpe  )
-    if (baroclinic) call global_sum(proc%comm, tpt  )
+                    call global_sum(proc%comm_model, tm   )
+    if (idx_qv > 0) call global_sum(proc%comm_model, tqv  )
+                    call global_sum(proc%comm_model, te_ke)
+                    call global_sum(proc%comm_model, te_ie)
+                    call global_sum(proc%comm_model, te_pe)
+                    call global_sum(proc%comm_model, tpe  )
+    if (baroclinic) call global_sum(proc%comm_model, tpt  )
     te = te_ke + te_ie + te_pe
 
     do iblk = 1, size(blocks)

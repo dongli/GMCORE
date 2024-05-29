@@ -28,7 +28,7 @@ contains
 
     integer, intent(in), optional :: comm
 
-    integer thread, ierr, n
+    integer thread, ierr, color, key, new_comm, n
 
     if (present(comm)) then
       proc%comm = comm
@@ -37,12 +37,35 @@ contains
       proc%comm = MPI_COMM_WORLD
       call perf_init()
     end if
-    call MPI_COMM_GROUP(proc%comm, proc%group, ierr)
-    call MPI_COMM_SIZE(proc%comm, proc%np, ierr)
-    call MPI_COMM_RANK(proc%comm, proc%id, ierr)
-    call MPI_GET_PROCESSOR_NAME(proc%hostname, n, ierr)
 
-    call latlon_decomp_run(proc_layout, nproc_x, nproc_y, ierr)
+    if (use_async_io) then
+      ! Use one process per proc_io_stride processes for IO.
+      call MPI_COMM_RANK(proc%comm, key, ierr)
+      color = merge(0, 1, mod(key, proc_io_stride) == 0)
+      call MPI_COMM_SPLIT(proc%comm, color, key, new_comm, ierr)
+      proc%comm_io = proc%comm
+      if (color == 0) then
+        proc%type = proc_type_io
+      else
+        proc%comm_model = new_comm
+        proc%type = proc_type_model
+      end if
+    else
+      proc%comm_model = proc%comm
+      proc%comm_io = proc%comm
+      proc%type = proc_type_model
+    end if
+
+    if (proc%type == proc_type_model) then
+      call MPI_COMM_GROUP(proc%comm_model, proc%group, ierr)
+      call MPI_COMM_SIZE(proc%comm_model, proc%np_model, ierr)
+      call MPI_COMM_RANK(proc%comm_model, proc%id_model, ierr)
+      call MPI_GET_PROCESSOR_NAME(proc%hostname, n, ierr)
+      call latlon_decomp_run(proc_layout, nproc_x, nproc_y, ierr)
+    end if
+
+    call MPI_COMM_SIZE(proc%comm_io, proc%np_io, ierr)
+    call MPI_COMM_RANK(proc%comm_io, proc%id_io, ierr)
 
   end subroutine process_init
 
@@ -62,7 +85,7 @@ contains
     integer ierr
 
     if (present(msg)) then
-      call log_warning(msg, pid=proc%id)
+      call log_warning(msg, pid=proc%id_model)
     end if
     call MPI_ABORT(proc%comm, code, ierr)
 
@@ -82,8 +105,14 @@ contains
       end do
       deallocate(blocks)
     end if
-    if (proc%group /= MPI_GROUP_NULL) call MPI_GROUP_FREE(proc%group, ierr)
+    if (proc%group      /= MPI_GROUP_NULL) call MPI_GROUP_FREE(proc%group     , ierr)
     if (proc%cart_group /= MPI_GROUP_NULL) call MPI_GROUP_FREE(proc%cart_group, ierr)
+    if (proc%comm_model /= MPI_COMM_NULL .and. proc%comm_model /= MPI_COMM_WORLD) then
+      call MPI_COMM_FREE (proc%comm_model, ierr)
+    end if
+    if (proc%comm_io    /= MPI_COMM_NULL .and. proc%comm_io    /= MPI_COMM_WORLD) then
+      call MPI_COMM_FREE (proc%comm_io   , ierr)
+    end if
 
     call MPI_FINALIZE(ierr)
 
@@ -108,23 +137,25 @@ contains
     end do
     lon_hw = max(lon_hw, global_mesh%lon_hw)
 
-    ! Get lon_hw from southern and northern neighbors.
-    if (proc%ngb(south)%id /= MPI_PROC_NULL) then
-      call MPI_SENDRECV(lon_hw, 1, MPI_INT, proc%ngb(south)%id, 100, &
-                        proc%ngb(south)%lon_hw, 1, MPI_INT, proc%ngb(south)%id, 100, &
-                        proc%comm, status, ierr)
-    else
-      proc%ngb(south)%lon_hw = 0
-    end if
-    if (proc%ngb(north)%id /= MPI_PROC_NULL) then
-      call MPI_SENDRECV(lon_hw, 1, MPI_INT, proc%ngb(north)%id, 100, &
-                        proc%ngb(north)%lon_hw, 1, MPI_INT, proc%ngb(north)%id, 100, &
-                        proc%comm, status, ierr)
-    else
-      proc%ngb(north)%lon_hw = 0
+    if (proc%is_model()) then
+      ! Get lon_hw from southern and northern neighbors.
+      if (proc%ngb(south)%id /= MPI_PROC_NULL) then
+        call MPI_SENDRECV(lon_hw, 1, MPI_INT, proc%ngb(south)%id, 100, &
+                          proc%ngb(south)%lon_hw, 1, MPI_INT, proc%ngb(south)%id, 100, &
+                          proc%comm_model, status, ierr)
+      else
+        proc%ngb(south)%lon_hw = 0
+      end if
+      if (proc%ngb(north)%id /= MPI_PROC_NULL) then
+        call MPI_SENDRECV(lon_hw, 1, MPI_INT, proc%ngb(north)%id, 100, &
+                          proc%ngb(north)%lon_hw, 1, MPI_INT, proc%ngb(north)%id, 100, &
+                          proc%comm_model, status, ierr)
+      else
+        proc%ngb(north)%lon_hw = 0
+      end if
     end if
 
-    if (lon_hw > blocks(1)%mesh%full_nlon) then
+    if (lon_hw > blocks(1)%mesh%full_nlon .and. proc%is_model()) then
       call log_error('Too large zonal halo width ' // to_str(lon_hw) // '!', __FILE__, __LINE__)
     end if
 
@@ -133,8 +164,13 @@ contains
     end if
     call global_mesh%reinit(lon_hw)
 
-    allocate(blocks(1)%filter_halo(size(proc%ngb)))
-    allocate(blocks(1)%       halo(size(proc%ngb)))
+    if (proc%is_model()) then
+      allocate(blocks(1)%filter_halo(size(proc%ngb)))
+      allocate(blocks(1)%       halo(size(proc%ngb)))
+    else
+      allocate(blocks(1)%filter_halo(1))
+      allocate(blocks(1)%       halo(1))
+    end if
     call blocks(1)%init_stage_2()
 
     ! Setup halos (only normal halos for the time being).
@@ -148,25 +184,27 @@ contains
     case default
       call log_error('Unsupported parameter r8!')
     end select
-    do i = 1, size(proc%ngb)
-      proc%ngb(i)%orient = i
-      select case (proc%ngb(i)%orient)
-      case (west, east)
-        call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype, &
-                                    host_id=proc%id, ngb_proc_id=proc%ngb(i)%id)
-        call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,   &
-                                    host_id=proc%id, ngb_proc_id=proc%ngb(i)%id)
-      case (south, north)
-        lon_hw = 0 ! We don't need diagonal halo for arrays on the filter_mesh.
-        call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,    &
-                                    host_id=proc%id, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
-                                    at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
-        lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(i)%lon_hw)
-        call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                  &
-                                    host_id=proc%id, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
-                                    at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
-      end select
-    end do
+    if (proc%is_model()) then
+      do i = 1, size(proc%ngb)
+        proc%ngb(i)%orient = i
+        select case (proc%ngb(i)%orient)
+        case (west, east)
+          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype, &
+                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,   &
+                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id)
+        case (south, north)
+          lon_hw = 0 ! We don't need diagonal halo for arrays on the filter_mesh.
+          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,    &
+                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
+                                      at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
+          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(i)%lon_hw)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                  &
+                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
+                                      at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
+        end select
+      end do
+    end if
 
   end subroutine process_create_blocks
 

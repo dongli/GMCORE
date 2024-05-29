@@ -73,7 +73,7 @@ contains
       hflx => hflx_ppm
       vflx => vflx_ppm
     case default
-      call log_error('Invalid ffsl_flux_type ' // trim(ffsl_flux_type) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Invalid ffsl_flux_type ' // trim(ffsl_flux_type) // '!')
     end select
 
     call limiter_init()

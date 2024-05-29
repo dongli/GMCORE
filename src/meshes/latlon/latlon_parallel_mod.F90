@@ -99,24 +99,24 @@ contains
     if (west_halo_opt) then
       call MPI_SENDRECV(field%d, 1, field%halo(east)%send_type_2d(t1,t2), field%halo(east)%proc_id, 21, &
                         field%d, 1, field%halo(west)%recv_type_2d(t1,t2), field%halo(west)%proc_id, 21, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (east_halo_opt) then
       call MPI_SENDRECV(field%d, 1, field%halo(west)%send_type_2d(t1,t2), field%halo(west)%proc_id, 22, &
                         field%d, 1, field%halo(east)%recv_type_2d(t1,t2), field%halo(east)%proc_id, 22, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (south_halo_opt) then
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_north_pole) then
         call MPI_ISEND(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, 23, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_south_pole) then
         call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_2d(t1,t2), field%halo(south)%proc_id, 23, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -126,11 +126,11 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_south_pole) then
         call MPI_ISEND(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, 24, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_north_pole) then
         call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_2d(t1,t2), field%halo(north)%proc_id, 24, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -139,10 +139,10 @@ contains
     if (south_halo_opt .and. proc%at_south_pole .and. field%halo_cross_pole) then
       call MPI_SENDRECV(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, 25, &
                         field%d, 1, field%halo(south)%recv_type_2d(t1,t2), field%halo(south)%proc_id, 25, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,js:js+hy-1)
-      if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = js, js + hy - 1
           field%d(   1:mx,j) = tmp(hx+1+mx:hx+nx,hy+js-j)
           field%d(mx+1:nx,j) = tmp(hx+1   :hx+mx,hy+js-j)
@@ -158,10 +158,10 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req  = MPI_REQUEST_NULL
       call MPI_SENDRECV(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, 26, &
                         field%d, 1, field%halo(north)%recv_type_2d(t1,t2), field%halo(north)%proc_id, 26, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,je-hy+1:je)
-      if (field%halo(north)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = je - hy + 1, je
           field%d(   1:mx,j) = tmp(hx+1+mx:hx+nx,je+1-j)
           field%d(mx+1:nx,j) = tmp(hx+1   :hx+mx,je+1-j)
@@ -220,24 +220,24 @@ contains
     if (west_halo_opt) then
       call MPI_SENDRECV(field%d, 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, 31, &
                         field%d, 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, 31, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (east_halo_opt) then
       call MPI_SENDRECV(field%d, 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, 32, &
                         field%d, 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, 32, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (south_halo_opt) then
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_north_pole) then
         call MPI_ISEND(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 33, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_south_pole) then
         call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 33, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -247,11 +247,11 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_south_pole) then
         call MPI_ISEND(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 34, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_north_pole) then
         call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 34, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -260,10 +260,10 @@ contains
     if (south_halo_opt .and. proc%at_south_pole .and. field%halo_cross_pole) then
       call MPI_SENDRECV(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 35, &
                         field%d, 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 35, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,js:js+hy-1,:)
-      if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = js, js + hy - 1
           field%d(   1:mx,j,:) = tmp(hx+1+mx:hx+nx,hy+js-j,:)
           field%d(mx+1:nx,j,:) = tmp(hx+1   :hx+mx,hy+js-j,:)
@@ -279,10 +279,10 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req  = MPI_REQUEST_NULL
       call MPI_SENDRECV(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 36, &
                         field%d, 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 36, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,je-hy+1:je,:)
-      if (field%halo(north)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = je - hy + 1, je
           field%d(   1:mx,j,:) = tmp(hx+1+mx:hx+nx,je+1-j,:)
           field%d(mx+1:nx,j,:) = tmp(hx+1   :hx+mx,je+1-j,:)
@@ -342,24 +342,24 @@ contains
     if (west_halo_opt) then
       call MPI_SENDRECV(field%d(:,:,:,i4), 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, 41, &
                         field%d(:,:,:,i4), 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, 41, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (east_halo_opt) then
       call MPI_SENDRECV(field%d(:,:,:,i4), 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, 42, &
                         field%d(:,:,:,i4), 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, 42, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
     end if
 
     if (south_halo_opt) then
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_north_pole) then
         call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 43, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_south_pole) then
         call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 43, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -369,11 +369,11 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req = MPI_REQUEST_NULL
       if (.not. proc%at_south_pole) then
         call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 44, &
-                       proc%comm, send_req, ierr)
+                       proc%comm_model, send_req, ierr)
       end if
       if (.not. proc%at_north_pole) then
         call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 44, &
-                       proc%comm, recv_req, ierr)
+                       proc%comm_model, recv_req, ierr)
       end if
       call MPI_WAIT(send_req, MPI_STATUS_IGNORE, ierr)
       call MPI_WAIT(recv_req, MPI_STATUS_IGNORE, ierr)
@@ -382,10 +382,10 @@ contains
     if (south_halo_opt .and. proc%at_south_pole .and. field%halo_cross_pole) then
       call MPI_SENDRECV(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 45, &
                         field%d(:,:,:,i4), 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 45, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,js:js+hy-1,:,i4)
-      if (field%halo(south)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = js, js + hy - 1
           field%d(   1:mx,j,:,i4) = tmp(hx+1+mx:hx+nx,hy+js-j,:)
           field%d(mx+1:nx,j,:,i4) = tmp(hx+1   :hx+mx,hy+js-j,:)
@@ -401,10 +401,10 @@ contains
       send_req = MPI_REQUEST_NULL; recv_req  = MPI_REQUEST_NULL
       call MPI_SENDRECV(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 46, &
                         field%d(:,:,:,i4), 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 46, &
-                        proc%comm, MPI_STATUS_IGNORE, ierr)
+                        proc%comm_model, MPI_STATUS_IGNORE, ierr)
       ! Reverse array order.
       tmp = field%d(:,je-hy+1:je,:,i4)
-      if (field%halo(north)%proc_id == proc%id) then ! 1D decompostion, also reverse in lon
+      if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
         do j = je - hy + 1, je
           field%d(   1:mx,j,:,i4) = tmp(hx+1+mx:hx+nx,je+1-j,:)
           field%d(mx+1:nx,j,:,i4) = tmp(hx+1   :hx+mx,je+1-j,:)

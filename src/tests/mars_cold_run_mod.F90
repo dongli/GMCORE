@@ -43,39 +43,42 @@ contains
     min_lat = mesh%full_lat_deg(max(1, mesh%full_jds-1))
     max_lat = mesh%full_lat_deg(min(global_mesh%full_nlat, mesh%full_jde+1))
     call topo_reader_run(topo_file, min_lon, max_lon, min_lat, max_lat)
-    call latlon_topo_regrid(block)
-    if (use_topo_smooth) then
-      call latlon_topo_smooth(block)
-    end if
 
-    u%d = 0
-    v%d = 0
-    t%d = t0
+    if (proc%is_model()) then
+      call latlon_topo_regrid(block)
+      if (use_topo_smooth) then
+        call latlon_topo_smooth(block)
+      end if
 
-    ps = 0
-    do j = mesh%full_jds, mesh%full_jde
-      do i = mesh%full_ids, mesh%full_ide
-        mgs%d(i,j) = ps0 * exp(-gzs%d(i,j) / (Rd * t0))
-        phs%d(i,j) = mgs%d(i,j)
-        ps = ps + mgs%d(i,j) * mesh%area_cell(j)
-      end do
-    end do
-    call global_sum(proc%comm, ps)
-    ps = ps / global_mesh%total_area
-    ! Scale mgs to get area-weighted mean value 701 hPa.
-    mgs%d = mgs%d * ps0 / ps
-    call fill_halo(mgs)
+      u%d = 0
+      v%d = 0
+      t%d = t0
 
-    call calc_mg(block, block%dstate(1))
-
-    do k = mesh%full_kds, mesh%full_kde
+      ps = 0
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), mg%d(i,j,k), 0.0_r8)
+          mgs%d(i,j) = ps0 * exp(-gzs%d(i,j) / (Rd * t0))
+          phs%d(i,j) = mgs%d(i,j)
+          ps = ps + mgs%d(i,j) * mesh%area_cell(j)
         end do
       end do
-    end do
-    call fill_halo(pt)
+      call global_sum(proc%comm_model, ps)
+      ps = ps / global_mesh%total_area
+      ! Scale mgs to get area-weighted mean value 701 hPa.
+      mgs%d = mgs%d * ps0 / ps
+      call fill_halo(mgs)
+
+      call calc_mg(block, block%dstate(1))
+
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), mg%d(i,j,k), 0.0_r8)
+          end do
+        end do
+      end do
+      call fill_halo(pt)
+    end if
     end associate
 
   end subroutine mars_cold_run_set_ic

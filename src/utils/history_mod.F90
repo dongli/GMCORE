@@ -142,7 +142,8 @@ contains
     class(*), pointer :: field
     integer i
 
-    call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
+    call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), &
+      mpi_comm=proc%comm_io, ngroups=output_ngroups, async=use_async_io)
     ! Global attributes
     call fiona_add_att('h0', 'planet', planet)
     call fiona_add_att('h0', 'time_step_size', dt)
@@ -205,7 +206,6 @@ contains
     end select
 
     if (first_call .or. time_has_alert('h0_new_file')) then
-      if (proc%is_root()) print *, 'write lon, lat, ilon, ilat'
       call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
       call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
       call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
@@ -246,7 +246,8 @@ contains
 
     integer i
 
-    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), mpi_comm=proc%comm, ngroup=output_ngroups)
+    call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), &
+      mpi_comm=proc%comm_io, ngroups=output_ngroups)
     call fiona_add_att('h1', 'time_step_size', dt)
     call fiona_add_dim('h1', 'time' , add_var=.true.)
     call fiona_add_dim('h1', 'lon'  , size=global_mesh%full_nlon, add_var=.true., decomp=.true.)
@@ -324,7 +325,7 @@ contains
     if (.not. regrid_initialized) return
 
     call fiona_create_dataset('h2', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm, ngroup=output_ngroups)
+      mpi_comm=proc%comm_io, ngroups=output_ngroups)
     ! Global attributes
     call fiona_add_att('h2', 'planet', planet)
     ! Dimensions

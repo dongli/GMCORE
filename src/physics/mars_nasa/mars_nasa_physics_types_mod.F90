@@ -237,7 +237,7 @@ contains
     real(r8), allocatable :: array(:,:)
 
     ! Surface albedo
-    call fiona_open_dataset('alb', file_path=albedo_file, mpi_comm=proc%comm, ngroup=input_ngroup)
+    call fiona_open_dataset('alb', file_path=albedo_file, mpi_comm=proc%comm_model, ngroups=input_ngroup)
     call fiona_set_dim('alb', 'lon', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('alb', 'lat', span=[-90, 90])
     call fiona_start_input('alb')
@@ -249,7 +249,7 @@ contains
     deallocate(lon, lat, array)
 
     ! Surface thermal inertia
-    call fiona_open_dataset('tin', file_path=thermal_inertia_file, mpi_comm=proc%comm, ngroup=input_ngroup)
+    call fiona_open_dataset('tin', file_path=thermal_inertia_file, mpi_comm=proc%comm_model, ngroups=input_ngroup)
     call fiona_set_dim('tin', 'lon', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('tin', 'lat', span=[-90, 90])
     call fiona_start_input('tin')
@@ -261,7 +261,7 @@ contains
     deallocate(lon, lat, array)
 
     ! Ground ice indicator
-    call fiona_open_dataset('gnd_ice', file_path=gnd_ice_file, mpi_comm=proc%comm, ngroup=input_ngroup)
+    call fiona_open_dataset('gnd_ice', file_path=gnd_ice_file, mpi_comm=proc%comm_model, ngroups=input_ngroup)
     call fiona_set_dim('gnd_ice', 'lon', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('gnd_ice', 'lat', span=[-90, 90])
     call fiona_start_input('gnd_ice')

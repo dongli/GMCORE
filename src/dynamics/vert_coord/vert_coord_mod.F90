@@ -91,7 +91,7 @@ contains
       end if
       vert_coord_template = template
     else if (baroclinic .and. (vert_coord_scheme == 'hybrid' .and. vert_coord_template == 'N/A')) then
-      call log_error('Parameter vert_coord_template is not set!', pid=proc%id)
+      if (proc%is_root()) call log_error('Parameter vert_coord_template is not set!')
     end if
 
     select case (vert_coord_scheme)

@@ -87,13 +87,13 @@ contains
 
     call shr_orb_params(iyear_AD=2000, eccen=eccen, obliq=obliq, mvelp=mvelp, obliqr=obliqr, lambm0=lambm0, mvelpp=mvelpp, log_print=.true.)
 
-    comp_comm(1) = proc%comm
-    comp_comm_iam(1) = proc%id
+    comp_comm(1) = proc%comm_model
+    comp_comm_iam(1) = proc%id_model
     comp_iamin(1) = .true.
 
-    call spmdinit(proc%comm)
+    call spmdinit(proc%comm_model)
     call cam_instance_init(atm_id, 'atm', 1, '_1')
-    call shr_pio_init1(ncomps, trim(merge(namelist_path, cam_namelist_path, cam_namelist_path == 'N/A')), proc%comm)
+    call shr_pio_init1(ncomps, trim(merge(namelist_path, cam_namelist_path, cam_namelist_path == 'N/A')), proc%comm_model)
     call shr_pio_init2(comp_id, comp_name, comp_iamin, comp_comm, comp_comm_iam)
     call init_pio_subsystem()
     call cam_ctrl_init(                &

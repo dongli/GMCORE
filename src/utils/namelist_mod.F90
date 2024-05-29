@@ -69,11 +69,14 @@ module namelist_mod
 
   character(256)  :: gmcore_data_dir      = 'N/A'
 
+  integer         :: nproc_io             = 0         ! Number of processes for IO (asynchronized output)
   integer         :: nproc_x(20)          = 0
   integer         :: nproc_y(20)          = 0
   integer         :: lon_hw               = 3
   integer         :: lat_hw               = 3
   character(30)   :: proc_layout          = 'lon>lat' ! or 'lat>lon'
+  logical         :: use_async_io         = .false.   ! Use asynchronized output
+  integer         :: proc_io_stride       = 0         ! ID stride for IO processes
 
   character(30)   :: tangent_wgt_scheme   = 'classic'
 
@@ -197,11 +200,14 @@ module namelist_mod
     nlev                      , &
     nonhydrostatic            , &
     advection                 , &
+    nproc_io                  , &
     nproc_x                   , &
     nproc_y                   , &
     lon_hw                    , &
     lat_hw                    , &
     proc_layout               , &
+    use_async_io              , &
+    proc_io_stride            , &
     initial_time              , &
     start_time                , &
     end_time                  , &
@@ -318,6 +324,15 @@ contains
     open(10, file=file_path, status='old')
     read(10, nml=gmcore_control)
     close(10)
+
+    if (use_async_io .and. nproc_io < 1) then
+      nproc_io = 1
+    end if
+
+    if (use_async_io) then
+      input_ngroups = nproc_io
+      output_ngroups = nproc_io
+    end if
 
     ! Here we set baroclinic according to levels.
     baroclinic = nlev > 1

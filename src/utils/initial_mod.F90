@@ -58,7 +58,7 @@ contains
       call cpu_time(time1)
     end if
 
-    call fiona_create_dataset('i0', file_path=initial_file, start_time=initial_time, time_units='hours', mpi_comm=proc%comm, ngroup=output_ngroups)
+    call fiona_create_dataset('i0', file_path=initial_file, start_time=initial_time, time_units='hours', mpi_comm=proc%comm_model, ngroups=output_ngroups)
     call fiona_add_dim('i0', 'time', add_var=.true.)
     call fiona_add_dim('i0',  'lon', size=global_mesh%full_nlon, add_var=.true., decomp=.true.)
     call fiona_add_dim('i0',  'lat', size=global_mesh%full_nlat, add_var=.true., decomp=.true.)
@@ -258,10 +258,10 @@ contains
     if (proc%is_root()) call cpu_time(time1)
 
     if (present(initial_file_)) then
-      call fiona_open_dataset('i0', file_path=initial_file_, mpi_comm=proc%comm, ngroup=input_ngroups)
+      call fiona_open_dataset('i0', file_path=initial_file_, mpi_comm=proc%comm_model, ngroups=input_ngroups)
       if (proc%is_root()) call log_notice('Read initial data from ' // trim(initial_file_) // '.')
     else
-      call fiona_open_dataset('i0', file_path=initial_file, mpi_comm=proc%comm, ngroup=input_ngroups)
+      call fiona_open_dataset('i0', file_path=initial_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
       if (proc%is_root()) call log_notice('Read initial data from ' // trim(initial_file) // '.')
     end if
     call fiona_start_input('i0')

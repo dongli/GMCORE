@@ -66,7 +66,7 @@ contains
     case ('upwind')
       interp_pv => interp_pv_upwind
     case default
-      call log_error('Invalid pv_scheme ' // trim(pv_scheme) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Invalid pv_scheme ' // trim(pv_scheme) // '!')
     end select
 
   end subroutine operators_init

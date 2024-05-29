@@ -34,7 +34,7 @@ contains
     case ('mc')
       flux_limiter => flux_limiter_mc
     case default
-      call log_error('Invalid tvd_limiter_type ' // trim(tvd_limiter_type) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('Invalid tvd_limiter_type ' // trim(tvd_limiter_type) // '!')
     end select
 
   end subroutine tvd_init

@@ -95,7 +95,7 @@ contains
     end if
 
     call fiona_create_dataset('r0', desc=case_desc, file_prefix=trim(case_name) // '.' // trim(curr_time_str), &
-      mpi_comm=proc%comm, ngroup=output_ngroups)
+      mpi_comm=proc%comm_model, ngroups=output_ngroups)
 
     call fiona_add_att('r0', 'start_time', start_time%isoformat())
     call fiona_add_att('r0', 'time_step_size', dt_dyn)
@@ -138,7 +138,7 @@ contains
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
         if (batch%step /= -1) then
-          call log_error('Restart advection batch ' // trim(batch%name) // ', but its step is not -1!', pid=proc%id)
+          if (proc%is_root()) call log_error('Restart advection batch ' // trim(batch%name) // ', but its step is not -1!')
         end if
         call write_fields('r0', mesh, batch%fields)
         end associate
@@ -174,7 +174,7 @@ contains
       time1 = MPI_WTIME()
     end if
 
-    call fiona_open_dataset('r0', file_path=restart_file, mpi_comm=proc%comm, ngroup=input_ngroups)
+    call fiona_open_dataset('r0', file_path=restart_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
     call fiona_start_input('r0')
 
     call fiona_get_att('r0', 'start_time', start_time_str)

@@ -27,6 +27,8 @@ module latlon_parallel_types_mod
   integer, public, parameter :: east  = 2
   integer, public, parameter :: south = 3
   integer, public, parameter :: north = 4
+  integer, public, parameter :: proc_type_model = 1
+  integer, public, parameter :: proc_type_io    = 2
 
   type zonal_circle_type
     integer :: group       = MPI_GROUP_NULL
@@ -52,24 +54,29 @@ module latlon_parallel_types_mod
   end type process_neighbor_type
 
   type process_type
-    integer :: comm           = MPI_COMM_NULL
+    integer :: comm           = MPI_COMM_NULL          ! Top MPI communicator
+    integer :: comm_model     = MPI_COMM_NULL          ! MPI communicator for model computation
+    integer :: comm_io        = MPI_COMM_NULL          ! MPI communicator for IO
     integer :: cart_comm      = MPI_COMM_NULL
     integer :: group          = MPI_GROUP_NULL
     integer :: cart_group     = MPI_GROUP_NULL
     integer :: cart_dims(2)   = 0
     integer :: cart_coords(2) = 0
-    integer :: id             = MPI_PROC_NULL          ! MPI process ID
+    integer :: id_model       = MPI_PROC_NULL          ! MPI process ID for model computation
+    integer :: id_io          = MPI_PROC_NULL          ! MPI process ID for IO
+    integer :: np_model       = 0                      ! Number of model processes
+    integer :: np_io          = 0                      ! Number of IO processes
     integer :: cart_id        = MPI_PROC_NULL          ! MPI process ID in cart_comm
+    integer :: type           = proc_type_model        ! Process type (model, io, etc.)
     integer idom                                       ! Nest domain index (root domain is 1)
-    integer np
     integer nlon
     integer nlat
-    integer ids
-    integer ide
-    integer jds
-    integer jde
-    logical :: at_south_pole = .false.
-    logical :: at_north_pole = .false.
+    integer :: ids            = 1
+    integer :: ide            = 1
+    integer :: jds            = 1
+    integer :: jde            = 1
+    logical :: at_south_pole  = .false.
+    logical :: at_north_pole  = .false.
     type(zonal_circle_type) zonal_circle
     type(process_neighbor_type), allocatable :: ngb(:) ! Neighbor processes
     ! Decomposition information
@@ -82,6 +89,8 @@ module latlon_parallel_types_mod
     integer decomp_loc
   contains
     procedure :: is_root => process_is_root
+    procedure :: is_model => process_is_model
+    procedure :: is_io => process_is_io
   end type process_type
 
   type(process_type) proc
@@ -213,8 +222,24 @@ contains
 
     class(process_type), intent(in) :: this
 
-    res = this%id == 0
+    res = this%id_model == 0
 
   end function process_is_root
+
+  pure logical function process_is_model(this) result(res)
+
+    class(process_type), intent(in) :: this
+
+    res = this%type == proc_type_model
+
+  end function process_is_model
+
+  pure logical function process_is_io(this) result(res)
+
+    class(process_type), intent(in) :: this
+
+    res = this%type == proc_type_io
+
+  end function process_is_io
 
 end module latlon_parallel_types_mod

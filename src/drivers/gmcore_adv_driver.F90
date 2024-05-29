@@ -79,7 +79,7 @@ program gmcore_adv_driver
     set_ic => dcmip12_test_set_ic
     set_uv => dcmip12_test_set_uv
   case default
-    call log_error('Unknown test case ' // trim(test_case) // '!', pid=proc%id)
+    if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
   end select
 
   call gmcore_init_stage2(namelist_path)
@@ -130,7 +130,7 @@ contains
             end do
           end do
         end do
-        call global_sum(proc%comm, qm)
+        call global_sum(proc%comm_model, qm)
         call log_add_diag('qm' // to_str(l), qm)
       end do
       end associate

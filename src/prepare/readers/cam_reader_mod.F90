@@ -49,7 +49,7 @@ contains
 
     if (proc%is_root()) call log_notice('Use CAM initial file ' // trim(bkg_file) // ' as background.')
 
-    call fiona_open_dataset('cam', file_path=bkg_file, mpi_comm=proc%comm, ngroup=input_ngroups)
+    call fiona_open_dataset('cam', file_path=bkg_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
     call fiona_set_dim('cam', 'lon', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('cam', 'lat', span=[-90, 90])
     call fiona_get_dim('cam', 'lev', size=cam_nlev)

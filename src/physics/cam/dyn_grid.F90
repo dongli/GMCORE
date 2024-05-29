@@ -131,7 +131,7 @@ contains
     integer, intent(out) :: block_last
 
     block_first = 1
-    block_last = proc%np
+    block_last = proc%np_model
 
   end subroutine get_block_bounds_d
 

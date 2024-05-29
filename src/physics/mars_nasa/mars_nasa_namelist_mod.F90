@@ -66,7 +66,7 @@ contains
     open(10, file=file_path, status='old')
     read(10, nml=mars_nasa_control, iostat=ierr)
     if (ierr /= 0 .and. ierr /= -1) then
-      call log_error('There is error in mars_nasa_control namelist in ' // trim(file_path) // '!', pid=proc%id)
+      if (proc%is_root()) call log_error('There is error in mars_nasa_control namelist in ' // trim(file_path) // '!')
     end if
     close(10)
 
@@ -75,7 +75,7 @@ contains
     end if
     inquire(file=kcoef_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('kcoef_file ' // trim(kcoef_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('kcoef_file ' // trim(kcoef_file) // ' does not exist!')
     end if
 
     if (dust_optics_file == '' .and. present(model_root)) then
@@ -83,7 +83,7 @@ contains
     end if
     inquire(file=dust_optics_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('dust_optics_file ' // trim(dust_optics_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('dust_optics_file ' // trim(dust_optics_file) // ' does not exist!')
     end if
 
     if (cld_optics_file == '' .and. present(model_root)) then
@@ -91,7 +91,7 @@ contains
     end if
     inquire(file=cld_optics_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('cld_optics_file ' // trim(cld_optics_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('cld_optics_file ' // trim(cld_optics_file) // ' does not exist!')
     end if
 
     if (albedo_file == '' .and. present(model_root)) then
@@ -99,7 +99,7 @@ contains
     end if
     inquire(file=albedo_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('albedo_file ' // trim(albedo_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('albedo_file ' // trim(albedo_file) // ' does not exist!')
     end if
 
     if (thermal_inertia_file == '' .and. present(model_root)) then
@@ -107,7 +107,7 @@ contains
     end if
     inquire(file=thermal_inertia_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('thermal_inertia_file ' // trim(thermal_inertia_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('thermal_inertia_file ' // trim(thermal_inertia_file) // ' does not exist!')
     end if
 
     if (gnd_ice_file == '' .and. present(model_root)) then
@@ -115,7 +115,7 @@ contains
     end if
     inquire(file=gnd_ice_file, exist=is_exist)
     if (.not. is_exist) then
-      call log_error('gnd_ice_file ' // trim(gnd_ice_file) // ' does not exist!', pid=proc%id)
+      if (proc%is_root()) call log_error('gnd_ice_file ' // trim(gnd_ice_file) // ' does not exist!')
     end if
 
   end subroutine mars_nasa_parse_namelist
