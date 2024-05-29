@@ -101,7 +101,7 @@ contains
     call time_init(dt_dyn)
     call process_init(comm)
 
-    if (nproc_io > 0 .and. nproc_io * proc_io_stride /= proc%np_io) then
+    if (use_async_io .and. nproc_io > 0 .and. nproc_io * proc_io_stride /= proc%np_io) then
       if (proc%is_root()) call log_error('Parameter nproc_io * proc_io_stride /= proc%np_io!')
     end if
 
