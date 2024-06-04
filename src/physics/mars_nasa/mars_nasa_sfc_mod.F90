@@ -9,6 +9,10 @@
 ! GoMars and GMCORE are distributed in the hope that it will be useful, but
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
+! Description:
+!
+!   This module calculates ustar and tstar from bulk Richardson number.
+! ==============================================================================
 
 module mars_nasa_sfc_mod
 
@@ -34,7 +38,7 @@ contains
     associate (mesh    => state%mesh   , &
                pt      => state%pt     , & ! in
                z       => state%z      , & ! in
-               t_sfc   => state%t_sfc  , & ! in
+               tg      => state%tg     , & ! in
                wsp_bot => state%wsp_bot, & ! in
                z0      => state%z0     , & ! in
                fm      => state%fm     , & ! out
@@ -45,7 +49,7 @@ contains
                tstar   => state%tstar  )   ! out
     nlev = mesh%nlev
     do icol = 1, mesh%ncol
-      dpt = pt(icol,nlev) - t_sfc(icol)
+      dpt = pt(icol,nlev) - tg(icol)
       ! FIXME: Check if z(icol,nlev) is about 5 m.
       ! Calculate bulk Richardson number.
       rib = g * z(icol,nlev) * dpt / (pt(icol,nlev) * wsp_bot(icol)**2 + 1.0e-9_r8)

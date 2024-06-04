@@ -222,6 +222,8 @@ contains
     real(r8) sum_dmf(block%mesh%full_ids:block%mesh%full_ide, &
                      block%mesh%full_jds:block%mesh%full_jde)
 
+    call perf_start('calc_omg')
+
     associate (mesh  => block%mesh   , &
                ph    => dstate%ph    , &
                u_lon => dstate%u_lon , &
@@ -245,6 +247,8 @@ contains
       end do
     end do
     end associate
+
+    call perf_stop('calc_omg')
 
   end subroutine calc_omg
 

@@ -27,6 +27,7 @@ module adv_mod
   use weno_mod
   use tvd_mod
   use physics_mod
+  use perf_mod
 
   implicit none
 
@@ -112,6 +113,8 @@ contains
 
     integer iblk, m
 
+    call perf_start('adv_prepare')
+
     if (.not. restart) then
       do iblk = 1, size(blocks)
         associate (dmg => blocks(iblk)%dstate(itime)%dmg)
@@ -124,6 +127,8 @@ contains
       end do
       call adv_accum_wind(itime)
     end if
+
+    call perf_stop('adv_prepare')
 
   end subroutine adv_prepare
 
@@ -237,6 +242,8 @@ contains
 
     integer kds, kde, kms, kme, i, j, k
 
+    call perf_start('adv_fill_vhalo')
+
     select case (f%loc)
     case ('cell')
       kds = f%mesh%full_kds
@@ -274,6 +281,8 @@ contains
       end do
     end do
 
+    call perf_stop('adv_fill_vhalo')
+
   end subroutine adv_fill_vhalo
 
   subroutine adv_accum_wind(itime)
@@ -281,6 +290,8 @@ contains
     integer, intent(in) :: itime
 
     integer iblk, l
+
+    call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
       associate (block   => blocks(iblk)                      , &
@@ -299,6 +310,8 @@ contains
       end if
       end associate
     end do
+
+    call perf_stop('adv_accum_wind')
 
   end subroutine adv_accum_wind
 

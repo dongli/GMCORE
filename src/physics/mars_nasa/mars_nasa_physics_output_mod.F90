@@ -36,16 +36,14 @@ contains
 
   end subroutine mars_nasa_add_output
 
-  subroutine mars_nasa_output(tag, iblk, start, count)
+  subroutine mars_nasa_output(tag, iblk)
 
     character(*), intent(in) :: tag
     integer, intent(in) :: iblk
-    integer, intent(in) :: start(3)
-    integer, intent(in) :: count(3)
 
-    associate (static => objects(iblk)%static, state => objects(iblk)%state)
-    call fiona_output(tag, 'tin' , reshape(static%tin, count(1:2)), start=start(1:2), count=count(1:2))
-    call fiona_output(tag, 'gnd_ice', reshape(static%gnd_ice, count(1:2)), start=start(1:2), count=count(1:2))
+    associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
+    call fiona_output(tag, 'tin' , reshape(state%tin, mesh%cell_count_2d(1:2)), start=mesh%cell_start_2d, count=mesh%cell_count_2d)
+    call fiona_output(tag, 'gnd_ice', reshape(state%gnd_ice, mesh%cell_count_2d(1:2)), start=mesh%cell_start_2d, count=mesh%cell_count_2d)
     end associate
 
   end subroutine mars_nasa_output

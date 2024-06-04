@@ -24,6 +24,7 @@ module mars_nasa_physics_driver_mod
   use mars_nasa_solar_mod
   use mars_nasa_rad_mod
   use mars_nasa_lsm_mod
+  use mars_nasa_pbl_mod
   use mars_nasa_mp_mod
 
   implicit none
@@ -58,17 +59,13 @@ contains
     integer , intent(in) :: input_ngroup
     character(*), intent(in), optional :: model_root
 
-    integer nlev
-
-    nlev = mesh(1)%nlev
-
     call mars_nasa_final()
     call mars_nasa_parse_namelist(namelist_path, model_root)
     call mars_nasa_tracers_init(dt_adv)
     call mars_nasa_objects_init(mesh)
     call mars_nasa_read_static_data(min_lon, max_lon, min_lat, max_lat, input_ngroup)
     call mars_nasa_lsm_init()
-    call mars_nasa_rad_init(nlev)
+    call mars_nasa_rad_init(mesh(1)%nlev)
     call mars_orbit_init()
 
   end subroutine mars_nasa_init_stage2
@@ -81,7 +78,7 @@ contains
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
       do icol = 1, mesh%ncol
         state%t_top(icol) = state%t(icol,1)
-        state%t_sfc(icol) = state%t(icol,mesh%nlev)
+        state%tg   (icol) = state%t(icol,mesh%nlev)
       end do
       end associate
     end do
@@ -93,6 +90,7 @@ contains
     call mars_nasa_rad_final()
     call mars_nasa_objects_final()
     call mars_nasa_lsm_final()
+    call mars_nasa_pbl_final()
 
   end subroutine mars_nasa_final
 
@@ -110,20 +108,79 @@ contains
 
     do iblk = 1, size(objects)
       associate (mesh   => objects(iblk)%mesh  , &
-                 static => objects(iblk)%static, &
                  state  => objects(iblk)%state , &
                  tend   => objects(iblk)%tend  )
       do icol = 1, objects(iblk)%mesh%ncol
         state%cosz(icol) = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%hours_in_day())
       end do
-      call mars_nasa_lsm_run(static, state, tend)
+      call mars_nasa_pbl_run(state, tend, dt)
+      call mars_nasa_lsm_run(state, tend)
       call mars_nasa_rad_run(state, tend)
       end associate
     end do
 
   end subroutine mars_nasa_run
 
+  subroutine mars_nasa_read_static_data(min_lon, max_lon, min_lat, max_lat, input_ngroups)
+
+    use latlon_interp_mod
+
+    real(r8), intent(in) :: min_lon
+    real(r8), intent(in) :: max_lon
+    real(r8), intent(in) :: min_lat
+    real(r8), intent(in) :: max_lat
+    integer , intent(in) :: input_ngroups
+
+    real(r8), allocatable :: lon(:)
+    real(r8), allocatable :: lat(:)
+    real(r8), allocatable :: array(:,:)
+    integer iblk
+
+    if (allocated(objects)) then
+      associate (mesh => objects(1)%mesh, state => objects(1)%state)
+      ! Surface albedo
+      call fiona_open_dataset('alb', file_path=albedo_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
+      call fiona_set_dim('alb', 'lon', span=[0, 360], cyclic=.true.)
+      call fiona_set_dim('alb', 'lat', span=[-90, 90])
+      call fiona_start_input('alb')
+      call fiona_input_range('alb', 'lon', lon, coord_range=[min_lon, max_lon]); lon = lon * rad
+      call fiona_input_range('alb', 'lat', lat, coord_range=[min_lat, max_lat]); lat = lat * rad
+      call fiona_input_range('alb', 'albedo', array, coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
+      call fiona_end_input('alb')
+      call latlon_interp_bilinear_column(lon, lat, array, mesh%lon, mesh%lat, state%alb)
+      deallocate(lon, lat, array)
+
+      ! Surface thermal inertia
+      call fiona_open_dataset('tin', file_path=thermal_inertia_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
+      call fiona_set_dim('tin', 'lon', span=[0, 360], cyclic=.true.)
+      call fiona_set_dim('tin', 'lat', span=[-90, 90])
+      call fiona_start_input('tin')
+      call fiona_input_range('tin', 'lon', lon, coord_range=[min_lon, max_lon]); lon = lon * rad
+      call fiona_input_range('tin', 'lat', lat, coord_range=[min_lat, max_lat]); lat = lat * rad
+      call fiona_input_range('tin', 'thin', array, coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
+      call fiona_end_input('tin')
+      call latlon_interp_bilinear_column(lon, lat, array, mesh%lon, mesh%lat, state%tin)
+      deallocate(lon, lat, array)
+
+      ! Ground ice indicator
+      call fiona_open_dataset('gnd_ice', file_path=gnd_ice_file, mpi_comm=proc%comm_model, ngroups=input_ngroups)
+      call fiona_set_dim('gnd_ice', 'lon', span=[0, 360], cyclic=.true.)
+      call fiona_set_dim('gnd_ice', 'lat', span=[-90, 90])
+      call fiona_start_input('gnd_ice')
+      call fiona_input_range('gnd_ice', 'lon', lon, coord_range=[min_lon, max_lon]); lon = lon * rad
+      call fiona_input_range('gnd_ice', 'lat', lat, coord_range=[min_lat, max_lat]); lat = lat * rad
+      call fiona_input_range('gnd_ice', 'gnd_ice', array, coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
+      call fiona_end_input('gnd_ice')
+      call latlon_interp_bilinear_column(lon, lat, array, mesh%lon, mesh%lat, state%gnd_ice)
+      deallocate(lon, lat, array)
+      end associate
+    end if
+
+  end subroutine mars_nasa_read_static_data
+
   subroutine mars_nasa_d2p()
+
+    ! Calculate ts.
 
   end subroutine mars_nasa_d2p
 

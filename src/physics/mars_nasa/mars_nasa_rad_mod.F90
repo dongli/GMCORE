@@ -37,10 +37,10 @@ module mars_nasa_rad_mod
 
   ! Reference pressure for Rayleigh scattering (Pa)
   real(r8), parameter :: ray_p0 = 9.423e6_r8
-  ! Rayleigh scattering optical depth at each visible spectral interval
-  real(r8), allocatable, dimension(:  ) :: tauray_vis
+  ! Rayleigh scattering optical depth at each vsible spectral interval
+  real(r8), allocatable, dimension(:  ) :: tauray_vs
   ! Integrated Planck function lookup table at each IR spectral interval (W m-2 cm-1)
-  real(r8), allocatable, dimension(:,:) :: plnk_ir
+  real(r8), allocatable, dimension(:,:) :: planck_ir
 
 contains
 
@@ -61,11 +61,11 @@ contains
     call mars_nasa_solar_init()
     call mars_nasa_rad_kcoef_init()
 
-    allocate(tauray_vis(spec_vis%n     ))
-    allocate(plnk_ir   (spec_ir %n,8501))
+    allocate(tauray_vs(spec_vs%n     ))
+    allocate(planck_ir(spec_ir%n,8501))
 
-    do i = 1, spec_vis%n
-      tauray_vis(i) = 8.7_r8 / g * (1.527_r8 * (1 + 0.013_r8 / spec_vis%wl(i)**2) / spec_vis%wl(i)**4) / (ray_p0 / 100)
+    do i = 1, spec_vs%n
+      tauray_vs(i) = 8.7_r8 / g * (1.527_r8 * (1 + 0.013_r8 / spec_vs%wl(i)**2) / spec_vs%wl(i)**4) / (ray_p0 / 100)
     end do
 
     ! For each IR wavelength interval, compute the integral of B(T), the
@@ -76,7 +76,7 @@ contains
       b = 0.5d-2 * (spec_ir%bwn(i+1) + spec_ir%bwn(i)) / (spec_ir%bwn(i) * spec_ir%bwn(i+1))
       do j = 500, 9000
         t = j * 0.1_r8
-        plnk_ir(i,j-499) = integrate_planck_function(a, b, t) * a / (pi * spec_ir%dwn(i))
+        planck_ir(i,j-499) = integrate_planck_function(a, b, t) * a / (pi * spec_ir%dwn(i))
       end do
     end do
 
@@ -89,8 +89,8 @@ contains
     call mars_nasa_solar_final()
     call mars_nasa_rad_kcoef_final()
 
-    if (allocated(plnk_ir   )) deallocate(plnk_ir   )
-    if (allocated(tauray_vis)) deallocate(tauray_vis)
+    if (allocated(planck_ir)) deallocate(planck_ir)
+    if (allocated(tauray_vs)) deallocate(tauray_vs)
 
   end subroutine mars_nasa_rad_final
 
@@ -102,13 +102,13 @@ contains
     real(r8) t_rad(nlev_rad)
     real(r8) p_rad(nlev_rad)
     real(r8) qh2o_rad(nlev_rad)
-    real(r8) tau_vis(spec_vis%n,ngauss)
-    real(r8) tau_vis_sfc(spec_vis%n,ngauss)
+    real(r8) tau_vs(spec_vs%n,ngauss)
+    real(r8) tau_vs_sfc(spec_vs%n,ngauss)
     integer icol, k
 
     associate (mesh  => state%mesh , &
                t_top => state%t_top, &
-               t_sfc => state%t_sfc, &
+               tg    => state%tg   , &
                t     => state%t    , &
                p     => state%p    , &
                p_lev => state%p_lev, &
@@ -136,7 +136,7 @@ contains
                    log(p_rad(k  ) / p_rad(k+1)) / &
                    log(p_rad(k-1) / p_rad(k+1))
       end do
-      t_rad(nlev_rad) = t_sfc(icol)
+      t_rad(nlev_rad) = tg(icol)
       if (active_water) then
         do k = 1, mesh%nlev
           qh2o_rad(2*(k-1)+4) = m_co2 / m_h2o * q(icol,k,idx_m_vap)
@@ -148,12 +148,12 @@ contains
         end do
       end if
       ! Interpolate K coefficient and calculate gas optical depth.
-      tau_vis_sfc = 0
+      tau_vs_sfc = 0
       do k = 2, nlev_rad
-        call get_kcoef_vis(t_rad(k), p_rad(k), qh2o_rad(k), tau_vis(:,:))
-        tau_vis = cmk * (p_rad(k) - p_rad(k-1)) * tau_vis
-        tau_vis_sfc = tau_vis_sfc + tau_vis
-        ! print *, k, t_rad(k), p_rad(k), qh2o_rad(k), tau_vis(1,1)
+        call get_kcoef_vs(t_rad(k), p_rad(k), qh2o_rad(k), tau_vs(:,:))
+        tau_vs = cmk * (p_rad(k) - p_rad(k-1)) * tau_vs
+        tau_vs_sfc = tau_vs_sfc + tau_vs
+        ! print *, k, t_rad(k), p_rad(k), qh2o_rad(k), tau_vs(1,1)
       end do
       ! stop 999
     end do
@@ -214,16 +214,16 @@ contains
     do icol = 1, mesh%ncol
       fdns_dir(icol) = 0
       if (cosz(icol) > 0) then
-        do is = 1, spec_vis%n
+        do is = 1, spec_vs%n
           c = cosz(icol) * fsol_spec_mars(is)
           do ig = 1, ngauss - 1
             if (detau(is,ig,icol) <= 5) then
-              fdns_dir(icol) = fdns_dir(icol) + c * exp(-detau(is,ig,icol) / cosz(icol)) * gwgt(ig) * (1 - f0_vis(is))
+              fdns_dir(icol) = fdns_dir(icol) + c * exp(-detau(is,ig,icol) / cosz(icol)) * gwgt(ig) * (1 - f0_vs(is))
             end if
           end do
           ig = ngauss
           if (detau(is,ig,icol) <= 5) then
-            fdns_dir(icol) = fdns_dir(icol) + c * exp(-detau(is,ig,icol) / cosz(icol)) * f0_vis(is)
+            fdns_dir(icol) = fdns_dir(icol) + c * exp(-detau(is,ig,icol) / cosz(icol)) * f0_vs(is)
           end if
         end do
       end if

@@ -12,6 +12,7 @@ module mars_nasa_pbl_mod
 
   public mars_nasa_pbl_init
   public mars_nasa_pbl_final
+  public mars_nasa_pbl_run
 
 contains
 
@@ -21,7 +22,8 @@ contains
 
     do iblk = 1, size(objects)
       associate (state => objects(iblk)%state)
-      state%saved_shear2 = 0
+      state%z0   = 0.01_r8
+      state%shr2 = 0
       end associate
     end do
 
@@ -37,7 +39,7 @@ contains
     type(mars_nasa_tend_type), intent(inout) :: tend
     real(r8), intent(in) :: dt
 
-    real(r8) alpha, c1, c2
+    real(r8) alpha, rhos, c1, c2
     real(r8) c(state%mesh%nlev+1)
     real(r8) A(state%mesh%nlev,3)
     real(r8) b(state%mesh%nlev)
@@ -51,6 +53,8 @@ contains
                dz     => state%dz     , & ! in
                u      => state%u      , & ! in
                v      => state%v      , & ! in
+               ps     => state%ps     , & ! in
+               ts     => state%ts     , & ! in
                rho    => state%rho    , & ! in
                ustar  => state%ustar  , & ! in
                tstar  => state%tstar  , & ! in
@@ -64,10 +68,12 @@ contains
     nlev = mesh%nlev
     do icol = 1, mesh%ncol
       alpha = atan2(v(icol,nlev), u(icol,nlev))
-      taux  (icol) =  rho(icol,nlev) * ustar(icol) * ustar(icol) * cos(alpha)
-      tauy  (icol) =  rho(icol,nlev) * ustar(icol) * ustar(icol) * sin(alpha)
-      hflx  (icol) = -rho(icol,nlev) * ustar(icol) * tstar(icol) * cpd
-      rhouch(icol) =  rho(icol,nlev) * ustar(icol) * cdh  (icol) * cpd
+      ! Calculate surface air density.
+      rhos = ps(icol) / rd / ts(icol)
+      taux  (icol) =  rhos * ustar(icol) * ustar(icol) * cos(alpha)
+      tauy  (icol) =  rhos * ustar(icol) * ustar(icol) * sin(alpha)
+      hflx  (icol) = -rhos * ustar(icol) * tstar(icol) * cpd
+      rhouch(icol) =  rhos * ustar(icol) * cdh  (icol) * cpd
       ! U
       do k = 2, mesh%nlev ! Interface levels excluding top and bottom
         c(k) = 2 * dt * km(icol,k) / (dz(icol,k-1) + dz(icol,k))
@@ -90,39 +96,43 @@ contains
     type(mars_nasa_state_type), intent(inout) :: state
     real(r8), intent(in) :: dt
 
-    real(r8) rl, beta, dz, dptdz, dudz, dvdz, shear2, ri, km0, kh0, kmin
+    real(r8), parameter :: Sm = 0.393_r8
+    real(r8), parameter :: Sh = 0.493_r8
+    real(r8), parameter :: sqrtGM = sqrt(0.153_r8)
+    real(r8) rl2, beta, dptdz, dudz, dvdz, shr, ri, km0, kh0, kmin
     integer icol, k
 
-    associate (mesh         => state%mesh        , &
-               z            => state%z           , & ! in
-               z_lev        => state%z_lev       , & ! in
-               pt           => state%pt          , & ! in
-               u            => state%u           , & ! in
-               v            => state%v           , & ! in
-               saved_shear2 => state%saved_shear2, & ! inout
-               km           => state%eddy_km     , & ! out
-               kh           => state%eddy_kh     )   ! out
-    do k = 2, mesh%nlev ! Interfaces excluding top and bottom.
+    associate (mesh   => state%mesh   , &
+               z      => state%z      , & ! in
+               z_lev  => state%z_lev  , & ! in
+               dz     => state%dz     , & ! in
+               dz_lev => state%dz_lev , & ! in
+               pt     => state%pt     , & ! in
+               u      => state%u      , & ! in
+               v      => state%v      , & ! in
+               shr2   => state%shr2   , & ! inout
+               km     => state%eddy_km, & ! out
+               kh     => state%eddy_kh)   ! out
+    do k = 2, mesh%nlev ! Loop on interfaces excluding top and bottom.
       do icol = 1, mesh%ncol
         ! Calculate mixing length and beta (volume expansion coefficient).
-        rl   = rl0 * ka * z_lev(icol,k) / (rl0 + ka * z_lev(icol,k))
-        beta = (mesh%dlev(k-1) + mesh%dlev(k)) / (mesh%dlev(k-1) * pt(icol,k-1) + mesh%dlev(k) * pt(icol,k))
+        rl2 = (rl0 * ka * z_lev(icol,k) / (rl0 + ka * z_lev(icol,k)))**2
+        beta = (dz(icol,k-1) + dz(icol,k)) / (dz(icol,k-1) * pt(icol,k-1) + dz(icol,k) * pt(icol,k))
         ! Calculate gradient Richardson number.
-        dz     = z(icol,k) - z(icol,k-1)
-        dudz   = (u(icol,k) - u(icol,k-1)) / dz
-        dvdz   = (v(icol,k) - v(icol,k-1)) / dz
-        shear2 = dudz**2 + dvdz**2
-        dptdz  = (pt(icol,k) - pt(icol,k-1)) / dz
+        dudz = (u(icol,k) - u(icol,k-1)) / dz_lev(icol,k)
+        dvdz = (v(icol,k) - v(icol,k-1)) / dz_lev(icol,k)
+        dptdz = (pt(icol,k) - pt(icol,k-1)) / dz_lev(icol,k)
         ! Smooth the wind shear used to calculate the gradient Richardson number.
-        saved_shear2(icol,k) = saved_shear2(icol,k) - (saved_shear2(icol,k) - shear2) * dt / 1.0e4_r8
-        ri = beta * g * dptdz / (saved_shear2(icol,k) + 1.0e-9_r8)
+        shr2(icol,k) = shr2(icol,k) - (shr2(icol,k) - dudz**2 - dvdz**2) * dt / 1.0e4_r8
+        shr = sqrt(shr2(icol,k))
+        ri = beta * g * dptdz / (shr2(icol,k) + 1.0e-9_r8)
         ! Calculate neutral eddy coefficients.
-        km0 = 0.393_r8 * rl**2 * sqrt(dudz / 0.153_r8)
-        kh0 = 0.493_r8 * rl**2 * sqrt(dudz / 0.153_r8)
+        km0 = Sm * rl2 * shr / sqrtGM
+        kh0 = Sh * rl2 * shr / sqrtGM
         ! Calculate eddy mixing coefficients.
         if (ri <= 0) then
           km(icol,k) = km0 * (1 - 15 * ri)**0.25_r8
-          kh(icol,k) = kh0 * (1 - 15 * ri)**0.5_r8
+          kh(icol,k) = kh0 * (1 - 15 * ri)**0.50_r8
         else
           km(icol,k) = km0 * (1 - ri / ric)
           kh(icol,k) = kh0 * (1 - ri / ric)

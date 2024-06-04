@@ -22,7 +22,6 @@ module simple_physics_driver_mod
   public simple_physics_init_stage2
   public simple_physics_final
   public simple_physics_run
-  public simple_physics_p2d
   public simple_physics_add_output
   public simple_physics_output
   public objects
@@ -40,6 +39,10 @@ contains
     call simple_physics_final()
 
     call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+
+    if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
+    allocate(physics_use_wet_tracers(1))
+    physics_use_wet_tracers(1) = .true.
 
     dt = dt_phys
 
@@ -97,27 +100,5 @@ contains
     end do
 
   end subroutine simple_physics_run
-
-  subroutine simple_physics_p2d()
-
-    integer iblk, icol, k
-
-    do iblk = 1, size(objects)
-      associate (mesh  => objects(iblk)%mesh , &
-                 state => objects(iblk)%state, &
-                 tend  => objects(iblk)%tend )
-      do k = 1, mesh%nlev
-        do icol = 1, mesh%ncol
-          tend%dptdt(icol,k) = (p0 / state%p(icol,k))**rd_o_cpd * ( &
-            (1 + rv_o_rd * state%qv(icol,k)) * tend%dtdt(icol,k) +  &
-            rv_o_rd * state%t(icol,k) * tend%dqvdt(icol,k))
-          ! Convert to dry mixing ratio tendency.
-          tend%dqvdt(icol,k) = tend%dqvdt(icol,k) / (1 - state%qv(icol,k))**2
-        end do
-      end do
-      end associate
-    end do
-
-  end subroutine simple_physics_p2d
 
 end module simple_physics_driver_mod

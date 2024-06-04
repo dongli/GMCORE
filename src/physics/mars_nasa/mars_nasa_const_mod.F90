@@ -18,6 +18,8 @@ module mars_nasa_const_mod
   real(r8), parameter :: dev2_cld       = 0.30870_r8**2
   ! Emisivity of bare ground in 15µm band, an absorption line of CO2
   real(r8), parameter :: emis_gnd_15um  = 1.0_r8
+  ! Emisivity of bare ground outside 15µm band
+  real(r8), parameter :: emis_gnd_out   = 1.0_r8
   ! A radiation code conversion factor
   real(r8), parameter :: cmk            = 3.51e+22_r8
   ! Maximum mixing length (m)

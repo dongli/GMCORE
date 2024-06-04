@@ -1392,10 +1392,21 @@ contains
   subroutine aux_array_init_phys(this, filter_mesh, filter_halo, mesh, halo)
 
     class(aux_array_type), intent(inout) :: this
-    type(latlon_mesh_type), intent(in) :: filter_mesh
-    type(latlon_halo_type), intent(in) :: filter_halo(:)
-    type(latlon_mesh_type), intent(in) :: mesh
-    type(latlon_halo_type), intent(in) :: halo(:)
+    type(latlon_mesh_type), intent(in), target :: filter_mesh
+    type(latlon_halo_type), intent(in), target :: filter_halo(:)
+    type(latlon_mesh_type), intent(in), target :: mesh
+    type(latlon_halo_type), intent(in), target :: halo(:)
+
+    type(latlon_mesh_type), pointer :: mesh_ptr
+    type(latlon_halo_type), pointer :: halo_ptr(:)
+
+    if (filter_ptend) then
+      mesh_ptr => filter_mesh
+      halo_ptr => filter_halo
+    else
+      mesh_ptr => mesh
+      halo_ptr => halo
+    end if
 
     if (physics_suite /= 'N/A' .and. physics_suite /= '') then
       call append_field(this%fields                                          , &
@@ -1403,8 +1414,8 @@ contains
         long_name       ='Physics tendency of u'                             , &
         units           ='m s-2'                                             , &
         loc             ='lon'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =mesh_ptr                                            , &
+        halo            =halo_ptr                                            , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dudt_phys                                      )
@@ -1413,8 +1424,8 @@ contains
         long_name       ='Physics tendency of v'                             , &
         units           ='m s-2'                                             , &
         loc             ='lat'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =mesh_ptr                                            , &
+        halo            =halo_ptr                                            , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dvdt_phys                                      )
@@ -1423,8 +1434,8 @@ contains
         long_name       ='Physics tendency of pt'                            , &
         units           ='K s-1'                                             , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =mesh_ptr                                            , &
+        halo            =halo_ptr                                            , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dptdt_phys                                     )
@@ -1433,11 +1444,11 @@ contains
         long_name       ='Physics tendency of q'                             , &
         units           ='kg kg-1 s-1'                                       , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
+        mesh            =mesh_ptr                                            , &
         dim4_name       ='tracers'                                           , &
         dim4_size       =ntracers                                            , &
         var4_names      =tracer_names                                        , &
-        halo            =halo                                                , &
+        halo            =halo_ptr                                            , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dqdt_phys                                      )

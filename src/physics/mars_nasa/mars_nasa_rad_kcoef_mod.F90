@@ -11,7 +11,7 @@
 ! ==============================================================================
 ! Introduction:
 !
-!   The absorption coefficient K is a function of local temperature, pressure, 
+!   The absorption coefficient K is a function of local temperature, pressure,
 !   gas mixture, and wavelength. It is pre-computed over a wide range of air
 !   conditions, and stored in a look up table.
 !
@@ -33,7 +33,7 @@ module mars_nasa_rad_kcoef_mod
 
   public mars_nasa_rad_kcoef_init
   public mars_nasa_rad_kcoef_final
-  public get_kcoef_vis
+  public get_kcoef_vs
   public ntref
   public npint
   public nqref
@@ -44,9 +44,9 @@ module mars_nasa_rad_kcoef_mod
   public qh2oref
   public qco2ref
   public gwgt
-  public klut_vis
+  public klut_vs
   public klut_ir
-  public f0_vis
+  public f0_vs
   public f0_ir
 
   ! Number of reference temperature levels for K-coefficients
@@ -73,15 +73,15 @@ module mars_nasa_rad_kcoef_mod
   ! Gaussian point weights
   real(r8), allocatable, dimension(        :) :: gwgt
   ! CO2 K-coefficients for each visible spectral interval (cm2 mole-1)
-  real(r8), allocatable, dimension(:,:,:,:,:) :: klut_in_vis
+  real(r8), allocatable, dimension(:,:,:,:,:) :: klut_in_vs
   ! CO2 K-coefficients for each IR spectral interval (cm2 mole-1)
   real(r8), allocatable, dimension(:,:,:,:,:) :: klut_in_ir
   ! CO2 K-coefficients for each visible spectral interval (cm2 mole-1)
-  real(r8), allocatable, dimension(:,:,:,:,:) :: klut_vis
+  real(r8), allocatable, dimension(:,:,:,:,:) :: klut_vs
   ! CO2 K-coefficients for each IR spectral interval (cm2 mole-1)
   real(r8), allocatable, dimension(:,:,:,:,:) :: klut_ir
   ! Fraction of zeros in visible CO2 K-coefficients
-  real(r8), allocatable, dimension(      :  ) :: f0_vis
+  real(r8), allocatable, dimension(      :  ) :: f0_vs
   ! Fraction of zeros in infrared C02 K-coefficients
   real(r8), allocatable, dimension(      :  ) :: f0_ir
 
@@ -96,25 +96,25 @@ contains
     call fiona_get_dim('kcoef', 'pref' , size=npref )
     call fiona_get_dim('kcoef', 'qref' , size=nqref )
     call fiona_get_dim('kcoef', 'gauss', size=ngauss)
-    allocate(tref       (ntref                              ))
-    allocate(pref       (      npref                        ))
-    allocate(qco2ref    (            nqref                  ))
-    allocate(qh2oref    (            nqref                  ))
-    allocate(gwgt       (                             ngauss))
-    allocate(klut_in_vis(ntref,npref,nqref,spec_vis%n,ngauss))
-    allocate(klut_in_ir (ntref,npref,nqref,spec_ir %n,ngauss))
-    allocate(f0_vis     (                  spec_vis%n       ))
-    allocate(f0_ir      (                  spec_ir %n       ))
+    allocate(tref      (ntref                             ))
+    allocate(pref      (      npref                       ))
+    allocate(qco2ref   (            nqref                 ))
+    allocate(qh2oref   (            nqref                 ))
+    allocate(gwgt      (                            ngauss))
+    allocate(klut_in_vs(ntref,npref,nqref,spec_vs%n,ngauss))
+    allocate(klut_in_ir(ntref,npref,nqref,spec_ir%n,ngauss))
+    allocate(f0_vs     (                  spec_vs%n       ))
+    allocate(f0_ir     (                  spec_ir%n       ))
     call fiona_start_input('kcoef')
-    call fiona_input('kcoef', 'tref'    , tref       )
-    call fiona_input('kcoef', 'pref'    , pref       )
-    call fiona_input('kcoef', 'qco2ref' , qco2ref    )
-    call fiona_input('kcoef', 'qh2oref' , qh2oref    )
-    call fiona_input('kcoef', 'gwgt'    , gwgt       )
-    call fiona_input('kcoef', 'klut_vis', klut_in_vis)
-    call fiona_input('kcoef', 'klut_ir' , klut_in_ir )
-    call fiona_input('kcoef', 'f0_vis'  , f0_vis     )
-    call fiona_input('kcoef', 'f0_ir'   , f0_ir      )
+    call fiona_input('kcoef', 'tref'    , tref      )
+    call fiona_input('kcoef', 'pref'    , pref      )
+    call fiona_input('kcoef', 'qco2ref' , qco2ref   )
+    call fiona_input('kcoef', 'qh2oref' , qh2oref   )
+    call fiona_input('kcoef', 'gwgt'    , gwgt      )
+    call fiona_input('kcoef', 'klut_vis', klut_in_vs)
+    call fiona_input('kcoef', 'klut_ir' , klut_in_ir)
+    call fiona_input('kcoef', 'f0_vis'  , f0_vs     )
+    call fiona_input('kcoef', 'f0_ir'   , f0_ir     )
     call fiona_end_input('kcoef')
 
     call interp_kcoef()
@@ -123,18 +123,18 @@ contains
 
   subroutine mars_nasa_rad_kcoef_final()
 
-    if (allocated(tref       )) deallocate(tref       )
-    if (allocated(pref       )) deallocate(pref       )
-    if (allocated(logpint    )) deallocate(logpint    )
-    if (allocated(qco2ref    )) deallocate(qco2ref    )
-    if (allocated(qh2oref    )) deallocate(qh2oref    )
-    if (allocated(gwgt       )) deallocate(gwgt       )
-    if (allocated(klut_in_vis)) deallocate(klut_in_vis)
-    if (allocated(klut_in_ir )) deallocate(klut_in_ir )
-    if (allocated(klut_vis   )) deallocate(klut_vis   )
-    if (allocated(klut_ir    )) deallocate(klut_ir    )
-    if (allocated(f0_vis     )) deallocate(f0_vis     )
-    if (allocated(f0_ir      )) deallocate(f0_ir      )
+    if (allocated(tref      )) deallocate(tref      )
+    if (allocated(pref      )) deallocate(pref      )
+    if (allocated(logpint   )) deallocate(logpint   )
+    if (allocated(qco2ref   )) deallocate(qco2ref   )
+    if (allocated(qh2oref   )) deallocate(qh2oref   )
+    if (allocated(gwgt      )) deallocate(gwgt      )
+    if (allocated(klut_in_vs)) deallocate(klut_in_vs)
+    if (allocated(klut_in_ir)) deallocate(klut_in_ir)
+    if (allocated(klut_vs   )) deallocate(klut_vs   )
+    if (allocated(klut_ir   )) deallocate(klut_ir   )
+    if (allocated(f0_vs     )) deallocate(f0_vs     )
+    if (allocated(f0_ir     )) deallocate(f0_ir     )
 
   end subroutine mars_nasa_rad_kcoef_final
 
@@ -169,18 +169,18 @@ contains
     do iq = 1, nqref
     do ip = 1, npref
     do it = 1, ntref
-      do iw = 1, spec_vis%n
-        if (klut_in_vis(it,ip,iq,iw,ig) > 1.0d-200) then
-          klut_in_vis(it,ip,iq,iw,ig) = log10(klut_in_vis(it,ip,iq,iw,ig))
+      do iw = 1, spec_vs%n
+        if (klut_in_vs(it,ip,iq,iw,ig) > 1.0d-200) then
+          klut_in_vs(it,ip,iq,iw,ig) = log10(klut_in_vs(it,ip,iq,iw,ig))
         else
-          klut_in_vis(it,ip,iq,iw,ig) = -200
+          klut_in_vs(it,ip,iq,iw,ig) = -200
         end if
       end do
       do iw = 1, spec_ir%n
-        if (klut_in_ir (it,ip,iq,iw,ig) > 1.0d-200) then
-          klut_in_ir (it,ip,iq,iw,ig) = log10(klut_in_ir (it,ip,iq,iw,ig))
+        if (klut_in_ir(it,ip,iq,iw,ig) > 1.0d-200) then
+          klut_in_ir(it,ip,iq,iw,ig) = log10(klut_in_ir(it,ip,iq,iw,ig))
         else
-          klut_in_ir (it,ip,iq,iw,ig) = -200
+          klut_in_ir(it,ip,iq,iw,ig) = -200
         end if
       end do
     end do
@@ -188,33 +188,33 @@ contains
     end do
     end do
 
-    allocate(klut_vis(ntref,npint,nqref,spec_vis%n,ngauss))
-    allocate(klut_ir (ntref,npint,nqref,spec_ir%n ,ngauss))
+    allocate(klut_vs(ntref,npint,nqref,spec_vs%n,ngauss))
+    allocate(klut_ir(ntref,npint,nqref,spec_ir%n,ngauss))
 
     do ig = 1, ngauss
-    do iw = 1, spec_vis%n
+    do iw = 1, spec_vs%n
     do iq = 1, nqref
     do it = 1, ntref
       ip = 1
       do i = 1, 5
         ipp = (ip - 1) * 5 + i
-        klut_vis(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
-          logpref(ip:ip+3), klut_in_vis(it,ip:ip+3,iq,iw,ig), logpint(ipp))
+        klut_vs(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
+          logpref(ip:ip+3), klut_in_vs(it,ip:ip+3,iq,iw,ig), logpint(ipp))
       end do
       do ip = 2, npref - 2
         do i = 1, 5
           ipp = (ip - 1) * 5 + i
-          klut_vis(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
-            logpref(ip-1:ip+2), klut_in_vis(it,ip-1:ip+2,iq,iw,ig), logpint(ipp))
+          klut_vs(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
+            logpref(ip-1:ip+2), klut_in_vs(it,ip-1:ip+2,iq,iw,ig), logpint(ipp))
         end do
       end do
       ip = npref - 1
       do i = 1, 5
         ipp = (ip - 1) * 5 + i
-        klut_vis(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
-          logpref(ip-2:ip+1), klut_in_vis(it,ip-2:ip+1,iq,iw,ig), logpint(ipp))
+        klut_vs(it,ipp,iq,iw,ig) = 10 ** lagrange_interp_4( &
+          logpref(ip-2:ip+1), klut_in_vs(it,ip-2:ip+1,iq,iw,ig), logpint(ipp))
       end do
-      klut_vis(it,npint,iq,iw,ig) = 10 ** klut_in_vis(it,npref,iq,iw,ig)
+      klut_vs(it,npint,iq,iw,ig) = 10 ** klut_in_vs(it,npref,iq,iw,ig)
     end do
     end do
     end do
@@ -273,7 +273,7 @@ contains
 
   end subroutine interp_kcoef
 
-  subroutine get_kcoef_vis(t, p, qh2o, kcoef)
+  subroutine get_kcoef_vs(t, p, qh2o, kcoef)
 
     ! Temperature (K)
     real(r8), intent(in   ) :: t
@@ -337,16 +337,16 @@ contains
       end do
     end if
 
-    do is = 1, spec_vis%n
+    do is = 1, spec_vs%n
       do ig = 1, ngauss - 1
-        k(1) = klut_vis(it  ,ip  ,iq,is,ig) + wq * (klut_vis(it  ,ip  ,iq+1,is,ig) - klut_vis(it  ,ip  ,iq,is,ig))
-        k(2) = klut_vis(it  ,ip+1,iq,is,ig) + wq * (klut_vis(it  ,ip+1,iq+1,is,ig) - klut_vis(it  ,ip+1,iq,is,ig))
-        k(3) = klut_vis(it+1,ip+1,iq,is,ig) + wq * (klut_vis(it+1,ip+1,iq+1,is,ig) - klut_vis(it+1,ip+1,iq,is,ig))
-        k(4) = klut_vis(it+1,ip  ,iq,is,ig) + wq * (klut_vis(it+1,ip  ,iq+1,is,ig) - klut_vis(it+1,ip  ,iq,is,ig))
+        k(1) = klut_vs(it  ,ip  ,iq,is,ig) + wq * (klut_vs(it  ,ip  ,iq+1,is,ig) - klut_vs(it  ,ip  ,iq,is,ig))
+        k(2) = klut_vs(it  ,ip+1,iq,is,ig) + wq * (klut_vs(it  ,ip+1,iq+1,is,ig) - klut_vs(it  ,ip+1,iq,is,ig))
+        k(3) = klut_vs(it+1,ip+1,iq,is,ig) + wq * (klut_vs(it+1,ip+1,iq+1,is,ig) - klut_vs(it+1,ip+1,iq,is,ig))
+        k(4) = klut_vs(it+1,ip  ,iq,is,ig) + wq * (klut_vs(it+1,ip  ,iq+1,is,ig) - klut_vs(it+1,ip  ,iq,is,ig))
         kcoef(is,ig) = sum(c * k)
       end do
     end do
 
-  end subroutine get_kcoef_vis
+  end subroutine get_kcoef_vs
 
 end module mars_nasa_rad_kcoef_mod

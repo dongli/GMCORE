@@ -22,7 +22,7 @@ module physics_types_mod
   public physics_mesh_type
   public physics_state_type
   public physics_tend_type
-  public physics_static_type
+  public physics_use_wet_tracers
 
   type, abstract :: physics_state_type
     type(physics_mesh_type), pointer :: mesh => null()
@@ -32,8 +32,10 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: v
     ! Air temperature (K)
     real(r8), allocatable, dimension(:,:  ) :: t
-    ! Surface or ground temperature (K)
-    real(r8), allocatable, dimension(:    ) :: t_sfc
+    ! Ground temperature (K)
+    real(r8), allocatable, dimension(:    ) :: tg
+    ! Lowest model level temperature (K)
+    real(r8), pointer    , dimension(:    ) :: t_bot
     ! Potential temperature (K)
     real(r8), allocatable, dimension(:,:  ) :: pt
     ! Tracer mixing ratio (moist)
@@ -48,6 +50,8 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: pk_lev
     ! Full pressure thickness (Pa)
     real(r8), allocatable, dimension(:,:  ) :: dp
+    ! Dry air pressure thickness (Pa)
+    real(r8), allocatable, dimension(:,:  ) :: dp_dry
     ! Vertical pressure velocity (Pa s-1)
     real(r8), allocatable, dimension(:,:  ) :: omg
     ! Height on full levels (m)
@@ -56,6 +60,8 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: z_lev
     ! Height thickness on full levels (m)
     real(r8), allocatable, dimension(:,:  ) :: dz
+    ! Height thickness on half levels (m)
+    real(r8), allocatable, dimension(:,:  ) :: dz_lev
     ! Air density (kg m-3)
     real(r8), allocatable, dimension(:,:  ) :: rho
     ! Surface pressure (hydrostatic) (Pa)
@@ -98,7 +104,7 @@ module physics_types_mod
     ! Cosine of solar zenith angle
     real(r8), allocatable, dimension(:    ) :: cosz
     ! Downward solar shortwave flux on the top of atmosphere (W m-2)
-    real(r8), allocatable, dimension(:    ) :: fdntoa
+    real(r8), allocatable, dimension(:    ) :: fdns_toa
     ! Direct downward solar shortwave flux on the surface (W m-2)
     real(r8), allocatable, dimension(:    ) :: fdns_dir
     ! Diffusive downward solar shortwave flux on the surface (W m-2)
@@ -107,6 +113,8 @@ module physics_types_mod
     real(r8), allocatable, dimension(:    ) :: fdns
     ! Downward longwave flux on the surface (W m-2)
     real(r8), allocatable, dimension(:    ) :: fdnl
+    ! Topography (m)
+    real(r8), allocatable, dimension(:    ) :: zs
   contains
     procedure physics_state_init
     procedure physics_state_clear
@@ -122,6 +130,7 @@ module physics_types_mod
     logical :: updated_u  = .false.
     logical :: updated_v  = .false.
     logical :: updated_t  = .false.
+    logical :: updated_pt = .false.
     logical, allocatable :: updated_q(:)
   contains
     procedure physics_tend_init
@@ -129,22 +138,13 @@ module physics_types_mod
     procedure physics_tend_reset
   end type physics_tend_type
 
-  type, abstract :: physics_static_type
-    type(physics_mesh_type), pointer :: mesh => null()
-    ! Surface roughness length (m)
-    real(r8), allocatable, dimension(:) :: z0
-    ! Surface albedo
-    real(r8), allocatable, dimension(:) :: alb
-  contains
-    procedure physics_static_init
-    procedure physics_static_clear
-  end type physics_static_type
+  logical, allocatable :: physics_use_wet_tracers(:)
 
 contains
 
   subroutine physics_state_init(this, mesh)
 
-    class(physics_state_type), intent(inout) :: this
+    class(physics_state_type), intent(inout), target :: this
     type(physics_mesh_type), intent(in), target :: mesh
 
     call this%physics_state_clear()
@@ -156,7 +156,7 @@ contains
     allocate(this%u         (mesh%ncol,mesh%nlev         ))
     allocate(this%v         (mesh%ncol,mesh%nlev         ))
     allocate(this%t         (mesh%ncol,mesh%nlev         ))
-    allocate(this%t_sfc     (mesh%ncol                   ))
+    allocate(this%tg        (mesh%ncol                   ))
     allocate(this%pt        (mesh%ncol,mesh%nlev         ))
     allocate(this%q         (mesh%ncol,mesh%nlev,ntracers))
     allocate(this%p         (mesh%ncol,mesh%nlev         ))
@@ -164,10 +164,12 @@ contains
     allocate(this%pk        (mesh%ncol,mesh%nlev         ))
     allocate(this%pk_lev    (mesh%ncol,mesh%nlev+1       ))
     allocate(this%dp        (mesh%ncol,mesh%nlev         ))
+    allocate(this%dp_dry    (mesh%ncol,mesh%nlev         ))
     allocate(this%omg       (mesh%ncol,mesh%nlev         ))
     allocate(this%z         (mesh%ncol,mesh%nlev         ))
     allocate(this%z_lev     (mesh%ncol,mesh%nlev+1       ))
     allocate(this%dz        (mesh%ncol,mesh%nlev         ))
+    allocate(this%dz_lev    (mesh%ncol,mesh%nlev+1       ))
     allocate(this%rho       (mesh%ncol,mesh%nlev         ))
     allocate(this%ps        (mesh%ncol                   ))
     allocate(this%ts        (mesh%ncol                   ))
@@ -189,11 +191,14 @@ contains
     allocate(this%hflx      (mesh%ncol                   ))
     allocate(this%alb       (mesh%ncol                   ))
     allocate(this%cosz      (mesh%ncol                   ))
-    allocate(this%fdntoa    (mesh%ncol                   ))
+    allocate(this%fdns_toa  (mesh%ncol                   ))
     allocate(this%fdns_dir  (mesh%ncol                   ))
     allocate(this%fdns_dif  (mesh%ncol                   ))
     allocate(this%fdns      (mesh%ncol                   ))
     allocate(this%fdnl      (mesh%ncol                   ))
+    allocate(this%zs        (mesh%ncol                   ))
+
+    this%t_bot => this%t(:,mesh%nlev)
 
   end subroutine physics_state_init
 
@@ -206,7 +211,7 @@ contains
     if (allocated(this%u        )) deallocate(this%u        )
     if (allocated(this%v        )) deallocate(this%v        )
     if (allocated(this%t        )) deallocate(this%t        )
-    if (allocated(this%t_sfc    )) deallocate(this%t_sfc    )
+    if (allocated(this%tg       )) deallocate(this%tg       )
     if (allocated(this%pt       )) deallocate(this%pt       )
     if (allocated(this%q        )) deallocate(this%q        )
     if (allocated(this%p        )) deallocate(this%p        )
@@ -214,6 +219,7 @@ contains
     if (allocated(this%pk       )) deallocate(this%pk       )
     if (allocated(this%pk_lev   )) deallocate(this%pk_lev   )
     if (allocated(this%dp       )) deallocate(this%dp       )
+    if (allocated(this%dp_dry   )) deallocate(this%dp_dry   )
     if (allocated(this%omg      )) deallocate(this%omg      )
     if (allocated(this%z        )) deallocate(this%z        )
     if (allocated(this%z_lev    )) deallocate(this%z_lev    )
@@ -239,11 +245,12 @@ contains
     if (allocated(this%hflx     )) deallocate(this%hflx     )
     if (allocated(this%alb      )) deallocate(this%alb      )
     if (allocated(this%cosz     )) deallocate(this%cosz     )
-    if (allocated(this%fdntoa   )) deallocate(this%fdntoa   )
+    if (allocated(this%fdns_toa )) deallocate(this%fdns_toa )
     if (allocated(this%fdns_dir )) deallocate(this%fdns_dir )
     if (allocated(this%fdns_dif )) deallocate(this%fdns_dif )
     if (allocated(this%fdns     )) deallocate(this%fdns     )
     if (allocated(this%fdnl     )) deallocate(this%fdnl     )
+    if (allocated(this%zs       )) deallocate(this%zs       )
 
   end subroutine physics_state_clear
 
@@ -271,11 +278,11 @@ contains
 
     this%mesh => null()
 
-    if (allocated(this%dudt )) deallocate(this%dudt )
-    if (allocated(this%dvdt )) deallocate(this%dvdt )
-    if (allocated(this%dtdt )) deallocate(this%dtdt )
-    if (allocated(this%dptdt)) deallocate(this%dptdt)
-    if (allocated(this%dqdt )) deallocate(this%dqdt )
+    if (allocated(this%dudt     )) deallocate(this%dudt     )
+    if (allocated(this%dvdt     )) deallocate(this%dvdt     )
+    if (allocated(this%dtdt     )) deallocate(this%dtdt     )
+    if (allocated(this%dptdt    )) deallocate(this%dptdt    )
+    if (allocated(this%dqdt     )) deallocate(this%dqdt     )
     if (allocated(this%updated_q)) deallocate(this%updated_q)
 
   end subroutine physics_tend_clear
@@ -287,32 +294,9 @@ contains
     this%dudt  = 0; this%updated_u  = .false.
     this%dvdt  = 0; this%updated_v  = .false.
     this%dtdt  = 0; this%updated_t  = .false.
+    this%dptdt = 0; this%updated_pt = .false.
     this%dqdt  = 0; this%updated_q  = .false.
 
   end subroutine physics_tend_reset
-
-  subroutine physics_static_init(this, mesh)
-
-    class(physics_static_type), intent(inout) :: this
-    type(physics_mesh_type), intent(in), target :: mesh
-
-    call this%physics_static_clear()
-
-    this%mesh => mesh
-
-    allocate(this%z0     (mesh%ncol))
-    allocate(this%alb    (mesh%ncol))
-
-  end subroutine physics_static_init
-
-  subroutine physics_static_clear(this)
-
-    class(physics_static_type), intent(inout) :: this
-
-    this%mesh => null()
-    if (allocated(this%z0     )) deallocate(this%z0     )
-    if (allocated(this%alb    )) deallocate(this%alb    )
-
-  end subroutine physics_static_clear
 
 end module physics_types_mod

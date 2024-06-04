@@ -1,6 +1,6 @@
 module dyn_comp
 
-  use block_mod
+  use cam_physics_objects_mod
 
   implicit none
 
@@ -13,21 +13,21 @@ module dyn_comp
   public dyn_export_t
 
   type pstate_ptr_type
-    type(pstate_type), pointer :: ptr => null()
+    type(cam_state_type), pointer :: ptr => null()
   end type pstate_ptr_type
 
   type dyn_import_t
-    type(pstate_ptr_type), allocatable :: pstate(:)
+    type(pstate_ptr_type), allocatable :: state(:)
   contains
     final :: dyn_import_final
   end type dyn_import_t
 
   type ptend_ptr_type
-    type(ptend_type), pointer :: ptr => null()
+    type(cam_tend_type), pointer :: ptr => null()
   end type ptend_ptr_type
 
   type dyn_export_t
-    type(ptend_ptr_type), allocatable :: ptend(:)
+    type(ptend_ptr_type), allocatable :: tend(:)
   contains
     final :: dyn_export_final
   end type dyn_export_t
@@ -41,11 +41,11 @@ contains
 
     integer iblk
 
-    allocate(dyn_in%pstate(size(blocks)))
-    allocate(dyn_out%ptend(size(blocks)))
-    do iblk = 1, size(blocks)
-      dyn_in%pstate(iblk)%ptr => blocks(iblk)%pstate
-      dyn_out%ptend(iblk)%ptr => blocks(iblk)%ptend
+    allocate(dyn_in%state(size(objects)))
+    allocate(dyn_out%tend(size(objects)))
+    do iblk = 1, size(objects)
+      dyn_in%state(iblk)%ptr => objects(iblk)%state
+      dyn_out%tend(iblk)%ptr => objects(iblk)%tend
     end do
 
   end subroutine dyn_init
@@ -62,7 +62,7 @@ contains
 
     type(dyn_import_t), intent(inout) :: this
 
-    if (allocated(this%pstate)) deallocate(this%pstate)
+    if (allocated(this%state)) deallocate(this%state)
 
   end subroutine dyn_import_final
 
@@ -70,7 +70,7 @@ contains
 
     type(dyn_export_t), intent(inout) :: this
 
-    if (allocated(this%ptend)) deallocate(this%ptend)
+    if (allocated(this%tend)) deallocate(this%tend)
 
   end subroutine dyn_export_final
 

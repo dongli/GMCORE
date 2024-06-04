@@ -27,6 +27,7 @@ module time_schemes_mod
   use latlon_parallel_mod
   use process_mod, only: proc
   use filter_mod
+  use perf_mod
 
   implicit none
 
@@ -166,7 +167,9 @@ contains
       if (dtend%update_mgs) then
         ! ----------------------------------------------------------------------
         call fill_halo(dmgsdt, south_halo=.false., north_halo=.false.)
+        call perf_start('filter_dmgsdt')
         call filter_run(block%big_filter, dmgsdt)
+        call perf_stop('filter_dmgsdt')
         ! ----------------------------------------------------------------------
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -182,7 +185,9 @@ contains
         if (.not. dtend%update_mgs .and. proc%is_root()) call log_error('Mass is not updated or copied!')
         ! ----------------------------------------------------------------------
         call fill_halo(dptdt, south_halo=.false., north_halo=.false.)
+        call perf_start('filter_dptdt')
         call filter_run(block%big_filter, dptdt)
+        call perf_stop('filter_dptdt')
         ! ----------------------------------------------------------------------
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -197,7 +202,9 @@ contains
       if (dtend%update_gz) then
         ! ----------------------------------------------------------------------
         call fill_halo(dgzdt, south_halo=.false., north_halo=.false.)
+        call perf_start('filter_dgzdt')
         call filter_run(block%big_filter, dgzdt)
+        call perf_stop('filter_dgzdt')
         ! ----------------------------------------------------------------------
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -214,9 +221,11 @@ contains
     if (dtend%update_u .and. dtend%update_v) then
       ! ------------------------------------------------------------------------
       call fill_halo(dudt, south_halo=.false., north_halo=.false.)
-      call filter_run(block%big_filter, dudt)
       call fill_halo(dvdt, south_halo=.false., north_halo=.false.)
+      call perf_start('filter_dudt_dvdt')
+      call filter_run(block%big_filter, dudt)
       call filter_run(block%big_filter, dvdt)
+      call perf_stop('filter_dudt_dvdt')
       ! ------------------------------------------------------------------------
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole

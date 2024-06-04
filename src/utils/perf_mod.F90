@@ -9,6 +9,8 @@ module perf_mod
 
   implicit none
 
+  private
+
   public perf_init
   public perf_start
   public perf_stop

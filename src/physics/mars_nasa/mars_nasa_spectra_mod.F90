@@ -20,7 +20,7 @@ module mars_nasa_spectra_mod
 
   public mars_nasa_spectra_init
   public mars_nasa_spectra_final
-  public spec_vis
+  public spec_vs
   public spec_ir
 
   type spectra_type
@@ -35,16 +35,16 @@ module mars_nasa_spectra_mod
     final spectra_final
   end type spectra_type
 
-  integer, parameter :: nspec_vis = 7  ! Number of visible spectral intervals
-  integer, parameter :: nspec_ir  = 5  ! Number of IR spectral intervals
-  type(spectra_type) spec_vis
+  integer, parameter :: nspec_vs = 7  ! Number of visible spectral intervals
+  integer, parameter :: nspec_ir = 5  ! Number of IR spectral intervals
+  type(spectra_type) spec_vs
   type(spectra_type) spec_ir
 
 contains
 
   subroutine mars_nasa_spectra_init()
 
-    call spec_vis%init(nspec_vis, [ &
+    call spec_vs%init(nspec_vs, [ &
        2222.22_r8, & ! ->   4.50 microns
        3087.37_r8, & ! ->   3.24 microns
        4030.63_r8, & ! ->   2.48 microns
@@ -68,7 +68,7 @@ contains
 
   subroutine mars_nasa_spectra_final()
 
-    call spec_vis%clear()
+    call spec_vs%clear()
     call spec_ir %clear()
 
   end subroutine mars_nasa_spectra_final

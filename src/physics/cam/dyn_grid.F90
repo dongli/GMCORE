@@ -50,7 +50,7 @@ contains
     real(r8), allocatable :: p(:), p_lev(:)
 
     if (global_mesh%full_nlev /= PLEV) then
-      call log_error('Macro PLEV is not equal to ' // to_str(global_mesh%full_nlev) // '!', pid=proc%id)
+      call log_error('Macro PLEV is not equal to ' // to_str(global_mesh%full_nlev) // '!', pid=proc%id_model)
     end if
 
     plon  = global_mesh%full_nlon

@@ -49,7 +49,8 @@ contains
     end if
 
     call parse_namelist(info%p%namelist_path)
-    call gmcore_init_stage1(info%p%namelist_path, comm=MPI_COMM_WORLD)
+    call gmcore_init_stage0(comm=MPI_COMM_WORLD)
+    call gmcore_init_stage1(info%p%namelist_path)
     call prepare_topo()
     call gmcore_init_stage2(info%p%namelist_path)
     call prepare_bkg()
@@ -57,7 +58,7 @@ contains
 
     info%p%grid = ESMF_GridCreate1PeriDim( &
       maxIndex=[global_mesh%full_nlon,global_mesh%full_nlat], &
-      regDecomp=[nproc_lon(1),nproc_lat(1)], &
+      regDecomp=[nproc_x(1),nproc_y(1)], &
       name='atm_grid', &
       indexflag=ESMF_INDEX_GLOBAL, &
       rc=rc)

@@ -11,6 +11,12 @@ module physics_mesh_mod
   type physics_mesh_type
     integer :: ncol = 0
     integer :: nlev = 0
+    integer :: cell_start_2d(3) = 0
+    integer :: cell_count_2d(3) = 0
+    integer :: cell_start_3d(4) = 0
+    integer :: cell_count_3d(4) = 0
+    integer :: lev_start(4) = 0
+    integer :: lev_count(4) = 0
     real(r8) :: ptop = 0
     real(r8) :: ztop = 0
     real(r8), allocatable, dimension(:) :: lon  ! Longitude (rad)

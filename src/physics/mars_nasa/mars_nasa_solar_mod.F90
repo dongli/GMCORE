@@ -45,12 +45,12 @@ contains
 
   subroutine mars_nasa_solar_init()
 
-    if (spec_vis%n /= 7) then
+    if (spec_vs%n /= 7) then
       stop 'mars_nasa_solar_mod only matches with visible spectra with 7 bands!'
     end if
 
-    allocate(fsol_spec_1au (spec_vis%n))
-    allocate(fsol_spec_mars(spec_vis%n))
+    allocate(fsol_spec_1au (spec_vs%n))
+    allocate(fsol_spec_mars(spec_vs%n))
 
     ! Sum equals 1356 W m-2 (values from Wehrli, 1985)
     fsol_spec_1au = [12.7_r8, 24.2_r8, 54.6_r8, 145.9_r8, 354.9_r8, 657.5_r8, 106.3_r8]

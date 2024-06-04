@@ -22,7 +22,6 @@ module mars_nasa_objects_mod
     type(physics_mesh_type), pointer :: mesh
     type(mars_nasa_state_type) state
     type(mars_nasa_tend_type) tend
-    type(mars_nasa_static_type) static
   end type mars_nasa_objects_type
 
   type(mars_nasa_objects_type), allocatable, target :: objects(:)
@@ -41,9 +40,8 @@ contains
     allocate(objects(nblk))
     do iblk = 1, nblk
       objects(iblk)%mesh => mesh(iblk)
-      call objects(iblk)%state %init(objects(iblk)%mesh)
-      call objects(iblk)%tend  %init(objects(iblk)%mesh)
-      call objects(iblk)%static%init(objects(iblk)%mesh)
+      call objects(iblk)%state%init(objects(iblk)%mesh)
+      call objects(iblk)%tend %init(objects(iblk)%mesh)
     end do
 
   end subroutine mars_nasa_objects_init
@@ -54,30 +52,11 @@ contains
 
     if (allocated(objects)) then
       do iblk = 1, size(objects)
-        call objects(iblk)%state %clear()
-        call objects(iblk)%tend  %clear()
-        call objects(iblk)%static%clear()
+        call objects(iblk)%state%clear()
+        call objects(iblk)%tend %clear()
       end do
     end if
 
   end subroutine mars_nasa_objects_final
-
-  subroutine mars_nasa_read_static_data(min_lon, max_lon, min_lat, max_lat, input_ngroup)
-
-    real(r8), intent(in) :: min_lon
-    real(r8), intent(in) :: max_lon
-    real(r8), intent(in) :: min_lat
-    real(r8), intent(in) :: max_lat
-    integer , intent(in) :: input_ngroup
-
-    integer iblk
-
-    if (allocated(objects)) then
-      do iblk = 1, size(objects)
-        call objects(iblk)%static%read(min_lon, max_lon, min_lat, max_lat, input_ngroup)
-      end do
-    end if
-
-  end subroutine mars_nasa_read_static_data
 
 end module mars_nasa_objects_mod

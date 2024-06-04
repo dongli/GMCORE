@@ -1,6 +1,9 @@
 cmake_policy(SET CMP0076 NEW)
 
 target_sources(gmcore PRIVATE
+  albedo_mod.F90
+  cam_physics_types_mod.F90
+  cam_physics_objects_mod.F90
   cam_physics_driver_mod.F90
   cam/aer_rad_props.F90
   cam/aoa_tracers.F90

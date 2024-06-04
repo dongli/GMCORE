@@ -27,6 +27,7 @@ module ffsl_mod
   use adv_batch_mod
   use ppm_mod
   use limiter_mod
+  use perf_mod
 
   implicit none
 
@@ -92,6 +93,8 @@ contains
     real(r8) work(m%mesh%full_ids:m%mesh%full_ide,m%mesh%full_nlev)
     real(r8) pole(m%mesh%full_nlev)
     real(r8) dt_opt
+
+    call perf_start('ffsl_calc_mass_hflx')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -166,6 +169,8 @@ contains
     call hflx(batch, u, v, my, mx, mfx, mfy)
     end associate
 
+    call perf_stop('ffsl_calc_mass_hflx')
+
   end subroutine ffsl_calc_mass_hflx
 
   subroutine ffsl_calc_mass_vflx(batch, m, mfz, dt)
@@ -175,7 +180,11 @@ contains
     type(latlon_field3d_type), intent(inout) :: mfz
     real(r8), intent(in), optional :: dt
 
+    call perf_start('ffsl_calc_mass_vflx')
+
     call vflx(batch, batch%we, m, mfz)
+
+    call perf_stop('ffsl_calc_mass_vflx')
 
   end subroutine ffsl_calc_mass_vflx
 
@@ -191,6 +200,8 @@ contains
     real(r8) work(q%mesh%full_ids:q%mesh%full_ide,q%mesh%half_nlev)
     real(r8) pole(q%mesh%half_nlev)
     real(r8) dt_opt
+
+    call perf_start('ffsl_calc_tracer_hflx')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -276,6 +287,8 @@ contains
     call hflx(batch, mfx, mfy, qy, qx, qmfx, qmfy)
     end associate
 
+    call perf_stop('ffsl_calc_tracer_hflx')
+
   end subroutine ffsl_calc_tracer_hflx
 
   subroutine ffsl_calc_tracer_vflx(batch, q, qmfz, dt)
@@ -285,7 +298,11 @@ contains
     type(latlon_field3d_type), intent(inout) :: qmfz
     real(r8), intent(in), optional :: dt
 
+    call perf_start('ffsl_calc_tracer_vflx')
+
     call vflx(batch, batch%we, q, qmfz)
+
+    call perf_stop('ffsl_calc_tracer_vflx')
 
   end subroutine ffsl_calc_tracer_vflx
 

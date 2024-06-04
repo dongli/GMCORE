@@ -37,6 +37,7 @@ module latlon_parallel_zonal_mod
 
   interface zonal_avg
     module procedure zonal_avg_3d_r8
+    module procedure zonal_avg_4d_r8
   end interface zonal_avg
 
   interface gather_zonal_array
@@ -406,5 +407,32 @@ contains
     end do
 
   end subroutine zonal_avg_3d_r8
+
+  subroutine zonal_avg_4d_r8(zonal_circle, f, j)
+
+    type(zonal_circle_type), intent(in) :: zonal_circle
+    type(latlon_field4d_type), intent(inout) :: f
+    integer, intent(in) :: j
+
+    real(8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_kds:f%mesh%full_kde)
+    real(8) pole(f%mesh%full_kds:f%mesh%full_kde)
+    integer i, k, l
+
+    do l = 1, f%dim4_size
+      do k = f%mesh%full_kds, f%mesh%full_kde
+        do i = f%mesh%full_ids, f%mesh%full_ide
+          work(i,k) = f%d(i,j,k,l)
+        end do
+      end do
+      call zonal_sum(zonal_circle, work, pole)
+      pole = pole / global_mesh%full_nlon
+      do k = f%mesh%full_kds, f%mesh%full_kde
+        do i = f%mesh%full_ids, f%mesh%full_ide
+          f%d(i,j,k,l) = pole(k)
+        end do
+      end do
+    end do
+
+  end subroutine zonal_avg_4d_r8
 
 end module latlon_parallel_zonal_mod

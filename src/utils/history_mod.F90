@@ -177,7 +177,7 @@ contains
     field => tracers(1)%q
     call add_field ('h0', field)
 
-    call physics_add_output()
+    call physics_add_output('h0')
 
   end subroutine history_setup_h0
 
@@ -229,6 +229,7 @@ contains
       call write_fields('h0', mesh, aux   %fields)
       call write_field ('h0', mesh, q)
       end associate
+      call physics_output('h0', iblk)
     end do
 
     call fiona_end_output('h0', keep_dataset=.true.)

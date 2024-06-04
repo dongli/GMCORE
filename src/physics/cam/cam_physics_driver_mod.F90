@@ -30,15 +30,16 @@ module cam_physics_driver_mod
   use time_manager    , only: timemgr_init, get_curr_calday, get_curr_date, advance_timestep
 
   use flogger
-  use string          , only: to_int
-  use formula_mod     , only: wet_mixing_ratio
-  use namelist_mod    , only: dt_phys, dt_adv, restart, cam_namelist_path, case_name, case_desc, use_aqua_planet, filter_ptend
-  use process_mod     , only: proc, process_barrier
-  use time_mod        , only: start_time, end_time, curr_time
-  use tracer_mod      , only: tracer_add, tracer_get_array, tracer_get_array_qm, tracers
-  use block_mod       , only: block_type, global_mesh
-  use albedo_mod      , only: albedo_ocnice
-  use latlon_parallel_mod
+  use string            , only: to_int
+  use formula_mod       , only: wet_mixing_ratio
+  use namelist_mod      , only: dt_phys, dt_adv, restart, cam_namelist_path, case_name, case_desc, use_aqua_planet, filter_ptend
+  use process_mod       , only: proc, process_barrier
+  use time_mod          , only: start_time, end_time, curr_time
+  use tracer_mod        , only: tracer_add, tracers
+  use albedo_mod        , only: albedo_ocnice
+  use physics_types_mod , only: physics_use_wet_tracers
+  use cam_physics_types_mod
+  use cam_physics_objects_mod
   use aquaplanet_test_mod
 
   implicit none
@@ -52,6 +53,7 @@ module cam_physics_driver_mod
   public cam_physics_run2
   public cam_physics_d2p
   public cam_physics_p2d
+  public objects
 
   type(physics_state), pointer :: phys_state(:) => null()
   type(physics_tend), pointer :: phys_tend(:) => null()
@@ -69,13 +71,15 @@ module cam_physics_driver_mod
   logical comp_iamin(ncomps)
   integer comp_comm(ncomps)
   integer comp_comm_iam(ncomps)
-  logical, allocatable :: wetq(:)
 
 contains
 
-  subroutine cam_physics_init(namelist_path)
+  subroutine cam_physics_init(namelist_path, mesh, dt_adv, dt_phys)
 
     character(*), intent(in) :: namelist_path
+    type(physics_mesh_type), intent(in) :: mesh(:)
+    real(r8), intent(in) :: dt_adv
+    real(r8), intent(in) :: dt_phys
 
     integer ncol, c, m
     real(r8) :: eccen = SHR_ORB_UNDEF_REAL
@@ -130,10 +134,11 @@ contains
     call chem_surfvals_init()
     call air_composition_init()
 
-    allocate(wetq(pcnst))
+    if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
+    allocate(physics_use_wet_tracers(pcnst))
     do m = 1, pcnst
       call tracer_add('cam_cnst', dt_adv, cnst_name(m), cnst_longname(m), 'kg kg-1', type=0)
-      wetq(m) = cnst_get_type_byind(m) == 'wet'
+      physics_use_wet_tracers(m) = cnst_get_type_byind(m) == 'wet'
     end do
 
     if (.not. restart) then
@@ -259,75 +264,56 @@ contains
     call dyn_grid_final()
     call dyn_final()
 
-    if (allocated(wetq)) deallocate(wetq)
-
   end subroutine cam_physics_final
 
-  subroutine cam_physics_d2p(block, itime)
-
-    type(block_type), intent(in) :: block
-    integer, intent(in) :: itime
+  subroutine cam_physics_d2p()
 
     integer ncol, c, i, k, m
-    integer ilon(pcols), jlat(pcols)
-    real(r8), pointer :: q(:,:,:,:), qm(:,:,:)
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
 
-    call tracer_get_array(block%id, q)
-    call tracer_get_array_qm(block%id, qm)
-
-    associate (mesh => block%mesh, dstate => block%dstate(itime), static => block%static, aux => block%aux)
     if (local_dp_map) then
+      ! TODO: Check if begchunk is 1 and endchunk is mesh%ncol.
       do c = begchunk, endchunk
-        ncol = phys_state(c)%ncol
-        call get_lon_all_p(c, ncol, ilon)
-        call get_lat_all_p(c, ncol, jlat)
-        do i = 1, ncol
-          phys_state(c)%ps(i) = dstate%ps(ilon(i),jlat(i))
-          phys_state(c)%phis(i) = static%gzs(ilon(i),jlat(i))
+        associate (mesh  => objects(c)%mesh , &
+                   state => objects(c)%state)
+        do i = 1, mesh%ncol
+          phys_state(c)%ps(i) = state%ps(i)
+          phys_state(c)%phis(i) = state%zs(i) * gravit
         end do
-        do k = 1, mesh%full_nlev
-          do i = 1, ncol
-            phys_state(c)%u(i,k) = dstate%u(ilon(i),jlat(i),k)
-            phys_state(c)%v(i,k) = dstate%v(ilon(i),jlat(i),k)
-            phys_state(c)%t(i,k) = dstate%t(ilon(i),jlat(i),k)
-            phys_state(c)%exner(i,k) = (dstate%p_lev(ilon(i),jlat(i),mesh%half_nlev) / dstate%p(ilon(i),jlat(i),k))**cappa
-            phys_state(c)%omega(i,k) = aux%omg(ilon(i),jlat(i),k)
-            phys_state(c)%pmid(i,k) = dstate%p(ilon(i),jlat(i),k)
-            phys_state(c)%pdel(i,k) = dstate%p_lev(ilon(i),jlat(i),k+1) - dstate%p_lev(ilon(i),jlat(i),k)
-            phys_state(c)%pdeldry(i,k) = dstate%dmg(ilon(i),jlat(i),k)
-            phys_state(c)%rpdel(i,k)  = 1.0_r8 / phys_state(c)%pdel(i,k)
-            phys_state(c)%lnpmid(i,k) = log(phys_state(c)%pmid(i,k))
-            phys_state(c)%zm(i,k) = dstate%gz(ilon(i),jlat(i),k) / gravit
+        do k = 1, mesh%nlev
+          do i = 1, mesh%ncol
+            phys_state(c)%u      (i,k) = state%u(i,k)
+            phys_state(c)%v      (i,k) = state%v(i,k)
+            phys_state(c)%t      (i,k) = state%t(i,k)
+            phys_state(c)%exner  (i,k) = (state%ps(i) / state%p(i,k))**cappa
+            phys_state(c)%omega  (i,k) = state%omg(i,k)
+            phys_state(c)%pmid   (i,k) = state%p(i,k)
+            phys_state(c)%pdel   (i,k) = state%dp(i,k)
+            phys_state(c)%pdeldry(i,k) = state%dp_dry(i,k)
+            phys_state(c)%rpdel  (i,k) = 1.0_r8 / phys_state(c)%pdel(i,k)
+            phys_state(c)%lnpmid (i,k) = log(phys_state(c)%pmid(i,k))
+            phys_state(c)%zm     (i,k) = state%z(i,k)
           end do
         end do
-        do k = 1, mesh%half_nlev
-          do i = 1, ncol
-            phys_state(c)%pint(i,k) = dstate%p_lev(ilon(i),jlat(i),k)
-            phys_state(c)%lnpint(i,k) = log(phys_state(c)%pint(i,k))
-            phys_state(c)%zi(i,k) = dstate%gz_lev(ilon(i),jlat(i),k) / gravit
+        do k = 1, mesh%nlev + 1
+          do i = 1, mesh%ncol
+            phys_state(c)%pint   (i,k) = state%p_lev(i,k)
+            phys_state(c)%lnpint (i,k) = log(phys_state(c)%pint(i,k))
+            phys_state(c)%zi     (i,k) = state%z_lev(i,k)
           end do
         end do
         do m = 1, pcnst
-          if (wetq(m)) then
-            do k = 1, mesh%full_nlev
-              do i = 1, ncol
-                phys_state(c)%q(i,k,m) = wet_mixing_ratio(q(ilon(i),jlat(i),k,m), qm(ilon(i),jlat(i),k))
-              end do
+          do k = 1, mesh%nlev
+            do i = 1, mesh%ncol
+              phys_state(c)%q(i,k,m) = state%q(i,k,m)
             end do
-          else
-            do k = 1, mesh%full_nlev
-              do i = 1, ncol
-                phys_state(c)%q(i,k,m) = q(ilon(i),jlat(i),k,m)
-              end do
-            end do
-          end if
+          end do
         end do
+        end associate
       end do
     else
       call log_error('cam_physics_d2p: Distributed physics columns are not supported yet!', __FILE__, __LINE__)
     end if
-    end associate
 
     do c = begchunk, endchunk
       ncol = phys_state(c)%ncol
@@ -335,7 +321,7 @@ contains
       do k = 1, pver
         do i = 1, ncol
           phys_state(c)%s(i,k) = cpair * phys_state(c)%t(i,k) &
-                                   + gravit * phys_state(c)%zm(i,k) + phys_state(c)%phis(i)
+                               + gravit * phys_state(c)%zm(i,k) + phys_state(c)%phis(i)
         end do
       end do
 
@@ -350,65 +336,51 @@ contains
 
   end subroutine cam_physics_d2p
 
-  subroutine cam_physics_p2d(block)
-
-    type(block_type), intent(inout) :: block
+  subroutine cam_physics_p2d()
 
     integer ncol, c, i, j, k, m
     integer ilon(pcols), jlat(pcols)
-    real(r8), pointer :: q(:,:,:,:), qm(:,:,:)
 
-    call tracer_get_array(block%id, q)
-    call tracer_get_array_qm(block%id, qm)
-    associate (mesh => block%mesh, ptend => block%ptend, aux => block%aux)
-    ptend%updated_u = .true.
-    ptend%updated_v = .true.
-    ptend%updated_t = .true.
-    ptend%updated_q = .true.
     if (local_dp_map) then
       do c = begchunk, endchunk
-        ncol = phys_state(c)%ncol
-        call get_lon_all_p(c, ncol, ilon)
-        call get_lat_all_p(c, ncol, jlat)
-        do k = 1, pver
-          do i = 1, ncol
-            aux%dudt_phys(ilon(i),jlat(i),k) = phys_tend(c)%dudt(i,k)
-            aux%dvdt_phys(ilon(i),jlat(i),k) = phys_tend(c)%dvdt(i,k)
-            aux%dtdt_phys(ilon(i),jlat(i),k) = phys_tend(c)%dtdt(i,k)
+        associate (mesh  => objects(c)%mesh , &
+                   state => objects(c)%state, &
+                   tend  => objects(c)%tend , &
+                   q     => tracers(c)%q%d  , &
+                   qm    => tracers(c)%qm%d )
+        call get_lon_all_p(c, mesh%ncol, ilon)
+        call get_lat_all_p(c, mesh%ncol, jlat)
+        do k = 1, mesh%nlev
+          do i = 1, mesh%ncol
+            tend%dudt(i,k) = phys_tend(c)%dudt(i,k)
+            tend%dvdt(i,k) = phys_tend(c)%dvdt(i,k)
+            tend%dtdt(i,k) = phys_tend(c)%dtdt(i,k)
           end do
         end do
+        tend%updated_u = .true.
+        tend%updated_v = .true.
+        tend%updated_t = .true.
         do m = 1, pcnst
-          if (wetq(m)) then
+          if (physics_use_wet_tracers(m)) then
             do k = 1, pver
               do i = 1, ncol
-                aux%dqdt_phys(ilon(i),jlat(i),k,m) = (phys_state(c)%q(i,k,m) - wet_mixing_ratio(q(ilon(i),jlat(i),k,m), qm(ilon(i),jlat(i),k))) / dt_phys
+                tend%dqdt(i,k,m) = (phys_state(c)%q(i,k,m) - wet_mixing_ratio(q(ilon(i),jlat(i),k,m), qm(ilon(i),jlat(i),k))) / dt_phys
               end do
             end do
           else
             do k = 1, pver
               do i = 1, ncol
-                aux%dqdt_phys(ilon(i),jlat(i),k,m) = (phys_state(c)%q(i,k,m) - q(ilon(i),jlat(i),k,m)) / dt_phys
+                tend%dqdt(i,k,m) = (phys_state(c)%q(i,k,m) - q(ilon(i),jlat(i),k,m)) / dt_phys
               end do
             end do
           end if
+          tend%updated_q(m) = .true.
         end do
+        end associate
       end do
-      if (mesh%has_south_pole()) then
-        call zonal_avg(proc%zonal_circle, aux%dtdt_phys, mesh%full_jds)
-        do m = 1, pcnst
-          call zonal_avg(proc%zonal_circle, aux%dqdt_phys(:,:,:,m), mesh%full_jds)
-        end do
-      end if
-      if (mesh%has_north_pole()) then
-        call zonal_avg(proc%zonal_circle, aux%dtdt_phys, mesh%full_jde)
-        do m = 1, pcnst
-          call zonal_avg(proc%zonal_circle, aux%dqdt_phys(:,:,:,m), mesh%full_jde)
-        end do
-      end if
     else
       call log_error('cam_physics_p2d: Distributed physics columns are not supported yet!', __FILE__, __LINE__)
     end if
-    end associate
 
   end subroutine cam_physics_p2d
 

@@ -12,6 +12,7 @@
 
 module mars_nasa_namelist_mod
 
+  use fiona
   use flogger
   use string
   use process_mod
@@ -29,6 +30,7 @@ module mars_nasa_namelist_mod
   logical :: active_water                  = .false.
   logical :: active_dust                   = .false.
   logical :: albedo_feedback               = .false.
+  logical :: water_ice_latent_heat         = .false.
 
   real(r8) :: ice_albedo                   = 0.4_r8
   ! Ice depth threshold required to change surface albedo (um)

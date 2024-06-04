@@ -23,6 +23,7 @@ module physics_mod
   use cam_physics_driver_mod
 #endif
   use mars_nasa_physics_driver_mod, mars_nasa_objects => objects
+  use perf_mod
 
   implicit none
 
@@ -92,9 +93,18 @@ contains
     ! Create mesh objects.
     allocate(mesh(nblk))
     do iblk = 1, nblk
+      associate (dmesh => blocks(iblk)%mesh)
       call mesh(iblk)%init(ncol(iblk), nlev, lon(:,iblk), lat(:,iblk), &
                            blocks(iblk)%mesh%full_lev, blocks(iblk)%mesh%full_dlev, &
                            area(:,iblk), ptop=ptop)
+      ! For output dimensions
+      mesh(iblk)%cell_start_2d = [dmesh%full_ids ,dmesh%full_jds ,1]
+      mesh(iblk)%cell_count_2d = [dmesh%full_nlon,dmesh%full_nlat,1]
+      mesh(iblk)%cell_start_3d = [dmesh%full_ids ,dmesh%full_jds ,dmesh%full_kds ,1]
+      mesh(iblk)%cell_count_3d = [dmesh%full_nlon,dmesh%full_nlat,dmesh%full_nlev,1]
+      mesh(iblk)%lev_start = [dmesh%full_ids ,dmesh%full_jds ,dmesh%half_kds ,1]
+      mesh(iblk)%lev_count = [dmesh%full_nlon,dmesh%full_nlat,dmesh%half_nlev,1]
+      end associate
     end do
     deallocate(ncol, lon, lat, area)
 
@@ -139,6 +149,8 @@ contains
 
     call dp_coupling_d2p(block, itime)
 
+    call perf_start('physics_run')
+
     select case (physics_suite)
     case ('simple_physics')
       call simple_physics_run()
@@ -152,6 +164,8 @@ contains
       call mars_nasa_run(curr_time)
     end select
 
+    call perf_stop('physics_run')
+
     call dp_coupling_p2d(block, itime)
 
   end subroutine physics_run
@@ -164,6 +178,8 @@ contains
 
     class(physics_tend_type), pointer :: tend
     integer i, j, k, m
+
+    call perf_start('physics_update')
 
     associate (mesh  => block%mesh               , &
                dudt  => block%aux%dudt_phys      , & ! in
@@ -215,6 +231,8 @@ contains
     call tracer_calc_qm(block)
     end associate
 
+    call perf_stop('physics_update')
+
   end subroutine physics_update
 
   subroutine physics_update_dynamics(block, itime, dt)
@@ -224,6 +242,8 @@ contains
     real(r8), intent(in) :: dt
 
     integer i, j, k
+
+    call perf_start('physics_update_dynamics')
 
     associate (mesh  => block%mesh               , &
                dudt  => block%aux%dudt_phys      , & ! in
@@ -260,6 +280,8 @@ contains
     call fill_halo(pt)
     end associate
 
+    call perf_stop('physics_update_dynamics')
+
   end subroutine physics_update_dynamics
 
   subroutine physics_update_tracers(block, itime, dt, idx)
@@ -270,6 +292,8 @@ contains
     integer, intent(in) :: idx
 
     integer i, j, k
+
+    call perf_start('physics_update_tracers')
 
     associate (mesh  => block%mesh             , &
                dqdt  => block%aux%dqdt_phys    , &
@@ -286,6 +310,8 @@ contains
     call tracer_fill_negative_values(block, itime, q%d(:,:,:,idx))
     call fill_halo(q, idx)
     end associate
+
+    call perf_stop('physics_update_tracers')
 
   end subroutine physics_update_tracers
 
@@ -304,47 +330,37 @@ contains
       call mars_nasa_final()
     end select
 
+    if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
+
   end subroutine physics_final
 
-  subroutine physics_add_output()
+  subroutine physics_add_output(tag)
 
-    character(3) :: dims(2) = ['lon', 'lat']
+    character(*), intent(in) :: tag
 
     if (physics_suite == 'N/A') return
 
     select case (physics_suite)
     case ('simple_physics')
-      call simple_physics_add_output('h1', output_h0_dtype)
+      call simple_physics_add_output(tag, output_h0_dtype)
     case ('mars_nasa')
-      call mars_nasa_add_output('h0', output_h0_dtype)
+      call mars_nasa_add_output(tag, output_h0_dtype)
     end select
 
   end subroutine physics_add_output
 
-  subroutine physics_output(block)
+  subroutine physics_output(tag, iblk)
 
-    type(block_type), intent(in) :: block
-
-    class(physics_state_type ), pointer :: state  => null()
-    class(physics_static_type), pointer :: static => null()
-    integer is, ie, js, je, ks, ke
-    integer start(3), count(3)
+    character(*), intent(in) :: tag
+    integer, intent(in) :: iblk
 
     if (physics_suite == 'N/A') return
 
-    is = block%mesh%full_ids; ie = block%mesh%full_ide
-    js = block%mesh%full_jds; je = block%mesh%full_jde
-    ks = block%mesh%full_kds; ke = block%mesh%full_kde
-    start = [is,js,ks]
-    count = [ie-is+1,je-js+1,ke-ks+1]
-
     select case (physics_suite)
     case ('simple_physics')
-      call simple_physics_output('h0', block%id, start, count)
+      call simple_physics_output(tag, iblk)
     case ('mars_nasa')
-      call mars_nasa_output('h0', block%id, start, count)
-      state  => mars_nasa_objects(block%id)%state
-      static => mars_nasa_objects(block%id)%static
+      call mars_nasa_output(tag, iblk)
     end select
 
   end subroutine physics_output
