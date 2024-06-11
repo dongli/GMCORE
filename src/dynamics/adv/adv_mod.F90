@@ -36,6 +36,7 @@ module adv_mod
   public adv_init
   public adv_prepare
   public adv_run
+  public adv_run_ieva
   public adv_final
   public adv_fill_vhalo
   public adv_accum_wind
@@ -64,12 +65,14 @@ contains
     do iblk = 1, size(blocks)
       if (baroclinic) then
         call blocks(iblk)%adv_batch_pt%init(                  &
+          blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
           pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., ieva=use_ieva)
       end if
       if (nonhydrostatic) then
         call blocks(iblk)%adv_batch_nh%init(                  &
+          blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
           nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., ieva=use_ieva)
@@ -92,9 +95,10 @@ contains
           end if
         end do
         call blocks(iblk)%adv_batches(ibat)%init(             &
+          blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=.false., idx=idx(1:n))
+          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=use_ieva, idx=idx(1:n))
       end do
     end do
 
@@ -214,7 +218,15 @@ contains
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  q_new%d(i,j,k) = q_new%d(i,j,k) - (qmfz%d(i,j,k+1) - qmfz%d(i,j,k)) * dt_adv / m_new%d(i,j,k)
+                  dqdt%d(i,j,k) = qmfz%d(i,j,k+1) - qmfz%d(i,j,k)
+                end do
+              end do
+            end do
+            if (batch%use_ieva) call adv_run_ieva(batch, m_old, q_old, dqdt, dt_adv)
+            do k = mesh%full_kds, mesh%full_kde
+              do j = mesh%full_jds, mesh%full_jde
+                do i = mesh%full_ids, mesh%full_ide
+                  q_new%d(i,j,k) = q_new%d(i,j,k) - dt_adv * dqdt%d(i,j,k) / m_new%d(i,j,k)
                 end do
               end do
             end do
@@ -318,5 +330,50 @@ contains
   subroutine adv_final()
 
   end subroutine adv_final
+
+  subroutine adv_run_ieva(batch, m_old, q_old, dqdt, dt)
+
+    type(adv_batch_type), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in) :: m_old
+    type(latlon_field3d_type), intent(in) :: q_old
+    type(latlon_field3d_type), intent(inout) :: dqdt
+    real(r8), intent(in) :: dt
+
+    integer ks, ke
+    integer i, j, k
+
+    associate (mesh   => batch%mesh  , &
+               we_imp => batch%we_imp, &
+               a      => batch%ieva_a, &
+               b      => batch%ieva_b, &
+               c      => batch%ieva_c, &
+               r      => batch%ieva_r, &
+               qm     => batch%ieva_qm)
+    ! NOTE: Only consider cell and lev location.
+    ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
+    ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
+    do j = mesh%full_jds, mesh%full_jde
+      do i = mesh%full_ids, mesh%full_ide
+        a(mesh%full_kds) = 0
+        c(mesh%full_kde) = 0
+        do k = ks + 1, ke
+          a(k) = -dt * we_imp%d(i,j,k  ) * (1 + sign(1.0_r8, we_imp%d(i,j,k  )))
+        end do
+        do k = ks, ke - 1
+          c(k) =  dt * we_imp%d(i,j,k+1) * (1 - sign(1.0_r8, we_imp%d(i,j,k+1)))
+        end do
+        do k = ks, ke
+          b(k) = 2 - a(k) - c(k)
+          r(k) = 2 * q_old%d(i,j,k) * m_old%d(i,j,k)
+        end do
+        call tridiag_thomas(a, b, c, r, qm)
+        do k = ks, ke
+          dqdt%d(i,j,k) = dqdt%d(i,j,k) - (qm(k) - q_old%d(i,j,k) * m_old%d(i,j,k)) / dt
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine adv_run_ieva
 
 end module adv_mod

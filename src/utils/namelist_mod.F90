@@ -267,6 +267,10 @@ module namelist_mod
     weno_order                , &
     upwind_order              , &
     upwind_wgt                , &
+    use_ieva                  , &
+    ieva_cfl_min              , &
+    ieva_cfl_max              , &
+    ieva_eps                  , &
     time_scheme               , &
     filter_coef_a             , &
     filter_coef_b             , &

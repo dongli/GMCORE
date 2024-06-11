@@ -32,11 +32,13 @@ module adv_batch_mod
   use container
   use const_mod
   use namelist_mod
+  use math_mod
   use time_mod
   use latlon_mesh_mod
   use latlon_field_types_mod
   use latlon_operators_mod
   use latlon_parallel_mod
+  use filter_mod
   use vert_coord_mod
 
   implicit none
@@ -52,12 +54,13 @@ module adv_batch_mod
     character(10) :: loc  = 'cell'
     character(30) :: name = ''
     logical  :: dynamic   = .false.
-    logical  :: ieva      = .false.
+    logical  :: use_ieva  = .false.
     integer  :: ntracers  = 1
     integer  :: nstep     = 0       ! Number of dynamic steps for one adv step
     integer  :: step      = 0       ! Step counter
     real(r8) :: dt                  ! Advection time step size in seconds
     integer , allocatable :: idx(:) ! Global index of tracers in this batch
+    type(latlon_mesh_type), pointer :: mesh => null()
     type(array_type) fields
     type(latlon_field3d_type) old_m
     type(latlon_field3d_type) mfx
@@ -66,7 +69,6 @@ module adv_batch_mod
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
     type(latlon_field3d_type) we     ! Explicit part of vertical mass flux
-    type(latlon_field3d_type) we_imp ! Implicit part of vertical mass flux
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
@@ -77,6 +79,15 @@ module adv_batch_mod
     type(latlon_field3d_type) qmfx
     type(latlon_field3d_type) qmfy
     type(latlon_field3d_type) qmfz
+    ! IEVA variables
+    type(latlon_field3d_type) we_imp ! Implicit part of vertical mass flux
+    type(latlon_field3d_type) cfl_h  ! Horizontal CFL number for IEVA
+    real(r8), allocatable, dimension(:) :: ieva_eps
+    real(r8), allocatable, dimension(:) :: ieva_a
+    real(r8), allocatable, dimension(:) :: ieva_b
+    real(r8), allocatable, dimension(:) :: ieva_c
+    real(r8), allocatable, dimension(:) :: ieva_r
+    real(r8), allocatable, dimension(:) :: ieva_qm
     ! FFSL variables
     type(latlon_field3d_type) cflx
     type(latlon_field3d_type) cfly
@@ -98,12 +109,13 @@ module adv_batch_mod
 
 contains
 
-  subroutine adv_batch_init(this, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, ieva, idx)
+  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, ieva, idx)
 
     class(adv_batch_type), intent(inout) :: this
+    type(filter_type), intent(in) :: filter
     type(latlon_mesh_type), intent(in) :: filter_mesh
     type(latlon_halo_type), intent(in) :: filter_halo(:)
-    type(latlon_mesh_type), intent(in) :: mesh
+    type(latlon_mesh_type), intent(in), target :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
     character(*), intent(in) :: scheme
     character(*), intent(in) :: batch_loc
@@ -113,8 +125,12 @@ contains
     logical, intent(in) :: ieva
     integer, intent(in), optional :: idx(:)
 
+    real(r8) min_width, max_width
+    integer j
+
     call this%clear()
 
+    this%mesh => mesh
     this%fields = array(30)
 
     this%scheme   = scheme
@@ -122,7 +138,7 @@ contains
     this%name     = batch_name
     this%dt       = dt
     this%dynamic  = dynamic
-    this%ieva     = ieva
+    this%use_ieva = ieva
     this%nstep    = dt / dt_dyn
     this%step     = 0
 
@@ -283,7 +299,17 @@ contains
         halo              =halo                                                , &
         restart           =.false.                                             , &
         field             =this%qmfz                                           )
-      if (this%ieva) then
+      if (this%use_ieva) then
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_cfl_h'                         , &
+          long_name       ='Horizontal CFL number'                             , &
+          units           =''                                                  , &
+          loc             ='lev'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          output          ='h0'                                                , &
+          restart         =.false.                                             , &
+          field           =this%cfl_h                                          )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_we_imp'                        , &
           long_name       ='Implicit part of vertical mass flux'               , &
@@ -292,7 +318,14 @@ contains
           mesh            =mesh                                                , &
           halo            =halo                                                , &
           restart         =.false.                                             , &
+          output          ='h0'                                                , &
           field           =this%we_imp                                         )
+        allocate(this%ieva_eps(mesh%full_jds:mesh%full_jde))
+        allocate(this%ieva_a  (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_b  (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_c  (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_r  (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_qm (mesh%full_kds:mesh%full_kde))
       end if
       select case (this%scheme)
       case ('ffsl')
@@ -444,7 +477,17 @@ contains
         halo              =halo                                                , &
         restart           =.false.                                             , &
         field             =this%qmfz                                           )
-      if (this%ieva) then
+      if (this%use_ieva) then
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_cfl_h'                         , &
+          long_name       ='Horizontal CFL number'                             , &
+          units           =''                                                  , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          output          ='h0'                                                , &
+          restart         =.false.                                             , &
+          field           =this%cfl_h                                          )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_we_imp'                        , &
           long_name       ='Implicit part of vertical mass flux'               , &
@@ -453,7 +496,14 @@ contains
           mesh            =mesh                                                , &
           halo            =halo                                                , &
           restart         =.false.                                             , &
+          output          ='h0'                                                , &
           field           =this%we_imp                                         )
+        allocate(this%ieva_eps(mesh%full_jds:mesh%full_jde))
+        allocate(this%ieva_a  (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_b  (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_c  (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_r  (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_qm (mesh%half_kds:mesh%half_kde))
       end if
       select case (this%scheme)
       case ('ffsl')
@@ -532,6 +582,17 @@ contains
       this%idx = idx
     end if
 
+    if (this%use_ieva) then
+      min_width = minval(filter%width_lon(mesh%full_jds_no_pole:mesh%full_jde_no_pole))
+      max_width = maxval(filter%width_lon(mesh%full_jds_no_pole:mesh%full_jde_no_pole))
+      call global_min(proc%comm_model, min_width)
+      call global_max(proc%comm_model, max_width)
+      this%ieva_eps = ieva_eps
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        this%ieva_eps(j) = ieva_eps * min_width / filter%width_lon(j)
+      end do
+    end if
+
     call time_add_alert(batch_name, seconds=dt)
 
   end subroutine adv_batch_init
@@ -556,7 +617,13 @@ contains
     end do
     call this%fields%clear()
 
-    if (allocated (this%idx)) deallocate(this%idx)
+    if (allocated(this%idx     )) deallocate(this%idx     )
+    if (allocated(this%ieva_eps)) deallocate(this%ieva_eps)
+    if (allocated(this%ieva_a  )) deallocate(this%ieva_a  )
+    if (allocated(this%ieva_b  )) deallocate(this%ieva_b  )
+    if (allocated(this%ieva_c  )) deallocate(this%ieva_c  )
+    if (allocated(this%ieva_r  )) deallocate(this%ieva_r  )
+    if (allocated(this%ieva_qm )) deallocate(this%ieva_qm )
 
     this%loc         = 'cell'
     this%name        = ''
@@ -594,7 +661,7 @@ contains
     call this%mfy%link(mfy_lat)
     call this%mz %link(dmg_lev)
 
-    if (this%ieva) call this%prepare_ieva()
+    if (this%use_ieva) call this%prepare_ieva()
     if (this%scheme == 'ffsl') call this%prepare_ffsl()
 
   end subroutine adv_batch_set_wind
@@ -693,6 +760,7 @@ contains
         end do
       end do
       end associate
+      if (this%use_ieva) call this%prepare_ieva()
       if (this%scheme == 'ffsl') call this%prepare_ffsl()
     end if
 
@@ -812,7 +880,7 @@ contains
                v      => this%v     , & ! in
                mz     => this%mz    , & ! in
                we     => this%we    , & ! in
-               cfl_h  => this%we_imp, & ! working array
+               cfl_h  => this%cfl_h , & ! working array
                we_imp => this%we_imp)   ! out
     ks = merge(this%u%mesh%half_kds, this%u%mesh%full_kds, we%loc == 'lev') + 1
     ke = merge(this%u%mesh%half_kde, this%u%mesh%full_kde, we%loc == 'lev') - 1
@@ -823,9 +891,9 @@ contains
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
             ku = merge(k - 1, k, we%d(i,j,k) >= 0)
-            cfl_h%d(i,j,k) = dt * (                                                    &
-              max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8) / mesh%de_lon(j) + &
-              max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8) / mesh%le_lon(j)   &
+            cfl_h%d(i,j,k) = dt * (                                                      &
+              (max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8)) / mesh%de_lon(j) + &
+              (max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8)) / mesh%le_lon(j)   &
             )
           end do
         end do
@@ -839,7 +907,7 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = pole * mesh%le_lat(j) / mesh%area_pole_cap
+        pole = pole * dt * mesh%le_lat(j) / mesh%area_pole_cap
         do k = ks, ke
           do i = mesh%full_ids, mesh%full_ide
             cfl_h%d(i,j,k) = pole(k)
@@ -855,7 +923,7 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -pole * mesh%le_lat(j-1) / mesh%area_pole_cap
+        pole = -pole * dt * mesh%le_lat(j-1) / mesh%area_pole_cap
         do k = ks, ke
           do i = mesh%full_ids, mesh%full_ide
             cfl_h%d(i,j,k) = pole(k)
@@ -867,9 +935,9 @@ contains
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
             ku = merge(k, k + 1, we%d(i,j,k) >= 0)
-            cfl_h%d(i,j,k) = dt * (                                                    &
-              max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8) / mesh%de_lon(j) + &
-              max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8) / mesh%le_lon(j)   &
+            cfl_h%d(i,j,k) = dt * (                                                      &
+              (max(u%d(i,j,ku), 0.0_r8) - min(u%d(i-1,j,ku), 0.0_r8)) / mesh%de_lon(j) + &
+              (max(v%d(i,j,ku), 0.0_r8) - min(v%d(i,j-1,ku), 0.0_r8)) / mesh%le_lon(j)   &
             )
           end do
         end do
@@ -911,7 +979,7 @@ contains
     do k = ks, ke
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          cfl_max = ieva_cfl_max - ieva_eps * cfl_h%d(i,j,k)
+          cfl_max = (ieva_cfl_max - this%ieva_eps(j) * cfl_h%d(i,j,k)) / ieva_cfl_max
           cfl_min = ieva_cfl_min * cfl_max / ieva_cfl_max
           cfl_v = dt * abs(we%d(i,j,k) / mz%d(i,j,k))
           if (cfl_v <= cfl_min) then
@@ -921,11 +989,19 @@ contains
           else
             b = cfl_max / cfl_v
           end if
-#ifndef NDEBUG
           if (b < 0 .or. b > 1) then
-            call log_error('Vertical velocity split weight is out range from 0 to 1!', __FILE__, __LINE__)
+            print *, 'ieva_cfl_min = ', ieva_cfl_min
+            print *, 'ieva_cfl_max = ', ieva_cfl_max
+            print *, 'ieva_eps     = ', ieva_eps
+            print *, 'mesh%lon_hw  = ', mesh%lon_hw
+            print *, 'cfl_min      = ', cfl_min
+            print *, 'cfl_max      = ', cfl_max
+            print *, 'cfl_h        = ', cfl_h%d(i,j,k)
+            print *, 'cfl_v        = ', cfl_v
+            print *, 'b            = ', b
+            call log_error('Vertical velocity split weight is out range from 0 to 1 at (' // &
+              to_str(i) // ',' // to_str(j) // ',' // to_str(k) // ')!', __FILE__, __LINE__)
           end if
-#endif
           this%we_imp%d(i,j,k) = (1 - b) * this%we%d(i,j,k)
           this%we    %d(i,j,k) = b * this%we%d(i,j,k)
         end do

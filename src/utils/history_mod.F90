@@ -174,6 +174,13 @@ contains
     call add_fields('h0', blocks(1)%dtend (1)%fields)
     call add_fields('h0', blocks(1)%static   %fields, static=.true.)
     call add_fields('h0', blocks(1)%aux      %fields)
+    call add_fields('h0', blocks(1)%adv_batch_pt%fields)
+    call add_fields('h0', blocks(1)%adv_batch_nh%fields)
+    if (allocated(blocks(1)%adv_batches)) then
+      do i = 1, size(blocks(1)%adv_batches)
+        call add_fields('h0', blocks(1)%adv_batches(i)%fields)
+      end do
+    end if
     field => tracers(1)%q
     call add_field ('h0', field)
 
@@ -187,7 +194,7 @@ contains
 
     logical, save :: first_call = .true.
     real(8) time1, time2
-    integer iblk
+    integer iblk, i
 
     if (proc%is_root()) then
       call log_notice('Write h0 file.')
@@ -227,6 +234,13 @@ contains
       call write_fields('h0', mesh, dstate%fields)
       call write_fields('h0', mesh, dtend %fields)
       call write_fields('h0', mesh, aux   %fields)
+      call write_fields('h0', mesh, blocks(iblk)%adv_batch_pt%fields)
+      call write_fields('h0', mesh, blocks(iblk)%adv_batch_nh%fields)
+      if (allocated(blocks(iblk)%adv_batches)) then
+        do i = 1, size(blocks(iblk)%adv_batches)
+          call write_fields('h0', mesh, blocks(iblk)%adv_batches(i)%fields)
+        end do
+      end if
       call write_field ('h0', mesh, q)
       end associate
       call physics_output('h0', iblk)

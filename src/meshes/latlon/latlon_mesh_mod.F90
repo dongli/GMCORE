@@ -466,6 +466,7 @@ contains
       this%f_lat         (j) = parent%f_lat         (j)
       this%tg_wgt_lat  (:,j) = parent%tg_wgt_lat  (:,j)
     end do
+    this%area_pole_cap = parent%area_pole_cap
 
     this%full_lev = parent%full_lev
     this%half_lev = parent%half_lev
