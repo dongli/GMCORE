@@ -75,7 +75,7 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., ieva=use_ieva)
+          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., ieva=.false.)
       end if
     end do
 
@@ -218,15 +218,15 @@ contains
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  dqdt%d(i,j,k) = qmfz%d(i,j,k+1) - qmfz%d(i,j,k)
+                  dqdt%d(i,j,k) = -(qmfz%d(i,j,k+1) - qmfz%d(i,j,k))
                 end do
               end do
             end do
-            if (batch%use_ieva) call adv_run_ieva(batch, m_old, q_old, dqdt, dt_adv)
+            if (batch%use_ieva) call adv_run_ieva(batch, m_new, q_new, dqdt, dt_adv)
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  q_new%d(i,j,k) = q_new%d(i,j,k) - dt_adv * dqdt%d(i,j,k) / m_new%d(i,j,k)
+                  q_new%d(i,j,k) = q_new%d(i,j,k) + dt_adv * dqdt%d(i,j,k) / m_new%d(i,j,k)
                 end do
               end do
             end do
@@ -368,7 +368,7 @@ contains
         end do
         call tridiag_thomas(a, b, c, r, qm)
         do k = ks, ke
-          dqdt%d(i,j,k) = dqdt%d(i,j,k) - (qm(k) - q_old%d(i,j,k) * m_old%d(i,j,k)) / dt
+          dqdt%d(i,j,k) = dqdt%d(i,j,k) + (qm(k) - q_old%d(i,j,k) * m_old%d(i,j,k)) / dt
         end do
       end do
     end do

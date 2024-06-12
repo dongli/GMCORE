@@ -1066,6 +1066,7 @@ contains
                we_lev  => dstate%we_lev    , & ! in
                mfx_lon => block%aux%mfx_lon, & ! in
                mfy_lat => block%aux%mfy_lat, & ! in
+               dmg     => dstate%dmg       , & ! in
                dmg_lev => dstate%dmg_lev   , & ! in
                pt      => dstate%pt        , & ! in
                ptfx    => block%aux%ptfx   , & ! out
@@ -1086,6 +1087,7 @@ contains
         end do
       end do
     end do
+    if (block%adv_batch_pt%use_ieva) call adv_run_ieva(block%adv_batch_pt, dmg, pt, dpt, dt)
     end associate
 
     call perf_stop('calc_grad_ptf')

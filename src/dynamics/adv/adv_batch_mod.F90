@@ -82,7 +82,7 @@ module adv_batch_mod
     ! IEVA variables
     type(latlon_field3d_type) we_imp ! Implicit part of vertical mass flux
     type(latlon_field3d_type) cfl_h  ! Horizontal CFL number for IEVA
-    real(r8), allocatable, dimension(:) :: ieva_eps
+    real(r8), allocatable, dimension(:) :: ieva_cfl_max
     real(r8), allocatable, dimension(:) :: ieva_a
     real(r8), allocatable, dimension(:) :: ieva_b
     real(r8), allocatable, dimension(:) :: ieva_c
@@ -320,12 +320,12 @@ contains
           restart         =.false.                                             , &
           output          ='h0'                                                , &
           field           =this%we_imp                                         )
-        allocate(this%ieva_eps(mesh%full_jds:mesh%full_jde))
-        allocate(this%ieva_a  (mesh%full_kds:mesh%full_kde))
-        allocate(this%ieva_b  (mesh%full_kds:mesh%full_kde))
-        allocate(this%ieva_c  (mesh%full_kds:mesh%full_kde))
-        allocate(this%ieva_r  (mesh%full_kds:mesh%full_kde))
-        allocate(this%ieva_qm (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_cfl_max(mesh%full_jds:mesh%full_jde))
+        allocate(this%ieva_a      (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_b      (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_c      (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_r      (mesh%full_kds:mesh%full_kde))
+        allocate(this%ieva_qm     (mesh%full_kds:mesh%full_kde))
       end if
       select case (this%scheme)
       case ('ffsl')
@@ -498,12 +498,12 @@ contains
           restart         =.false.                                             , &
           output          ='h0'                                                , &
           field           =this%we_imp                                         )
-        allocate(this%ieva_eps(mesh%full_jds:mesh%full_jde))
-        allocate(this%ieva_a  (mesh%half_kds:mesh%half_kde))
-        allocate(this%ieva_b  (mesh%half_kds:mesh%half_kde))
-        allocate(this%ieva_c  (mesh%half_kds:mesh%half_kde))
-        allocate(this%ieva_r  (mesh%half_kds:mesh%half_kde))
-        allocate(this%ieva_qm (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_cfl_max(mesh%full_jds:mesh%full_jde))
+        allocate(this%ieva_a      (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_b      (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_c      (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_r      (mesh%half_kds:mesh%half_kde))
+        allocate(this%ieva_qm     (mesh%half_kds:mesh%half_kde))
       end if
       select case (this%scheme)
       case ('ffsl')
@@ -587,9 +587,9 @@ contains
       max_width = maxval(filter%width_lon(mesh%full_jds_no_pole:mesh%full_jde_no_pole))
       call global_min(proc%comm_model, min_width)
       call global_max(proc%comm_model, max_width)
-      this%ieva_eps = ieva_eps
+      this%ieva_cfl_max = ieva_cfl_max
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        this%ieva_eps(j) = ieva_eps * min_width / filter%width_lon(j)
+        this%ieva_cfl_max(j) = ieva_cfl_max * filter%width_lon(j) / min_width
       end do
     end if
 
@@ -617,13 +617,13 @@ contains
     end do
     call this%fields%clear()
 
-    if (allocated(this%idx     )) deallocate(this%idx     )
-    if (allocated(this%ieva_eps)) deallocate(this%ieva_eps)
-    if (allocated(this%ieva_a  )) deallocate(this%ieva_a  )
-    if (allocated(this%ieva_b  )) deallocate(this%ieva_b  )
-    if (allocated(this%ieva_c  )) deallocate(this%ieva_c  )
-    if (allocated(this%ieva_r  )) deallocate(this%ieva_r  )
-    if (allocated(this%ieva_qm )) deallocate(this%ieva_qm )
+    if (allocated(this%idx         )) deallocate(this%idx         )
+    if (allocated(this%ieva_cfl_max)) deallocate(this%ieva_cfl_max)
+    if (allocated(this%ieva_a      )) deallocate(this%ieva_a      )
+    if (allocated(this%ieva_b      )) deallocate(this%ieva_b      )
+    if (allocated(this%ieva_c      )) deallocate(this%ieva_c      )
+    if (allocated(this%ieva_r      )) deallocate(this%ieva_r      )
+    if (allocated(this%ieva_qm     )) deallocate(this%ieva_qm     )
 
     this%loc         = 'cell'
     this%name        = ''
@@ -979,8 +979,8 @@ contains
     do k = ks, ke
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          cfl_max = (ieva_cfl_max - this%ieva_eps(j) * cfl_h%d(i,j,k)) / ieva_cfl_max
-          cfl_min = ieva_cfl_min * cfl_max / ieva_cfl_max
+          cfl_max = this%ieva_cfl_max(j) - ieva_eps * cfl_h%d(i,j,k)
+          cfl_min = ieva_cfl_min * cfl_max / this%ieva_cfl_max(j)
           cfl_v = dt * abs(we%d(i,j,k) / mz%d(i,j,k))
           if (cfl_v <= cfl_min) then
             b = 1
@@ -989,21 +989,22 @@ contains
           else
             b = cfl_max / cfl_v
           end if
-          if (b < 0 .or. b > 1) then
-            print *, 'ieva_cfl_min = ', ieva_cfl_min
-            print *, 'ieva_cfl_max = ', ieva_cfl_max
-            print *, 'ieva_eps     = ', ieva_eps
-            print *, 'mesh%lon_hw  = ', mesh%lon_hw
-            print *, 'cfl_min      = ', cfl_min
-            print *, 'cfl_max      = ', cfl_max
-            print *, 'cfl_h        = ', cfl_h%d(i,j,k)
-            print *, 'cfl_v        = ', cfl_v
-            print *, 'b            = ', b
-            call log_error('Vertical velocity split weight is out range from 0 to 1 at (' // &
-              to_str(i) // ',' // to_str(j) // ',' // to_str(k) // ')!', __FILE__, __LINE__)
-          end if
           this%we_imp%d(i,j,k) = (1 - b) * this%we%d(i,j,k)
           this%we    %d(i,j,k) = b * this%we%d(i,j,k)
+          if (b < 0 .or. b > 1) then
+            print *, '---'
+            print *, 'i                =', i
+            print *, 'j                =', j
+            print *, 'k                =', k
+            print *, 'cfl_h%d(i,j,k)   =', cfl_h%d(i,j,k)
+            print *, 'u%d(i,j,k)       =', u%d(i,j,k)
+            print *, 'v%d(i,j,k)       =', v%d(i,j,k)
+            print *, 'cfl_max          =', cfl_max
+            print *, 'ieva_cfl_max     =', this%ieva_cfl_max(j)
+            print *, 'we_imp%d(i,j,k)  =', this%we_imp%d(i,j,k)
+            stop 999
+          end if
+          this%cfl_h %d(i,j,k) = b
         end do
       end do
     end do
