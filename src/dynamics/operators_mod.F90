@@ -1087,7 +1087,6 @@ contains
         end do
       end do
     end do
-    if (block%adv_batch_pt%use_ieva) call adv_run_ieva(block%adv_batch_pt, dmg, pt, dpt, dt)
     end associate
 
     call perf_stop('calc_grad_ptf')

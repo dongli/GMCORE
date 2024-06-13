@@ -98,7 +98,7 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=use_ieva, idx=idx(1:n))
+          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=.false., idx=idx(1:n))
       end do
     end do
 
@@ -218,18 +218,11 @@ contains
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  dqdt%d(i,j,k) = -(qmfz%d(i,j,k+1) - qmfz%d(i,j,k))
+                  q_new%d(i,j,k) = q_new%d(i,j,k) - dt_adv * (qmfz%d(i,j,k+1) - qmfz%d(i,j,k)) / m_new%d(i,j,k)
                 end do
               end do
             end do
-            if (batch%use_ieva) call adv_run_ieva(batch, m_new, q_new, dqdt, dt_adv)
-            do k = mesh%full_kds, mesh%full_kde
-              do j = mesh%full_jds, mesh%full_jde
-                do i = mesh%full_ids, mesh%full_ide
-                  q_new%d(i,j,k) = q_new%d(i,j,k) + dt_adv * dqdt%d(i,j,k) / m_new%d(i,j,k)
-                end do
-              end do
-            end do
+            if (batch%use_ieva) call adv_run_ieva(batch, m_new, q_new, dt_adv)
             if (pdc_type == 1 .or. pdc_type == 2) then
               call physics_update_tracers(block, itime, dt_adv, batch%idx(l))
             else
@@ -331,12 +324,11 @@ contains
 
   end subroutine adv_final
 
-  subroutine adv_run_ieva(batch, m_old, q_old, dqdt, dt)
+  subroutine adv_run_ieva(batch, m, q, dt)
 
     type(adv_batch_type), intent(inout) :: batch
-    type(latlon_field3d_type), intent(in) :: m_old
-    type(latlon_field3d_type), intent(in) :: q_old
-    type(latlon_field3d_type), intent(inout) :: dqdt
+    type(latlon_field3d_type), intent(in) :: m
+    type(latlon_field3d_type), intent(inout) :: q
     real(r8), intent(in) :: dt
 
     integer ks, ke
@@ -357,19 +349,20 @@ contains
         a(mesh%full_kds) = 0
         c(mesh%full_kde) = 0
         do k = ks + 1, ke
-          a(k) = -dt * we_imp%d(i,j,k  ) * (1 + sign(1.0_r8, we_imp%d(i,j,k  )))
+          a(k) = -dt * (we_imp%d(i,j,k  ) + abs(we_imp%d(i,j,k  )))
         end do
         do k = ks, ke - 1
-          c(k) =  dt * we_imp%d(i,j,k+1) * (1 - sign(1.0_r8, we_imp%d(i,j,k+1)))
+          c(k) =  dt * (we_imp%d(i,j,k+1) - abs(we_imp%d(i,j,k+1)))
         end do
         do k = ks, ke
-          b(k) = 2 - a(k) - c(k)
-          r(k) = 2 * q_old%d(i,j,k) * m_old%d(i,j,k)
+          b(k) = 2 * (m%d(i,j,k) + dt * (we_imp%d(i,j,k+1) - we_imp%d(i,j,k))) - dt * ( &
+            we_imp%d(i,j,k+1) - abs(we_imp%d(i,j,k+1)) - &
+            we_imp%d(i,j,k  ) + abs(we_imp%d(i,j,k  ))   &
+          )
+          r(k) = 2 * q%d(i,j,k) * m%d(i,j,k)
         end do
         call tridiag_thomas(a, b, c, r, qm)
-        do k = ks, ke
-          dqdt%d(i,j,k) = dqdt%d(i,j,k) + (qm(k) - q_old%d(i,j,k) * m_old%d(i,j,k)) / dt
-        end do
+        q%d(i,j,ks:ke) = qm
       end do
     end do
     end associate

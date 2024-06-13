@@ -26,6 +26,7 @@ module time_schemes_mod
   use operators_mod
   use latlon_parallel_mod
   use process_mod, only: proc
+  use adv_mod
   use filter_mod
   use perf_mod
 
@@ -124,36 +125,37 @@ contains
     integer, intent(in) :: substep
 
     call space_operators(block, old_state, star_state, new_state, tend1, tend2, dt, all_pass, substep)
-    call update_state(block, tend1, old_state, new_state, dt)
+    call update_state(block, tend1, old_state, new_state, dt, substep)
 
   end subroutine step_all
 
-  subroutine step_forward_backward(space_operators, block, old_state, star_state, new_state, tend1, tend2, dt, substep)
+  subroutine step_forward_backward(space_operators, block, old_dstate, star_dstate, new_dstate, dtend1, dtend2, dt, substep)
 
     procedure(space_operators_interface) space_operators
     type(block_type ), intent(inout) :: block
-    type(dstate_type), intent(in   ) :: old_state
-    type(dstate_type), intent(inout) :: star_state
-    type(dstate_type), intent(inout) :: new_state
-    type(dtend_type ), intent(inout) :: tend1
-    type(dtend_type ), intent(inout) :: tend2
+    type(dstate_type), intent(in   ) :: old_dstate
+    type(dstate_type), intent(inout) :: star_dstate
+    type(dstate_type), intent(inout) :: new_dstate
+    type(dtend_type ), intent(inout) :: dtend1
+    type(dtend_type ), intent(inout) :: dtend2
     real(r8), intent(in) :: dt
     integer, intent(in) :: substep
 
-    call space_operators(block, old_state, star_state, new_state, tend1, tend2, dt, forward_pass, substep)
-    call update_state(block, tend1, old_state, new_state, dt)
-    call space_operators(block, old_state, star_state, new_state, tend2, tend1, dt, backward_pass, substep)
-    call update_state(block, tend2, old_state, new_state, dt)
+    call space_operators(block, old_dstate, star_dstate, new_dstate, dtend1, dtend2, dt, forward_pass, substep)
+    call update_state(block, dtend1, old_dstate, new_dstate, dt, substep)
+    call space_operators(block, old_dstate, star_dstate, new_dstate, dtend2, dtend1, dt, backward_pass, substep)
+    call update_state(block, dtend2, old_dstate, new_dstate, dt, substep)
 
   end subroutine step_forward_backward
 
-  subroutine update_state(block, dtend, old_state, new_state, dt)
+  subroutine update_state(block, dtend, old_dstate, new_dstate, dt, substep)
 
     type(block_type ), intent(inout) :: block
     type(dtend_type ), intent(inout) :: dtend
-    type(dstate_type), intent(in   ) :: old_state
-    type(dstate_type), intent(inout) :: new_state
+    type(dstate_type), intent(in   ) :: old_dstate
+    type(dstate_type), intent(inout) :: new_dstate
     real(r8), intent(in) :: dt
+    integer, intent(in) :: substep
 
     integer i, j, k
 
@@ -173,12 +175,12 @@ contains
         ! ----------------------------------------------------------------------
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            new_state%mgs%d(i,j) = old_state%mgs%d(i,j) + dt * dmgsdt%d(i,j)
+            new_dstate%mgs%d(i,j) = old_dstate%mgs%d(i,j) + dt * dmgsdt%d(i,j)
           end do
         end do
-        call calc_mg (block, new_state)
-        call calc_dmg(block, new_state)
-        call calc_ph (block, new_state)
+        call calc_mg (block, new_dstate)
+        call calc_dmg(block, new_dstate)
+        call calc_ph (block, new_dstate)
       end if
 
       if (dtend%update_pt) then
@@ -192,11 +194,14 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              new_state%pt%d(i,j,k) = (old_state%pt%d(i,j,k) * old_state%dmg%d(i,j,k) + dt * dptdt%d(i,j,k)) / new_state%dmg%d(i,j,k)
+              new_dstate%pt%d(i,j,k) = (old_dstate%pt%d(i,j,k) * old_dstate%dmg%d(i,j,k) + dt * dptdt%d(i,j,k)) / new_dstate%dmg%d(i,j,k)
             end do
           end do
         end do
-        call fill_halo(new_state%pt)
+        if (block%adv_batch_pt%use_ieva .and. substep == total_substeps) then
+          call adv_run_ieva(block%adv_batch_pt, new_dstate%dmg, new_dstate%pt, dt)
+        end if
+        call fill_halo(new_dstate%pt)
       end if
     else
       if (dtend%update_gz) then
@@ -209,12 +214,12 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              new_state%gz%d(i,j,k) = old_state%gz%d(i,j,k) + dt * dgzdt%d(i,j,k)
+              new_dstate%gz%d(i,j,k) = old_dstate%gz%d(i,j,k) + dt * dgzdt%d(i,j,k)
             end do
           end do
         end do
-        call fill_halo(new_state%gz)
-        call calc_dmg(block, new_state)
+        call fill_halo(new_dstate%gz)
+        call calc_dmg(block, new_dstate)
       end if
     end if
 
@@ -230,19 +235,19 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
-            new_state%u_lon%d(i,j,k) = old_state%u_lon%d(i,j,k) + dt * dudt%d(i,j,k)
+            new_dstate%u_lon%d(i,j,k) = old_dstate%u_lon%d(i,j,k) + dt * dudt%d(i,j,k)
           end do
         end do
       end do
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            new_state%v_lat%d(i,j,k) = old_state%v_lat%d(i,j,k) + dt * dvdt%d(i,j,k)
+            new_dstate%v_lat%d(i,j,k) = old_dstate%v_lat%d(i,j,k) + dt * dvdt%d(i,j,k)
           end do
         end do
       end do
-      call fill_halo(new_state%u_lon)
-      call fill_halo(new_state%v_lat)
+      call fill_halo(new_dstate%u_lon)
+      call fill_halo(new_dstate%v_lat)
     end if
     end associate
 
