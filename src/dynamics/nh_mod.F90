@@ -53,7 +53,7 @@ contains
     type(dstate_type), intent(inout) :: new_dstate
     real(r8), intent(in) :: dt
 
-    call interp_wind(block, star_dstate)
+    call interp_wind(block, star_dstate, dt)
     call calc_adv_lev(block, star_dstate%w_lev , block%aux%adv_w_lev , star_dstate%dmg_lev, dt)
     call calc_adv_lev(block, star_dstate%gz_lev, block%aux%adv_gz_lev, star_dstate%dmg_lev, dt)
     call implicit_w_solver(block, old_dstate, star_dstate, new_dstate, dt)
@@ -63,10 +63,11 @@ contains
 
   end subroutine nh_solve
 
-  subroutine interp_wind(block, dstate)
+  subroutine interp_wind(block, dstate, dt)
 
     type(block_type ), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
 
     associate (u_lon       => dstate%u_lon         , & ! in
                v_lat       => dstate%v_lat         , & ! in
@@ -90,7 +91,7 @@ contains
     call fill_halo(v_lev_lat)
     call fill_halo(mfx_lev_lon)
     call fill_halo(mfy_lev_lat)
-    call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg)
+    call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg, dt)
     call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)
     end associate
 

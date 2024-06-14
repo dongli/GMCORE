@@ -265,7 +265,7 @@ contains
         loc             ='lev'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          ='h1'                                                , &
+        output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%gz_lev                                         , &
         halo_cross_pole =.true.                                              )

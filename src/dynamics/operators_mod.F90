@@ -1073,7 +1073,7 @@ contains
                ptfy    => block%aux%ptfy   , & ! out
                ptfz    => block%aux%ptfz   , & ! out
                dpt     => dtend%dpt        )   ! out
-    call block%adv_batch_pt%set_wind(u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev)
+    call block%adv_batch_pt%set_wind(u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev, dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
     call fill_halo(ptfx, south_halo=.false., north_halo=.false., east_halo=.false.)
     call fill_halo(ptfy, north_halo=.false.,  west_halo=.false., east_halo=.false.)

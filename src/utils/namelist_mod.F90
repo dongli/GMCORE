@@ -115,8 +115,8 @@ module namelist_mod
   character(8)    :: pgf_scheme           = 'lin97'
   integer         :: coriolis_scheme      = 1
 
-  character(8)    :: pt_adv_scheme        = 'upwind'
-  character(8)    :: nh_adv_scheme        = 'upwind'
+  character(30)   :: pt_adv_scheme        = 'upwind:ffsl'
+  character(30)   :: nh_adv_scheme        = 'upwind:ffsl'
   character(8)    :: limiter_type         = 'mono'
   character(8)    :: ffsl_flux_type       = 'ppm'
   character(8)    :: tvd_limiter_type     = 'van_leer'
@@ -456,6 +456,7 @@ contains
       write(*, *) 'div_damp_pole       = ', to_str(div_damp_pole, 3)
       write(*, *) 'div_damp_lat0       = ', to_str(div_damp_lat0, 3)
     end if
+      write(*, *) 'use_vor_damp        = ', to_str(use_vor_damp)
     if (use_vor_damp) then
       write(*, *) 'vor_damp_cycles     = ', to_str(vor_damp_cycles)
       write(*, *) 'vor_damp_order      = ', to_str(vor_damp_order)

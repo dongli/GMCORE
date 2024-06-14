@@ -144,7 +144,7 @@ contains
     type(latlon_field3d_type), intent(inout) :: qmfy
     real(r8), intent(in), optional :: dt
 
-    select case (batch%scheme)
+    select case (batch%scheme_h)
     case ('upwind')
       call upwind_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
     case ('ffsl')
@@ -160,7 +160,7 @@ contains
     type(latlon_field3d_type), intent(inout) :: qmfz
     real(r8), intent(in), optional :: dt
 
-    select case (batch%scheme)
+    select case (batch%scheme_v)
     case ('upwind')
       call upwind_calc_tracer_vflx(batch, q, qmfz, dt)
     case ('ffsl')

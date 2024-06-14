@@ -50,7 +50,8 @@ module adv_batch_mod
   ! Different tracers can be combined into one batch, and advected in different
   ! frequencies.
   type adv_batch_type
-    character(30) :: scheme = 'N/A'
+    character(30) :: scheme_h = 'N/A'
+    character(30) :: scheme_v = 'N/A'
     character(10) :: loc  = 'cell'
     character(30) :: name = ''
     logical  :: dynamic   = .false.
@@ -102,7 +103,8 @@ module adv_batch_mod
     procedure :: copy_old_m => adv_batch_copy_old_m
     procedure :: set_wind   => adv_batch_set_wind
     procedure :: accum_wind => adv_batch_accum_wind
-    procedure, private :: prepare_ffsl => adv_batch_prepare_ffsl
+    procedure, private :: prepare_ffsl_h => adv_batch_prepare_ffsl_h
+    procedure, private :: prepare_ffsl_v => adv_batch_prepare_ffsl_v
     procedure, private :: prepare_ieva => adv_batch_prepare_ieva
     final :: adv_batch_final
   end type adv_batch_type
@@ -133,7 +135,6 @@ contains
     this%mesh => mesh
     this%fields = array(30)
 
-    this%scheme   = scheme
     this%loc      = batch_loc
     this%name     = batch_name
     this%dt       = dt
@@ -141,6 +142,15 @@ contains
     this%use_ieva = ieva
     this%nstep    = dt / dt_dyn
     this%step     = 0
+
+    ! Discriminate horizontal and vertical schemes.
+    if (count_string(scheme, ':') == 1) then
+      this%scheme_h = split_string(scheme, ':', 1)
+      this%scheme_v = split_string(scheme, ':', 2)
+    else
+      this%scheme_h = scheme
+      this%scheme_v = scheme
+    end if
 
     select case (batch_loc)
     case ('cell')
@@ -327,7 +337,7 @@ contains
         allocate(this%ieva_r         (mesh%full_kds:mesh%full_kde))
         allocate(this%ieva_qm        (mesh%full_kds:mesh%full_kde))
       end if
-      select case (this%scheme)
+      select case (this%scheme_h)
       case ('ffsl')
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
@@ -347,15 +357,6 @@ contains
           halo            =halo                                                , &
           restart         =.false.                                             , &
           field           =this%cfly                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflz'                          , &
-          long_name       ='CFL number in z direction'                         , &
-          units           =''                                                  , &
-          loc             ='lev'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflz                                           )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_divx'                          , &
           long_name       ='Mass flux divergence in x direction'               , &
@@ -393,6 +394,18 @@ contains
           halo            =filter_halo                                         , &
           restart         =.false.                                             , &
           field           =this%qy                                             )
+      end select
+      select case (this%scheme_v)
+      case ('ffsl')
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_cflz'                          , &
+          long_name       ='CFL number in z direction'                         , &
+          units           =''                                                  , &
+          loc             ='lev'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%cflz                                           )
       end select
     case ('lev')
       ! Only for nonhydrostatic dynamic calculation.
@@ -505,7 +518,7 @@ contains
         allocate(this%ieva_r         (mesh%half_kds:mesh%half_kde))
         allocate(this%ieva_qm        (mesh%half_kds:mesh%half_kde))
       end if
-      select case (this%scheme)
+      select case (this%scheme_h)
       case ('ffsl')
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
@@ -515,7 +528,7 @@ contains
           mesh            =mesh                                                , &
           halo            =halo                                                , &
           restart         =.false.                                             , &
-          field           =this%cflz                                           )
+          field           =this%cflx                                           )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cfly'                          , &
           long_name       ='CFL number in y direction'                         , &
@@ -525,15 +538,6 @@ contains
           halo            =halo                                                , &
           restart         =.false.                                             , &
           field           =this%cfly                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflz'                          , &
-          long_name       ='CFL number in z direction'                         , &
-          units           =''                                                  , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflz                                           )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_divx'                          , &
           long_name       ='Mass flux divergence in x direction'               , &
@@ -571,6 +575,18 @@ contains
           halo            =filter_halo                                         , &
           restart         =.false.                                             , &
           field           =this%qy                                             )
+      end select
+      select case (this%scheme_v)
+      case ('ffsl')
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_cflz'                          , &
+          long_name       ='CFL number in z direction'                         , &
+          units           =''                                                  , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%cflz                                           )
       end select
     case default
       call log_error('Invalid grid location ' // trim(batch_loc) // '!', __FILE__, __LINE__)
@@ -642,7 +658,7 @@ contains
 
   end subroutine adv_batch_copy_old_m
 
-  subroutine adv_batch_set_wind(this, u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev)
+  subroutine adv_batch_set_wind(this, u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev, dt)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: u_lon
@@ -651,6 +667,7 @@ contains
     type(latlon_field3d_type), intent(in) :: mfx_lon
     type(latlon_field3d_type), intent(in) :: mfy_lat
     type(latlon_field3d_type), intent(in) :: dmg_lev
+    real(r8), intent(in) :: dt
 
     call this%u  %link(u_lon  )
     call this%v  %link(v_lat  )
@@ -660,7 +677,8 @@ contains
     call this%mz %link(dmg_lev)
 
     if (this%use_ieva) call this%prepare_ieva()
-    if (this%scheme == 'ffsl') call this%prepare_ffsl()
+    if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
+    if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
 
   end subroutine adv_batch_set_wind
 
@@ -757,32 +775,30 @@ contains
           end do
         end do
       end do
-      end associate
       if (this%use_ieva) call this%prepare_ieva()
-      if (this%scheme == 'ffsl') call this%prepare_ffsl()
+      if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
+      if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
+      end associate
     end if
 
   end subroutine adv_batch_accum_wind
 
-  subroutine adv_batch_prepare_ffsl(this)
+  subroutine adv_batch_prepare_ffsl_h(this, dt)
 
     class(adv_batch_type), intent(inout) :: this
+    real(r8), intent(in) :: dt
 
     real(r8) work(this%u%mesh%full_ids:this%u%mesh%full_ide,this%u%mesh%half_nlev)
     real(r8) pole(this%u%mesh%half_nlev)
     integer ks, ke, i, j, k
 
     associate (mesh => this%u%mesh, &
-               dt   => this%dt    , &
                mfx  => this%mfx   , &
                mfy  => this%mfy   , &
-               mz   => this%mz    , &
                u    => this%u     , &
                v    => this%v     , &
-               we   => this%we    , &
                cflx => this%cflx  , &
                cfly => this%cfly  , &
-               cflz => this%cflz  , &
                divx => this%divx  , &
                divy => this%divy  )
     ! Calculate horizontal CFL number and divergence along each axis.
@@ -840,28 +856,33 @@ contains
       end if
     case ('vtx')
     end select
-    ! Calculate vertical CFL number.
-    select case (this%loc)
-    case ('cell')
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            cflz%d(i,j,k) = we%d(i,j,k) / mz%d(i,j,k) * dt
-          end do
-        end do
-      end do
-    case ('lev')
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            cflz%d(i,j,k) = we%d(i,j,k) / mz%d(i,j,k) * dt
-          end do
-        end do
-      end do
-    end select
     end associate
 
-  end subroutine adv_batch_prepare_ffsl
+  end subroutine adv_batch_prepare_ffsl_h
+
+  subroutine adv_batch_prepare_ffsl_v(this, dt)
+
+    class(adv_batch_type), intent(inout) :: this
+    real(r8), intent(in) :: dt
+
+    integer i, j, k, ks, ke
+
+    associate (mesh => this%u%mesh, &
+               mz   => this%mz    , &
+               we   => this%we    , &
+               cflz => this%cflz  )
+    ks = merge(mesh%half_kds + 1, mesh%full_kds, this%loc == 'cell')
+    ke = merge(mesh%half_kde - 1, mesh%full_kde, this%loc == 'cell')
+    do k = ks, ke
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          cflz%d(i,j,k) = we%d(i,j,k) / mz%d(i,j,k) * dt
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine adv_batch_prepare_ffsl_v
 
   subroutine adv_batch_prepare_ieva(this)
 

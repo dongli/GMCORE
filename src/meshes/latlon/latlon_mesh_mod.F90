@@ -478,17 +478,18 @@ contains
     class(latlon_mesh_type), intent(inout) :: this
     integer, intent(in), optional :: lon_hw
 
-    integer nlon, nlat, nlev, lat_hw
+    integer nlon, nlat, nlev, lat_hw, lev_hw
 
     nlon = global_mesh%full_nlon
     nlat = global_mesh%full_nlat
     nlev = global_mesh%full_nlev
     lat_hw = global_mesh%lat_hw
+    lev_hw = global_mesh%lev_hw
 
     if (associated(this%parent)) then
       call this%init_from_parent(this%parent, this%id, this%full_ids, this%full_ide, this%full_jds, this%full_jde, keep_lev=.true.)
     else if (present(lon_hw)) then
-      call this%init_global(nlon, nlat, nlev, 0, lon_hw, lat_hw, keep_lev=.true.)
+      call this%init_global(nlon, nlat, nlev, 0, lon_hw, lat_hw, lev_hw, keep_lev=.true.)
     else
       call log_error('Logical error!', __FILE__, __LINE__)
     end if
