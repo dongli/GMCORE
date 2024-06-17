@@ -357,7 +357,6 @@ contains
     ! Set default for nonhydrostatic temporally.
     if (nonhydrostatic) then
       pgf_scheme     = 'ptb'
-      pt_adv_scheme  = 'upwind'
     end if
 
     if (dt_dyn  == 0) dt_dyn  = dt_adv
