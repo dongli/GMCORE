@@ -15,7 +15,7 @@ endif ()
 
 add_library(clm)
 target_link_directories(clm PUBLIC $ENV{FOX_ROOT}/lib)
-target_link_libraries(clm FoX_common FoX_dom FoX_fsys FoX_sax FoX_utils FoX_wcml FoX_wkml FoX_wxml)
+target_link_libraries(clm FoX_dom FoX_sax FoX_utils FoX_wcml FoX_wkml FoX_wxml FoX_common FoX_fsys)
 target_sources(clm PRIVATE
   ../../../physics/cam/shr/seq_drydep_mod.F90
   ../../../physics/cam/shr/shr_abort_mod.F90
