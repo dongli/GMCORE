@@ -141,7 +141,7 @@ contains
     type(block_type), intent(in) :: block
     type(dstate_type), intent(inout) :: dstate
 
-    integer i, j, k
+    integer i, j, k, is, ie, js, je
 
     call perf_start('calc_mg')
 
@@ -149,16 +149,20 @@ contains
                mgs     => dstate%mgs    , & ! in
                mg_lev  => dstate%mg_lev , & ! out
                mg      => dstate%mg     )   ! out
+    is = mesh%full_ids - 1
+    ie = mesh%full_ide + 1
+    js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
+    je = mesh%full_jde + merge(0, 1, mesh%has_north_pole())
     do k = mesh%half_kds, mesh%half_kde
-      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
+      do j = js, je
+        do i = is, ie
           mg_lev%d(i,j,k) = vert_coord_calc_mg_lev(k, mgs%d(i,j), block%static%ref_ps_perb%d(i,j))
         end do
       end do
     end do
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
+      do j = js, je
+        do i = is, ie
           mg%d(i,j,k) = 0.5_r8 * (mg_lev%d(i,j,k) + mg_lev%d(i,j,k+1))
         end do
       end do
@@ -174,7 +178,7 @@ contains
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
-    integer i, j, k
+    integer i, j, k, is, ie, js, je
 
     call perf_start('calc_ph')
 
@@ -183,24 +187,25 @@ contains
                dmg     => dstate%dmg          , & ! in
                qm      => tracers(block%id)%qm, & ! in
                ph_lev  => dstate%ph_lev       , & ! out
-               pkh_lev => block%aux%pkh_lev   , & ! out
                ph      => dstate%ph           , & ! out
                phs     => dstate%phs          , & ! pointer
                ps      => dstate%ps           )   ! out
+    is = mesh%full_ids - 1
+    ie = mesh%full_ide + 1
+    js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
+    je = mesh%full_jde + merge(0, 1, mesh%has_north_pole())
     k = mesh%half_kds
     ph_lev%d(:,:,k) = mg_lev%d(:,:,k)
-    pkh_lev%d(:,:,k) = ph_lev%d(:,:,k)**rd_o_cpd
     do k = mesh%half_kds + 1, mesh%half_kde
-      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
+      do j = js, je
+        do i = is, ie
           ph_lev%d(i,j,k) = ph_lev%d(i,j,k-1) + dmg%d(i,j,k-1) * (1 + qm%d(i,j,k-1))
-          pkh_lev%d(i,j,k) = ph_lev%d(i,j,k)**rd_o_cpd
         end do
       end do
     end do
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-        do i = mesh%full_ids, mesh%full_ide + 1
+      do j = js, je
+        do i = is, ie
           ph%d(i,j,k) = 0.5_r8 * (ph_lev%d(i,j,k) + ph_lev%d(i,j,k+1))
         end do
       end do
@@ -557,7 +562,7 @@ contains
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
-    integer i, j, k, l
+    integer i, j, k, l, is, ie, js, je
 
     call perf_start('calc_dmg')
 
@@ -571,10 +576,14 @@ contains
                dmg_lat => block%aux%dmg_lat, & ! out
                dmg_lev => dstate%dmg_lev   , & ! out
                dmg_vtx => block%aux%dmg_vtx)   ! out
+    is = mesh%full_ids - 1
+    ie = mesh%full_ide + 1
+    js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
+    je = mesh%full_jde + merge(0, 1, mesh%has_north_pole())
     if (baroclinic .or. advection) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             dmg%d(i,j,k) = mg_lev%d(i,j,k+1) - mg_lev%d(i,j,k)
             if (dmg%d(i,j,k) <= 0) then
               do l = mesh%half_kds, mesh%half_kde
@@ -588,38 +597,36 @@ contains
           end do
         end do
       end do
-
       do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             dmg_lev%d(i,j,k) = mg%d(i,j,k) - mg%d(i,j,k-1)
           end do
         end do
       end do
       ! Top boundary
       k = mesh%half_kds
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
+      do j = js, je
+        do i = is, ie
           dmg_lev%d(i,j,k) = mg%d(i,j,k) - mg_lev%d(i,j,k)
         end do
       end do
       ! Bottom boundary
       k = mesh%half_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
+      do j = js, je
+        do i = is, ie
           dmg_lev%d(i,j,k) = mg_lev%d(i,j,k) - mg%d(i,j,k-1)
         end do
       end do
       call fill_halo(dmg_lev)
     else
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
+      do j = js, je
+        do i = is, ie
           dmg%d(i,j,1) = (gz%d(i,j,1) - gzs%d(i,j)) / g
         end do
       end do
     end if
 
-    call fill_halo(dmg)
     call average_run(dmg, dmg_lon)
     call fill_halo(dmg_lon)
     call average_run(dmg, dmg_lat)
@@ -676,7 +683,6 @@ contains
         end do
       end do
     end do
-    call fill_halo(u_lat)
 
     call interp_run(mfy_lat, mfy_lon)
     do k = mesh%full_kds, mesh%full_kde
@@ -686,7 +692,6 @@ contains
         end do
       end do
     end do
-    call fill_halo(v_lon)
     end associate
 
     call perf_stop('calc_mf')
@@ -1029,12 +1034,10 @@ contains
 
   end subroutine calc_grad_ke
 
-  subroutine calc_grad_mf(block, dstate, dtend, dt)
+  subroutine calc_grad_mf(block, dstate)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(in) :: dstate
-    type(dtend_type), intent(inout) :: dtend
-    real(r8), intent(in) :: dt
 
     call perf_start('calc_grad_mf')
 

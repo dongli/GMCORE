@@ -20,7 +20,7 @@ module history_mod
   use latlon_parallel_mod
   use block_mod
   use tracer_mod
-  use operators_mod, only: calc_div
+  use operators_mod
   use physics_mod
   use regrid_mod
 

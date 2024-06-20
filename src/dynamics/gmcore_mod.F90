@@ -507,7 +507,7 @@ contains
     case (all_pass)
       call operators_prepare(block, star_dstate, dt, pass, substep)
       if (hydrostatic) then
-        call calc_grad_mf          (block, star_dstate, dtend1, dt)
+        call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend1, dt)
         call calc_we_lev           (block, star_dstate, dtend1, dt)
         call calc_wedudlev_wedvdlev(block, star_dstate, dtend1, dt)
@@ -521,7 +521,7 @@ contains
         dtend1%update_mgs = .true.
         dtend1%update_pt  = .true.
       else
-        call calc_grad_mf        (block, star_dstate, dtend1, dt)
+        call calc_grad_mf        (block, star_dstate)
         call calc_coriolis       (block, star_dstate, dtend1, dt)
         call calc_grad_ke        (block, star_dstate, dtend1, dt)
         call pgf_run             (block, star_dstate, dtend1)
@@ -541,7 +541,7 @@ contains
     case (forward_pass)
       call operators_prepare(block, star_dstate, dt, pass, substep)
       if (baroclinic) then
-        call calc_grad_mf          (block, star_dstate, dtend1, dt)
+        call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend1, dt)
         call calc_we_lev           (block, star_dstate, dtend1, dt)
         call calc_wedudlev_wedvdlev(block, star_dstate, dtend1, dt)
@@ -552,7 +552,7 @@ contains
         dtend1%update_mgs = .true.
         dtend1%update_pt  = .true.
       else
-        call calc_grad_mf         (block, star_dstate, dtend1, dt)
+        call calc_grad_mf         (block, star_dstate)
         call calc_coriolis        (block, star_dstate, dtend1, dt)
         call calc_grad_ke         (block, star_dstate, dtend1, dt)
 

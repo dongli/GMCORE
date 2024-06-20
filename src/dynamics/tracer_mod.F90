@@ -202,7 +202,7 @@ contains
 
     type(block_type), intent(in) :: block
 
-    integer i, j, k
+    integer i, j, k, is, ie, js, je
 
     if (.not. allocated(tracers)) return
     if (.not. tracers(block%id)%qm%initialized) return
@@ -211,10 +211,14 @@ contains
                q      => tracers(block%id)%q     , & ! in
                qm     => tracers(block%id)%qm    , & ! out
                qm_lev => tracers(block%id)%qm_lev)   ! out
+    is = mesh%full_ids - 1
+    ie = mesh%full_ide + 1
+    js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
+    je = mesh%full_jde + merge(0, 1, mesh%has_north_pole())
     if (idx_qv > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = q%d(i,j,k,idx_qv)
           end do
         end do
@@ -222,8 +226,8 @@ contains
     end if
     if (idx_qc > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qc)
           end do
         end do
@@ -231,8 +235,8 @@ contains
     end if
     if (idx_qi > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qi)
           end do
         end do
@@ -240,8 +244,8 @@ contains
     end if
     if (idx_qr > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qr)
           end do
         end do
@@ -249,8 +253,8 @@ contains
     end if
     if (idx_qs > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qs)
           end do
         end do
@@ -258,8 +262,8 @@ contains
     end if
     if (idx_qg > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qg)
           end do
         end do
@@ -267,14 +271,13 @@ contains
     end if
     if (idx_qh > 0) then
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+        do j = js, je
+          do i = is, ie
             qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qh)
           end do
         end do
       end do
     end if
-    call fill_halo(qm, west_halo=.false., south_halo=.false.)
     if (nonhydrostatic) call interp_run(qm, qm_lev)
     end associate
 

@@ -25,6 +25,20 @@ contains
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
+    integer i, j, k
+
+    associate (mesh    => block%mesh       , &
+               ph_lev  => dstate%ph_lev    , &
+               pkh_lev => block%aux%pkh_lev)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
+        do i = mesh%full_ids, mesh%full_ide + 1
+          pkh_lev%d(i,j,k) = ph_lev%d(i,j,k)**rd_o_cpd
+        end do
+      end do
+    end do
+    end associate
+
   end subroutine pgf_lin97_prepare
 
   subroutine pgf_lin97_run(block, dstate, dtend)
