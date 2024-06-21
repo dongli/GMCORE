@@ -226,21 +226,24 @@ contains
     integer i, j, k
     real(r8) sum_dmf(block%mesh%full_ids:block%mesh%full_ide, &
                      block%mesh%full_jds:block%mesh%full_jde)
+    real(r8) work   (block%mesh%full_ids:block%mesh%full_ide, &
+                     block%mesh%full_kds:block%mesh%full_kde)
+    real(r8) pole   (block%mesh%full_kds:block%mesh%full_kde)
 
     call perf_start('calc_omg')
 
     associate (mesh  => block%mesh   , &
-               ph    => dstate%ph    , &
-               u_lon => dstate%u_lon , &
-               v_lat => dstate%v_lat , &
-               dmf   => block%aux%dmf, &
-               div   => block%aux%div, &
-               omg   => block%aux%omg)
+               ph    => dstate%ph    , & ! in
+               u_lon => dstate%u_lon , & ! in
+               v_lat => dstate%v_lat , & ! in
+               dmf   => block%aux%dmf, & ! in
+               div   => block%aux%div, & ! in
+               omg   => block%aux%omg)   ! out
     sum_dmf = 0
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k)
+          sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
           omg%d(i,j,k) = 0.5_r8 * ((                                              &
             u_lon%d(i  ,j,k) * (ph%d(i,j,k) + ph%d(i+1,j,k)) -                    &
             u_lon%d(i-1,j,k) * (ph%d(i,j,k) + ph%d(i-1,j,k))                      &
@@ -251,6 +254,36 @@ contains
         end do
       end do
     end do
+    if (mesh%has_south_pole()) then
+      j = mesh%full_jds
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = 0.5_r8 * v_lat%d(i,j,k) * (ph%d(i,j,k) + ph%d(i,j+1,k)) * mesh%le_lat(j)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = -pole / mesh%area_pole_cap
+      do k = mesh%full_kds, mesh%full_kde
+        i = mesh%full_ids
+        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
+        omg%d(:,j,k) = pole(k) - ph%d(i,j,k) * div%d(i,j,k) - sum_dmf(i,j)
+      end do
+    end if
+    if (mesh%has_north_pole()) then
+      j = mesh%full_jde
+      do k = mesh%full_kds, mesh%full_kde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = 0.5_r8 * v_lat%d(i,j-1,k) * (ph%d(i,j,k) + ph%d(i,j-1,k)) * mesh%le_lat(j-1)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole / mesh%area_pole_cap
+      do k = mesh%full_kds, mesh%full_kde
+        i = mesh%full_ids
+        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
+        omg%d(:,j,k) = pole(k) - ph%d(i,j,k) * div%d(i,j,k) - sum_dmf(i,j)
+      end do
+    end if
     end associate
 
     call perf_stop('calc_omg')
