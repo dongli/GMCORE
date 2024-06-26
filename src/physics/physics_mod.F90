@@ -13,6 +13,7 @@ module physics_mod
   use const_mod
   use namelist_mod
   use time_mod
+  use formula_mod
   use block_mod
   use tracer_mod
   use physics_types_mod
@@ -20,9 +21,9 @@ module physics_mod
   use latlon_parallel_mod
   use simple_physics_driver_mod
 #ifdef HAS_CAM
-  use cam_physics_driver_mod
+  use cam_physics_driver_mod, cam_objects => objects
 #endif
-  use mars_nasa_physics_driver_mod, mars_nasa_objects => objects
+  use mars_nasa_physics_driver_mod
   use perf_mod
 
   implicit none
@@ -113,7 +114,7 @@ contains
       call simple_physics_init_stage2(mesh)
     case ('cam')
 #ifdef HAS_CAM
-      call cam_physics_init(namelist_path, mesh, dt_adv, dt_phys)
+      call cam_physics_init_stage2(namelist_path, mesh, dt_adv, dt_phys)
 #else
       if (proc%is_root()) call log_error('CAM physics is not compiled!')
 #endif
@@ -147,26 +148,67 @@ contains
 
     if (.not. time_is_alerted('phys')) return
 
-    call dp_coupling_d2p(block, itime)
-
     call perf_start('physics_run')
+
+    if (proc%is_root()) call log_notice('Run ' // trim(physics_suite) // ' physics.')
+
+    call dp_coupling_d2p(block, itime)
 
     select case (physics_suite)
     case ('simple_physics')
       call simple_physics_run()
 #ifdef HAS_CAM
     case ('cam')
-      call cam_physics_run1()
+      call cam_physics_run_stage1()
       call cam_physics_sfc_flux()
-      call cam_physics_run2()
+      call cam_physics_run_stage2()
 #endif
     case ('mars_nasa')
       call mars_nasa_run(curr_time)
     end select
 
+    call dp_coupling_p2d(block, itime)
+
+    select case (physics_suite)
+#ifdef HAS_CAM
+    case ('cam')
+      call physics_set_tracers(block, cam_objects(block%id)%state)
+#endif
+    end select
+
     call perf_stop('physics_run')
 
-    call dp_coupling_p2d(block, itime)
+  contains
+
+    subroutine physics_set_tracers(block, pstate)
+
+      type(block_type), intent(in) :: block
+      class(physics_state_type), intent(in) :: pstate
+
+      integer i, j, k, m, icol
+
+      associate (mesh => block%mesh, q => tracers(block%id)%q)
+      do m = 1, ntracers
+        do k = mesh%full_kds, mesh%full_kde
+          icol = 1
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              if (physics_use_wet_tracers(m)) then
+                q%d(i,j,k,m) = dry_mixing_ratio(pstate%q(icol,k,m), pstate%qm(icol,k))
+              else
+                q%d(i,j,k,m) = pstate%q(icol,k,m)
+              end if
+              icol = icol + 1
+            end do
+          end do
+        end do
+        call tracer_fill_negative_values(block, itime, q%d(:,:,:,m), m, __FILE__, __LINE__)
+        call fill_halo(q, m)
+      end do
+      call tracer_calc_qm(block)
+      end associate
+
+    end subroutine physics_set_tracers
 
   end subroutine physics_run
 
@@ -225,7 +267,7 @@ contains
           end do
         end do
       end do
-      call tracer_fill_negative_values(block, itime, q%d(:,:,:,m))
+      call tracer_fill_negative_values(block, itime, q%d(:,:,:,m), m, __FILE__, __LINE__)
       call fill_halo(q, m)
     end do
     call tracer_calc_qm(block)
@@ -307,7 +349,7 @@ contains
         end do
       end do
     end do
-    call tracer_fill_negative_values(block, itime, q%d(:,:,:,idx))
+    call tracer_fill_negative_values(block, itime, q%d(:,:,:,idx), idx, __FILE__, __LINE__)
     call fill_halo(q, idx)
     end associate
 
@@ -343,6 +385,10 @@ contains
     select case (physics_suite)
     case ('simple_physics')
       call simple_physics_add_output(tag, output_h0_dtype)
+#ifdef HAS_CAM
+    case ('cam')
+      call cam_physics_add_output(tag, output_h0_dtype)
+#endif
     case ('mars_nasa')
       call mars_nasa_add_output(tag, output_h0_dtype)
     end select
@@ -359,6 +405,10 @@ contains
     select case (physics_suite)
     case ('simple_physics')
       call simple_physics_output(tag, iblk)
+#ifdef HAS_CAM
+    case ('cam')
+      call cam_physics_output(tag, iblk)
+#endif
     case ('mars_nasa')
       call mars_nasa_output(tag, iblk)
     end select

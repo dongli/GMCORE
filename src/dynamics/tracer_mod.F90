@@ -283,13 +283,16 @@ contains
 
   end subroutine tracer_calc_qm
 
-  subroutine tracer_fill_negative_values(block, itime, q)
+  subroutine tracer_fill_negative_values(block, itime, q, idx, file, line)
 
     type(block_type), intent(in) :: block
     integer, intent(in) :: itime
     real(r8), intent(inout) :: q(block%filter_mesh%full_ims:block%filter_mesh%full_ime, &
                                  block%filter_mesh%full_jms:block%filter_mesh%full_jme, &
                                  block%filter_mesh%full_kms:block%filter_mesh%full_kme)
+    integer, intent(in) :: idx
+    character(*), intent(in) :: file
+    integer, intent(in) :: line
 
     integer i, j, k
     real(r8) neg_qm, pos_qm
@@ -303,6 +306,7 @@ contains
         neg_qm = 0
         pos_qm = 0
         do k = mesh%full_kds, mesh%full_kde
+          if (abs(q(i,j,k)) < 1.0e-14) q(i,j,k) = 0
           if (q(i,j,k) < 0) then
             neg_qm = neg_qm + dmg%d(i,j,k) * q(i,j,k)
           else
@@ -319,13 +323,11 @@ contains
               end if
             end do
           else
-            call log_warning('Negative tracer mass is larger than positive one at i=' // &
-                             to_str(i) // ', j=' // to_str(j) // '!', __FILE__, __LINE__)
             do k = mesh%full_kds, mesh%full_kde
-              if (q(i,j,k) < 0) then
-                q(i,j,k) = 0
-              end if
+              print *, 'negative tracer:', k, q(i,j,k)
             end do
+            call log_error('Negative tracer mass (' // trim(tracer_names(idx)) // ') is larger than positive one at i=' // &
+                           to_str(i) // ', j=' // to_str(j) // '!', file, line)
           end if
         end if
       end do

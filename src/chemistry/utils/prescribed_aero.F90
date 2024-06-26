@@ -368,75 +368,63 @@ subroutine spec_c_to_a (spec_c_in,spec_a_out)
   endif  
 end subroutine spec_c_to_a
 
-!-------------------------------------------------------------------
-! advances the aerosol fields to the current time step
-!-------------------------------------------------------------------
-  subroutine prescribed_aero_adv( state, pbuf2d )
+  subroutine prescribed_aero_adv(state, pbuf2d)
 
-    use tracer_data,  only : advance_trcdata
-    use physics_types,only : physics_state
-    use ppgrid,       only : begchunk, endchunk
-    use ppgrid,       only : pcols, pver
-    use string_utils, only : to_lower, GLC
-    use cam_history,  only : outfld
-    
-    use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_chunk, &
-         pbuf_get_index
-
-    implicit none
+    use tracer_data   , only: advance_trcdata
+    use physics_types , only: physics_state
+    use ppgrid        , only: begchunk, endchunk, pcols, pver
+    use string_utils  , only: to_lower, GLC
+    use cam_history   , only: outfld
+    use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_chunk, pbuf_get_index
 
     type(physics_state), intent(in)    :: state(begchunk:endchunk)                 
-    
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
 
-    character(len=32) :: spec_a
-    integer :: c,ncol, i, i_c, spec_a_ndx, errcode
-    real(r8),pointer :: outdata(:,:)
-    logical :: cld_borne_aero = .FALSE.
+    character(32) spec_a
+    integer c, ncol, i, i_c, spec_a_ndx, errcode
+    real(r8), pointer :: outdata(:,:)
+    logical :: cld_borne_aero = .false.
 
-    if( .not. has_prescribed_aero ) return
+    if (.not. has_prescribed_aero) return
 
-    call advance_trcdata( fields, file, state, pbuf2d )
+    call advance_trcdata(fields, file, state, pbuf2d)
 
     ! Diagnose interstital species using random sampling
-    if ( clim_modal_aero ) then
-      call rand_sample_prescribed_aero(state, pbuf2d )
-    endif
+    if (clim_modal_aero) then
+      call rand_sample_prescribed_aero(state, pbuf2d)
+    end if
     
-    ! set the tracer fields with the correct units
+    ! Set the tracer fields with the correct units
     i_c = 0
-    fldloop : do i = 1,number_flds
-       
+    fldloop: do i = 1, number_flds
 !$OMP PARALLEL DO PRIVATE (C, NCOL, OUTDATA,PBUF_CHNK)
-       do c = begchunk,endchunk
-          ncol = state(c)%ncol
-          pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
-          if(clim_modal_aero .and. index(trim(fields(i)%fldnam),'_c') > 1) then ! Only cloud borne species
-             call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, outdata)
-             call outfld( trim(fields(i)%fldnam)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk )
+      do c = begchunk, endchunk
+        ncol = state(c)%ncol
+        pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
+        if (clim_modal_aero .and. index(trim(fields(i)%fldnam),'_c') > 1) then ! Only cloud borne species
+          call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, outdata)
+          call outfld(trim(fields(i)%fldnam)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk)
              
-             call spec_c_to_a(trim(fields(i)%fldnam),spec_a)
-             spec_a_ndx = pbuf_get_index(trim(fields(i)%fldnam),errcode)
-             call pbuf_get_field(pbuf_chnk, spec_a_ndx, outdata)
-             call outfld( trim(spec_a)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk )
-             cld_borne_aero = .TRUE.
-          else
-             call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, outdata)
-             call outfld( trim(fields(i)%fldnam)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk )
-          endif
-       enddo
-       if(cld_borne_aero)then
-          i_c = i_c + 1
-          cld_borne_aero = .FALSE.
-          if(i_c >= aero_cnt_c) exit fldloop
-       endif
-    enddo fldloop
+          call spec_c_to_a(trim(fields(i)%fldnam), spec_a)
+          spec_a_ndx = pbuf_get_index(trim(fields(i)%fldnam), errcode)
+          call pbuf_get_field(pbuf_chnk, spec_a_ndx, outdata)
+          call outfld(trim(spec_a)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk)
+          cld_borne_aero = .true.
+        else
+          call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, outdata)
+          call outfld(trim(fields(i)%fldnam)//'_D', outdata(:ncol,:), ncol, state(c)%lchnk)
+        end if
+      end do
+      if (cld_borne_aero) then
+        i_c = i_c + 1
+        cld_borne_aero = .false.
+        if(i_c >= aero_cnt_c) exit fldloop
+      end if
+    end do fldloop
 
   end subroutine prescribed_aero_adv
 
-!-------------------------------------------------------------------
   subroutine rand_sample_prescribed_aero(state, pbuf2d)
 
     !Purpose: Generates log normal distribution for the interstitial species.

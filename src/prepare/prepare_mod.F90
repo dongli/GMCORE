@@ -61,6 +61,7 @@ contains
       call latlon_bkg_regrid_v()
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
+        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
       end do
     end if
 

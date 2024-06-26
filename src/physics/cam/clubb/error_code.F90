@@ -33,7 +33,7 @@ module error_code
     private :: clubb_debug_level
 
     ! Model-Wide Debug Level
-    integer, save :: clubb_debug_level = 0
+    integer, save :: clubb_debug_level = 5
 
     integer, public :: err_code = 0;
 

@@ -180,20 +180,17 @@ subroutine prescribed_ozone_readnl(nlfile)
 
 end subroutine prescribed_ozone_readnl
 
-!-------------------------------------------------------------------
-!-------------------------------------------------------------------
-  subroutine prescribed_ozone_adv( state, pbuf2d)
+  subroutine prescribed_ozone_adv(state, pbuf2d)
 
-    use tracer_data,  only : advance_trcdata
-    use physics_types,only : physics_state
-    use ppgrid,       only : begchunk, endchunk
-    use ppgrid,       only : pcols, pver
-    use string_utils, only : to_lower, GLC
-    use cam_history,  only : outfld
+    use tracer_data    , only: advance_trcdata
+    use physics_types  , only: physics_state
+    use ppgrid         , only: begchunk, endchunk, pcols, pver
+    use string_utils   , only: to_lower, GLC
+    use cam_history    , only: outfld
     use cam_control_mod, only: aqua_planet
-    use phys_control, only : cam_physpkg_is
-    use physconst,    only : mwdry                ! molecular weight dry air ~ kg/kmole
-    use physconst,    only : boltz                ! J/K/molecule
+    use phys_control   , only: cam_physpkg_is
+    use physconst,       only: mwdry, & ! molecular weight dry air ~ kg/kmole
+                               boltz    ! J/K/molecule
 
     use physics_buffer, only : physics_buffer_desc, pbuf_get_chunk, pbuf_get_field, pbuf_set_field
 
@@ -204,54 +201,52 @@ end subroutine prescribed_ozone_readnl
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
-    integer :: c,ncol
-    real(r8) :: to_mmr(pcols,pver)
-    real(r8) :: molmass
-    real(r8) :: amass
-    real(r8) :: outdata(pcols,pver)
-    real(r8),pointer :: tmpptr(:,:)
+    integer c, ncol
+    real(r8) molmass, amass
+    real(r8) to_mmr (pcols,pver)
+    real(r8) outdata(pcols,pver)
+    real(r8), pointer :: tmpptr(:,:)
 
-    character(len=32) :: units_str
+    character(32) units_str
 
-    if( .not. has_prescribed_ozone ) return
+    if (.not. has_prescribed_ozone) return
 
-    if( cam_physpkg_is('cam3') .and. aqua_planet ) then
-       molmass = 48._r8
-       amass   = 28.9644_r8
+    if (cam_physpkg_is('cam3') .and. aqua_planet) then
+      molmass = 48._r8
+      amass   = 28.9644_r8
     else
-       molmass = 47.9981995_r8
-       amass   = mwdry
+      molmass = 47.9981995_r8
+      amass   = mwdry
     end if
 
-    call advance_trcdata( fields, file, state, pbuf2d )
+    call advance_trcdata(fields, file, state, pbuf2d)
 
     units_str = trim(to_lower(trim(fields(1)%units(:GLC(fields(1)%units)))))
 
-    ! set the correct units and invoke history outfld
+    ! Set the correct units and invoke history outfld
 !$OMP PARALLEL DO PRIVATE (C, NCOL, OUTDATA, TO_MMR, TMPPTR, PBUF_CHNK)
-    do c = begchunk,endchunk
-       ncol = state(c)%ncol
+    do c = begchunk, endchunk
+      ncol = state(c)%ncol
+      select case (units_str)
+      case ('molec/cm3', '/cm3', 'molecules/cm3', 'cm^-3', 'cm**-3')
+        to_mmr(:ncol,:) = (molmass * 1.e6_r8 * boltz * state(c)%t(:ncol,:)) / (amass * state(c)%pmiddry(:ncol,:))
+      case ('kg/kg','mmr')
+        to_mmr(:ncol,:) = 1._r8
+      case ('mol/mol', 'mole/mole', 'vmr', 'fraction')
+        to_mmr(:ncol,:) = molmass / amass
+      case default
+        write(iulog, *) 'prescribed_ozone_adv: units = ', trim(fields(1)%units) , ' are not recognized'
+        call endrun('prescribed_ozone_adv: units are not recognized')
+      end select
 
-       select case ( units_str )
-       case ("molec/cm3","/cm3","molecules/cm3","cm^-3","cm**-3")
-          to_mmr(:ncol,:) = (molmass*1.e6_r8*boltz*state(c)%t(:ncol,:))/(amass*state(c)%pmiddry(:ncol,:))
-       case ('kg/kg','mmr')
-          to_mmr(:ncol,:) = 1._r8
-       case ('mol/mol','mole/mole','vmr','fraction')
-          to_mmr(:ncol,:) = molmass/amass
-       case default
-          write(iulog,*) 'prescribed_ozone_adv: units = ',trim(fields(1)%units) ,' are not recognized'
-          call endrun('prescribed_ozone_adv: units are not recognized')
-       end select
+      pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
+      call pbuf_get_field(pbuf_chnk, fields(1)%pbuf_ndx, tmpptr)
 
-       pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
-       call pbuf_get_field(pbuf_chnk, fields(1)%pbuf_ndx, tmpptr )
+      tmpptr(:ncol,:) = tmpptr(:ncol,:) * to_mmr(:ncol,:)
 
-       tmpptr(:ncol,:) = tmpptr(:ncol,:)*to_mmr(:ncol,:)
-
-       outdata(:ncol,:) = (amass/molmass)* tmpptr(:ncol,:) ! vmr
-       call outfld( fields(1)%fldnam, outdata(:ncol,:), ncol, state(c)%lchnk )
-    enddo
+      outdata(:ncol,:) = (amass / molmass) * tmpptr(:ncol,:) ! vmr
+      call outfld(fields(1)%fldnam, outdata(:ncol,:), ncol, state(c)%lchnk)
+    end do
 
   end subroutine prescribed_ozone_adv
 

@@ -4,6 +4,7 @@ target_sources(gmcore PRIVATE
   albedo_mod.F90
   cam_physics_types_mod.F90
   cam_physics_objects_mod.F90
+  cam_physics_output_mod.F90
   cam_physics_driver_mod.F90
   cam/aer_rad_props.F90
   cam/aoa_tracers.F90
@@ -117,7 +118,6 @@ target_sources(gmcore PRIVATE
   control/cam_initfiles.F90
   control/cam_instance.F90
   control/cam_logfile.F90
-  control/cam_snapshot.F90
   control/camsrfexch.F90
   control/filenames.F90
   control/ncdio_atm.F90

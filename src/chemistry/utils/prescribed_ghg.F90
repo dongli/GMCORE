@@ -201,77 +201,67 @@ end subroutine prescribed_ghg_readnl
 
   end subroutine prescribed_ghg_init
 
-!-------------------------------------------------------------------
-!-------------------------------------------------------------------
   subroutine prescribed_ghg_adv( state, pbuf2d)
 
-    use tracer_data,  only : advance_trcdata
-    use physics_types,only : physics_state
-    use ppgrid,       only : begchunk, endchunk
-    use ppgrid,       only : pcols, pver
-    use string_utils, only : to_lower, GLC
-    use cam_history,  only : outfld
-    use physconst,    only : mwdry                ! molecular weight dry air ~ kg/kmole
-    use physconst,    only : boltz                ! J/K/molecule
-    
-    use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_set_field, pbuf_get_chunk
-
-    implicit none
+    use tracer_data   , only: advance_trcdata
+    use physics_types , only: physics_state
+    use ppgrid        , only: begchunk, endchunk
+    use ppgrid        , only: pcols, pver
+    use string_utils  , only: to_lower, GLC
+    use cam_history   , only: outfld
+    use physconst     , only: mwdry, & ! molecular weight dry air ~ kg/kmole
+                              boltz    ! J/K/molecule
+    use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_set_field, pbuf_get_chunk
 
     type(physics_state), intent(in)    :: state(begchunk:endchunk)                 
     
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
-    integer :: ind,c,ncol,i
-    real(r8) :: to_mmr(pcols,pver)
-    real(r8) :: outdata(pcols,pver)
-    real(r8),pointer :: tmpptr(:,:)
+    integer ind, c, ncol, i
+    real(r8) to_mmr (pcols,pver)
+    real(r8) outdata(pcols,pver)
+    real(r8), pointer :: tmpptr(:,:)
 
-    character(len=32) :: units_str
+    character(32) units_str
 
-    if( .not. has_prescribed_ghg ) return
+    if (.not. has_prescribed_ghg) return
 
-    call advance_trcdata( fields, file, state, pbuf2d )
+    call advance_trcdata(fields, file, state, pbuf2d)
     
-    ! set the correct units and invoke history outfld
+    ! Set the correct units and invoke history outfld
     do i = 1,number_flds
-       ind = index_map(i)
+      ind = index_map(i)
 
-       units_str = trim(to_lower(trim(fields(i)%units(:GLC(fields(i)%units)))))
+      units_str = trim(to_lower(trim(fields(i)%units(:GLC(fields(i)%units)))))
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL, OUTDATA, TO_MMR, tmpptr, pbuf_chnk)
-       do c = begchunk,endchunk
-          ncol = state(c)%ncol
+      do c = begchunk, endchunk
+        ncol = state(c)%ncol
+        select case (units_str)
+        case ('molec/cm3', '/cm3', 'molecules/cm3', 'cm^-3', 'cm**-3')
+          to_mmr(:ncol,:) = (molmass(ind) * 1.e6_r8 * boltz * state(c)%t(:ncol,:)) / (mwdry * state(c)%pmiddry(:ncol,:))
+        case ('kg/kg','mmr')
+          to_mmr(:ncol,:) = 1._r8
+        case ('mol/mol', 'mole/mole', 'vmr', 'fraction')
+          to_mmr(:ncol,:) = molmass(ind) / mwdry
+        case default
+          write(iulog, *) 'prescribed_ghg_adv: units = ',trim(fields(i)%units) ,' are not recognized'
+          call endrun('prescribed_ghg_adv: units are not recognized')
+        end select
 
-          select case ( units_str )
-          case ("molec/cm3","/cm3","molecules/cm3","cm^-3","cm**-3")
-             to_mmr(:ncol,:) = (molmass(ind)*1.e6_r8*boltz*state(c)%t(:ncol,:))/(mwdry*state(c)%pmiddry(:ncol,:))
-          case ('kg/kg','mmr')
-             to_mmr(:ncol,:) = 1._r8
-          case ('mol/mol','mole/mole','vmr','fraction')
-             to_mmr(:ncol,:) = molmass(ind)/mwdry
-          case default
-             print*, 'prescribed_ghg_adv: units = ',trim(fields(i)%units) ,' are not recognized'
-             call endrun('prescribed_ghg_adv: units are not recognized')
-          end select
+        pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
+        call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, tmpptr)
 
-          pbuf_chnk => pbuf_get_chunk(pbuf2d, c)
-          call pbuf_get_field(pbuf_chnk, fields(i)%pbuf_ndx, tmpptr )
+        tmpptr(:ncol,:) = tmpptr(:ncol,:) * to_mmr(:ncol,:)
 
-          tmpptr(:ncol,:) = tmpptr(:ncol,:)*to_mmr(:ncol,:)
-
-          outdata(:ncol,:) = tmpptr(:ncol,:) 
-          call outfld( fields(1)%fldnam, outdata(:ncol,:), ncol, state(c)%lchnk )
-
-       enddo
-    enddo
+        outdata(:ncol,:) = tmpptr(:ncol,:) 
+        call outfld(fields(1)%fldnam, outdata(:ncol,:), ncol, state(c)%lchnk)
+      end do
+    end do
 
   end subroutine prescribed_ghg_adv
 
-!-------------------------------------------------------------------
-
-!-------------------------------------------------------------------
   subroutine init_prescribed_ghg_restart( piofile )
     use pio, only : file_desc_t
     use tracer_data, only : init_trc_restart

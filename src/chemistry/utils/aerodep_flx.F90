@@ -334,33 +334,28 @@ end subroutine aerodep_flx_readnl
 
   end subroutine aerodep_flx_set
 
-!-------------------------------------------------------------------
-! advances the prescribed fluxes to the current time step
-!-------------------------------------------------------------------
-  subroutine aerodep_flx_adv( state, pbuf2d, cam_out )
+  subroutine aerodep_flx_adv(state, pbuf2d, cam_out)
 
-    use tracer_data,      only : advance_trcdata
-    use physics_types,    only : physics_state
-    use camsrfexch,       only : cam_out_t
-    use physics_buffer, only : physics_buffer_desc
-
-    implicit none
+    use tracer_data   , only: advance_trcdata
+    use physics_types , only: physics_state
+    use camsrfexch    , only: cam_out_t
+    use physics_buffer, only: physics_buffer_desc
 
     type(physics_state), intent(in)    :: state(begchunk:endchunk)
     type(cam_out_t),     intent(inout) :: cam_out(begchunk:endchunk)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
-    integer :: c, ncol
+    integer c, ncol
 
-    if( .not. has_aerodep_flx ) return
+    if (.not. has_aerodep_flx) return
 
-    call advance_trcdata( fields, file, state, pbuf2d  )
+    call advance_trcdata(fields, file, state, pbuf2d)
 
 !$OMP PARALLEL DO PRIVATE (C, NCOL)
     do c = begchunk, endchunk
-       ncol = state(c)%ncol
-       call aerodep_flx_set( cam_out(c), ncol, c )
-    enddo
+      ncol = state(c)%ncol
+      call aerodep_flx_set(cam_out(c), ncol, c)
+    end do
 
   end subroutine aerodep_flx_adv
 

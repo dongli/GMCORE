@@ -79,20 +79,21 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%u     (icol,k)   = dstate%u%d(i,j,k)
-            pstate%v     (icol,k)   = dstate%v%d(i,j,k)
-            pstate%t     (icol,k)   = dstate%t%d(i,j,k)
-            pstate%pt    (icol,k)   = dstate%pt%d(i,j,k)
-            pstate%p     (icol,k)   = dstate%ph%d(i,j,k)
-            pstate%p_lev (icol,k)   = dstate%ph_lev%d(i,j,k)
-            pstate%pk    (icol,k)   = dstate%ph%d(i,j,k)**rd_o_cpd / pk0
-            pstate%pk_lev(icol,k)   = dstate%ph_lev%d(i,j,k)**rd_o_cpd / pk0
-            pstate%dp    (icol,k)   = dstate%ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
-            pstate%dp_dry(icol,k)   = dstate%dmg%d(i,j,k)
-            pstate%omg   (icol,k)   = aux%omg%d(i,j,k)
-            pstate%z     (icol,k)   = dstate%gz%d(i,j,k) / g
-            pstate%dz    (icol,k)   = (dstate%gz_lev%d(i,j,k+1) - dstate%gz_lev%d(i,j,k)) / g
-            pstate%rho   (icol,k)   = dry_air_density(pstate%t(icol,k), pstate%p(icol,k))
+            pstate%u     (icol,k) = dstate %u     %d(i,j,k)
+            pstate%v     (icol,k) = dstate %v     %d(i,j,k)
+            pstate%t     (icol,k) = dstate %t     %d(i,j,k)
+            pstate%pt    (icol,k) = dstate %pt    %d(i,j,k)
+            pstate%qm    (icol,k) = tracers%qm    %d(i,j,k)
+            pstate%p     (icol,k) = dstate %ph    %d(i,j,k)
+            pstate%p_lev (icol,k) = dstate %ph_lev%d(i,j,k)
+            pstate%pk    (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
+            pstate%pk_lev(icol,k) = dstate %ph_lev%d(i,j,k)**rd_o_cpd / pk0
+            pstate%dp    (icol,k) = dstate %ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
+            pstate%dp_dry(icol,k) = dstate %dmg   %d(i,j,k)
+            pstate%omg   (icol,k) = aux    %omg   %d(i,j,k)
+            pstate%z     (icol,k) = dstate %gz    %d(i,j,k) / g
+            pstate%dz    (icol,k) = (dstate%gz_lev%d(i,j,k+1) - dstate%gz_lev%d(i,j,k)) / g
+            pstate%rho   (icol,k) = dry_air_density(pstate%t(icol,k), pstate%p(icol,k))
             icol = icol + 1
           end do
         end do
@@ -126,8 +127,8 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%p_lev  (icol,k) = dstate%ph_lev%d(i,j,k)
-            pstate%z_lev  (icol,k) = dstate%gz_lev%d(i,j,k) / g
+            pstate%p_lev(icol,k) = dstate%ph_lev%d(i,j,k)
+            pstate%z_lev(icol,k) = dstate%gz_lev%d(i,j,k) / g
             icol = icol + 1
           end do
         end do
@@ -136,7 +137,7 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%dz_lev (icol,k) = pstate%z(icol,k) - pstate%z(icol,k-1)
+            pstate%dz_lev(icol,k) = pstate%z(icol,k) - pstate%z(icol,k-1)
             icol = icol + 1
           end do
         end do
@@ -197,7 +198,8 @@ contains
       associate (mesh   => block%mesh         , &
                  dstate => block%dstate(itime), &
                  aux    => block%aux          , &
-                 qm     => tracers%qm         )
+                 old_q  => tracers%q          , &
+                 old_qm => tracers%qm         )
       if (ptend%updated_u .and. ptend%updated_v) then
         do k = mesh%full_kds, mesh%full_kde
           icol = 1
@@ -218,10 +220,9 @@ contains
           icol = 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              aux%dptdt_phys%d(i,j,k) = dstate%dmg%d(i,j,k) * (                &
-                (1 + rv_o_rd * pstate%q(icol,k,idx_qv)) * ptend%dtdt(icol,k) + &
-                rv_o_rd * pstate%t(icol,k) * ptend%dqdt(icol,k,idx_qv)         &
-              ) / pstate%pk(icol,k)
+              aux%dptdt_phys%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
+                (1 + rv_o_rd * old_q%d(i,j,k,idx_qv)) * ptend%dtdt(icol,k) +        &
+                rv_o_rd * pstate%t(icol,k) * ptend%dqdt(icol,k,idx_qv) * (1 + old_qm%d(i,j,k)))
               icol = icol + 1
             end do
           end do
@@ -244,7 +245,7 @@ contains
               icol = 1
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  aux%dqdt_phys%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + qm%d(i,j,k))
+                  aux%dqdt_phys%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + old_qm%d(i,j,k))
                   icol = icol + 1
                 end do
               end do

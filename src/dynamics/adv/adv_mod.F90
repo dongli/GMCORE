@@ -25,7 +25,6 @@ module adv_mod
   use ffsl_mod
   use upwind_mod
   use weno_mod
-  use tvd_mod
   use physics_mod
   use perf_mod
 
@@ -49,7 +48,6 @@ module adv_mod
   public upwind5
   public weno3
   public weno5
-  public tvd
 
 contains
 
@@ -223,12 +221,7 @@ contains
               end do
             end do
             if (batch%use_ieva) call adv_run_ieva(batch, m_new, q_new, dt_adv)
-            if (pdc_type == 1 .or. pdc_type == 2) then
-              call physics_update_tracers(block, itime, dt_adv, batch%idx(l))
-            else
-              call tracer_fill_negative_values(block, itime, q_new%d)
-              call fill_halo(q_new)
-            end if
+            call fill_halo(q_new)
             end associate
           end do
           end associate

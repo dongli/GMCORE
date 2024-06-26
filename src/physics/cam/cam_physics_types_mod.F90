@@ -21,6 +21,18 @@ module cam_physics_types_mod
   public cam_tend_type
 
   type, extends(physics_state_type) :: cam_state_type
+    ! Wind speed at 10 m (m s-1)
+    real(r8), allocatable, dimension(:  ) :: wsp10
+    ! Upward constituent flux at surface (kg m-2 s-1)
+    real(r8), allocatable, dimension(:,:) :: qflx
+    ! Albedo for direct short wave radiation
+    real(r8), allocatable, dimension(:  ) :: asdir
+    ! Albedo for diffuse short wave radiation
+    real(r8), allocatable, dimension(:  ) :: asdif
+    ! Albedo for direct long wave radiation
+    real(r8), allocatable, dimension(:  ) :: aldir
+    ! Albedo for diffuse long wave radiation
+    real(r8), allocatable, dimension(:  ) :: aldif
   contains
     procedure :: init  => cam_state_init
     procedure :: clear => cam_state_clear
@@ -43,6 +55,13 @@ contains
 
     call this%clear()
 
+    allocate(this%wsp10(mesh%ncol         ))
+    allocate(this%qflx (mesh%ncol,ntracers))
+    allocate(this%asdir(mesh%ncol         ))
+    allocate(this%asdif(mesh%ncol         ))
+    allocate(this%aldir(mesh%ncol         ))
+    allocate(this%aldif(mesh%ncol         ))
+
     call this%physics_state_init(mesh)
 
   end subroutine cam_state_init
@@ -50,6 +69,13 @@ contains
   subroutine cam_state_clear(this)
 
     class(cam_state_type), intent(inout) :: this
+
+    if (allocated(this%wsp10)) deallocate(this%wsp10)
+    if (allocated(this%qflx )) deallocate(this%qflx )
+    if (allocated(this%asdir)) deallocate(this%asdir)
+    if (allocated(this%asdif)) deallocate(this%asdif)
+    if (allocated(this%aldir)) deallocate(this%aldir)
+    if (allocated(this%aldif)) deallocate(this%aldif)
 
     call this%physics_state_clear()
 

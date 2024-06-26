@@ -622,68 +622,47 @@ contains
 
   end subroutine trcdata_init
 
-!-----------------------------------------------------------------------
-! Reads more data if needed and interpolates data to current model time
-!-----------------------------------------------------------------------
-  subroutine advance_trcdata( flds, file, state, pbuf2d )
-    use physics_types,only : physics_state
+  subroutine advance_trcdata(flds, file, state, pbuf2d)
 
-    implicit none
+    use physics_types,only : physics_state
 
     type(trfile),        intent(inout) :: file
     type(trfld),         intent(inout) :: flds(:)
     type(physics_state), intent(in)    :: state(begchunk:endchunk)
-
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
-    real(r8) :: data_time
+    real(r8) data_time
 
-    call t_startf('advance_trcdata')
-    if ( .not.( file%fixed .and. file%initialized ) ) then
+    if (.not. (file%fixed .and. file%initialized)) then
+      call get_model_time(file)
+      data_time = file%datatimep
 
-       call get_model_time(file)
+      if (file%cyclical .or. file%cyclical_list) then
+        ! wrap around
+        if (file%datatimep < file%datatimem .and. file%curr_mod_time > file%datatimem) then
+          data_time = data_time + file%one_yr
+        end if
+      end if
 
-       data_time = file%datatimep
-
-       if ( file%cyclical .or. file%cyclical_list ) then
-          ! wrap around
-          if ( (file%datatimep<file%datatimem) .and. (file%curr_mod_time>file%datatimem) ) then
-             data_time = data_time + file%one_yr
-          endif
-       endif
-
-    ! For stepTime need to advance if the times are equal
-    ! Should not impact other runs?
-       if ( file%curr_mod_time >= data_time ) then
-          call t_startf('read_next_trcdata')
-          call read_next_trcdata( flds, file )
-          call t_stopf('read_next_trcdata')
-          if(masterproc) write(iulog,*) 'READ_NEXT_TRCDATA ', flds%fldnam
-       end if
-
-    endif
+      ! For stepTime need to advance if the times are equal
+      ! Should not impact other runs?
+      if (file%curr_mod_time >= data_time) then
+        call read_next_trcdata(flds, file)
+      end if
+    end if
 
     ! need to interpolate the data, regardless
     ! each mpi task needs to interpolate
-    call t_startf('interpolate_trcdata')
-    call interpolate_trcdata( state, flds, file, pbuf2d )
-    call t_stopf('interpolate_trcdata')
+    call interpolate_trcdata(state, flds, file, pbuf2d)
 
     file%initialized = .true.
 
-    call t_stopf('advance_trcdata')
-
   end subroutine advance_trcdata
 
-!-------------------------------------------------------------------
-!-------------------------------------------------------------------
-  subroutine get_fld_data( flds, field_name, data, ncol, lchnk, pbuf )
-
-
-    implicit none
+  subroutine get_fld_data(flds, field_name, data, ncol, lchnk, pbuf)
 
     type(trfld), intent(inout) :: flds(:)
-    character(len=*), intent(in) :: field_name
+    character(*), intent(in) :: field_name
     real(r8), intent(out) :: data(:,:)
     integer, intent(in) :: lchnk
     integer, intent(in) :: ncol

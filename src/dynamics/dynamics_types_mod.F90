@@ -1278,7 +1278,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          ='h1'                                                , &
+        output          ='h0'                                                , &
         restart         =.false.                                             , &
         field           =this%omg                                            )
     end if

@@ -304,20 +304,6 @@ contains
     call fc_gathervc (proc_name,  max_len, mpichar, &
                       proc_names, lengths, displs, mpichar, &
                       0, mpicom, flow_cntl=-1)
-    if (masterproc) then
-       write(iulog,*) npes, 'pes participating in computation'
-       write(iulog,*) '-----------------------------------'
-       write(iulog,*) 'TASK#  NAME'
-       do i=0,min(npes-1,256)  ! dont print too many of these
-          do c=1,max_len
-             tmp_name(c:c) = proc_names(i*max_len+c)
-          enddo
-          write(iulog,'(i3,2x,a)') i,trim(tmp_name)
-       end do
-       if(npes-1>256) then
-          write(iulog,*) '... list truncated at 256'
-       end if
-    end if
     !
     ! Identify SMP nodes and process/SMP mapping.
     ! (Assume that processor names are SMP node names on SMP clusters.)

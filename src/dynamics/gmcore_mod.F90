@@ -288,6 +288,7 @@ contains
         call test_forcing_run(dt_dyn, old)
         if (baroclinic) then
           do iblk = 1, size(blocks)
+            call prepare_physics(blocks(iblk), old)
             call physics_run(blocks(iblk), old, dt_phys)
             if (pdc_type == 3) call physics_update(blocks(iblk), old, dt_phys)
           end do
@@ -622,5 +623,16 @@ contains
     end associate
 
   end subroutine space_operators
+
+  subroutine prepare_physics(block, itime)
+
+    type(block_type), intent(inout) :: block
+    integer, intent(in) :: itime
+
+    call calc_grad_mf(block, block%dstate(itime))
+    call calc_div    (block, block%dstate(itime))
+    call calc_omg    (block, block%dstate(itime))
+
+  end subroutine prepare_physics
 
 end module gmcore_mod
