@@ -17,7 +17,7 @@ module model_flags
 
   private ! Default Scope
 
-  logical, parameter, public ::  & 
+  logical, parameter, public ::  &
     l_pos_def            = .false., & ! Flux limiting positive definite scheme on rtm
     l_hole_fill          = .true.,  & ! Hole filling pos def scheme on wp2,up2,rtp2,etc
     l_clip_semi_implicit = .false., & ! Semi-implicit clipping scheme on wpthlp and wprtp
@@ -63,7 +63,7 @@ module model_flags
 
   logical, parameter, public :: &
     l_evaporate_cold_rcm = .false. ! Flag to evaporate cloud water at temperatures
-                                   ! colder than -37C.  This is to be used for 
+                                   ! colder than -37C.  This is to be used for
                                    ! Morrison microphysics, to prevent excess ice
 
   logical, parameter, public :: &
@@ -82,17 +82,17 @@ module model_flags
     saturation_flatau = 3    ! Constant for Flatau approximations of saturation
 
   !-----------------------------------------------------------------------------
-  ! Options that can be changed at runtime 
+  ! Options that can be changed at runtime
   ! The default values are chosen below and overwritten if desired by the user
-  !----------------------------------------------------------------------------- 
+  !-----------------------------------------------------------------------------
 
   ! Flag to use high accuracy for the parabolic cylinder function
   logical, public :: &
-    l_high_accuracy_parab_cyl_fnc = .false. 
+    l_high_accuracy_parab_cyl_fnc = .false.
 
 !$omp threadprivate(l_high_accuracy_parab_cyl_fnc)
 
-  logical, public :: & 
+  logical, public :: &
     l_quintic_poly_interp = .false. ! Use a quintic polynomial in mono_cubic_interp
 
 !$omp threadprivate(l_quintic_poly_interp)
@@ -216,8 +216,8 @@ module model_flags
   contains
 
 !===============================================================================
-  subroutine setup_model_flags & 
-             ( l_host_applies_sfc_fluxes_in, & 
+  subroutine setup_model_flags &
+             ( l_host_applies_sfc_fluxes_in, &
                saturation_formula_in &
 #ifdef GFDL
                ,  I_sat_sphum_in   &  ! h1g, 2010-06-15
@@ -237,14 +237,14 @@ module model_flags
     intrinsic :: trim
 
     ! Input Variables
-    logical, intent(in) ::  & 
+    logical, intent(in) ::  &
       l_host_applies_sfc_fluxes_in
 
     character(len=*), intent(in) :: &
       saturation_formula_in
 
 #ifdef GFDL
-    logical, intent(in) ::  & 
+    logical, intent(in) ::  &
       I_sat_sphum_in           ! h1g, 2010-06-15
 #endif
 

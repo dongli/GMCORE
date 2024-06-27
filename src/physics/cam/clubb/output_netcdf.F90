@@ -18,17 +18,17 @@ module output_netcdf
   private :: define_netcdf, write_grid, first_write, format_date
 
   ! Constant parameters
-  ! This will truncate all timesteps smaller than 1 mn to a minute for 
+  ! This will truncate all timesteps smaller than 1 mn to a minute for
   ! the purposes of viewing the data in grads
   logical, parameter, private :: &
-    l_grads_netcdf_boost_ts = .false. 
+    l_grads_netcdf_boost_ts = .false.
 
   private ! Default scope
 
   contains
 !-------------------------------------------------------------------------------
-  subroutine open_netcdf_for_writing( nlat, nlon, fdir, fname, ia, iz, zgrid,  & 
-                          day, month, year, rlat, rlon, & 
+  subroutine open_netcdf_for_writing( nlat, nlon, fdir, fname, ia, iz, zgrid,  &
+                          day, month, year, rlat, rlon, &
                           time, dtwrite, nvar, ncf )
 
 ! Description:
@@ -37,20 +37,20 @@ module output_netcdf
 ! References:
 !   None
 !-------------------------------------------------------------------------------
-    use netcdf, only: & 
+    use netcdf, only: &
       NF90_CLOBBER, & ! Variable(s)
-      NF90_NOERR,   & 
+      NF90_NOERR,   &
       nf90_create,  & ! Procedure
       nf90_strerror
 
-    use stat_file_module, only: & 
+    use stat_file_module, only: &
       stat_file ! Type
 
-    use clubb_precision, only:  & 
+    use clubb_precision, only:  &
       time_precision, & ! Variable(s)
       core_rknd
 
-    use constants_clubb, only:  & 
+    use constants_clubb, only:  &
       fstderr, & ! Variable(s)
       sec_per_min
 
@@ -64,29 +64,29 @@ module output_netcdf
     implicit none
 
     ! Input Variables
-    character(len=*), intent(in) ::  & 
+    character(len=*), intent(in) ::  &
       fdir,   & ! Directory name of file
       fname     ! File name
 
-    integer, intent(in) ::  & 
+    integer, intent(in) ::  &
       nlat, nlon,       & ! Number of points in the X and Y
       day, month, year, & ! Time
       ia, iz,           & ! First and last grid point
       nvar                ! Number of variables
 
-    real( kind = core_rknd ), dimension(nlat), intent(in) ::  & 
+    real( kind = core_rknd ), dimension(nlat), intent(in) ::  &
       rlat ! Latitudes   [degrees_E]
 
-    real( kind = core_rknd ), dimension(nlon), intent(in) ::  & 
+    real( kind = core_rknd ), dimension(nlon), intent(in) ::  &
       rlon ! Longitudes  [degrees_N]
 
-    real( kind = core_rknd ), intent(in) :: & 
+    real( kind = core_rknd ), intent(in) :: &
       dtwrite ! Time between write intervals   [s]
 
-    real( kind = time_precision ), intent(in) ::  & 
+    real( kind = time_precision ), intent(in) ::  &
      time   ! Current time                    [s]
 
-    real( kind = core_rknd ), dimension(:), intent(in) ::  & 
+    real( kind = core_rknd ), dimension(:), intent(in) ::  &
       zgrid  ! The model grid                  [m]
 
     ! Input/output Variables
@@ -156,19 +156,19 @@ module output_netcdf
     ncf%rlon = rlon
 
     ! Create NetCDF dataset: enter define mode
-    stat = nf90_create( path = trim( fdir )//trim( fname )//'.nc',  & 
+    stat = nf90_create( path = trim( fdir )//trim( fname )//'.nc',  &
                         cmode = NF90_CLOBBER,  & ! overwrite existing file
                         ncid = ncf%iounit )
     if ( stat /= NF90_NOERR ) then
-      write(unit=fstderr,fmt=*) "Error opening file: ",  & 
-        trim( fdir )//trim( fname )//'.nc', & 
+      write(unit=fstderr,fmt=*) "Error opening file: ",  &
+        trim( fdir )//trim( fname )//'.nc', &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
     end if
 
     call define_netcdf( ncf%iounit, ncf%nlat, ncf%nlon, ncf%iz, & ! In
-                        ncf%day, ncf%month, ncf%year, ncf%time, & ! In 
+                        ncf%day, ncf%month, ncf%year, ncf%time, & ! In
                         ncf%LatDimId, ncf%LongDimId, ncf%AltDimId, ncf%TimeDimId, &  ! Out
                         ncf%LatVarId, ncf%LongVarId, ncf%AltVarId, ncf%TimeVarId ) ! Out
 
@@ -187,18 +187,18 @@ module output_netcdf
 !   Writes some data to the NetCDF dataset, but doesn't close it.
 !
 ! References:
-!   None   
+!   None
 !-------------------------------------------------------------------------------
 
-    use netcdf, only: & 
+    use netcdf, only: &
         NF90_NOERR,  & ! Variable(s)
         nf90_put_var,  & ! Procedure
         nf90_strerror
 
-    use stat_file_module, only: & 
+    use stat_file_module, only: &
         stat_file ! Variable
 
-    use constants_clubb, only:  & 
+    use constants_clubb, only:  &
         fstderr, & ! Variable
         sec_per_min
 
@@ -260,7 +260,7 @@ module output_netcdf
            * real( ncf%dtwrite, kind=time_precision )  ! seconds
     end if
 
-    stat(1) = nf90_put_var( ncid=ncf%iounit, varid=ncf%TimeVarId,  & 
+    stat(1) = nf90_put_var( ncid=ncf%iounit, varid=ncf%TimeVarId,  &
                             values=time(1), start=(/ncf%ntimes/) )
     if ( stat(1) /= NF90_NOERR ) then
       write(fstderr,*) "time variable nf90_put_var failed"
@@ -269,10 +269,10 @@ module output_netcdf
     end if
 
     do i = 1, ncf%nvar, 1
-      stat(i)  & 
-      = nf90_put_var( ncid=ncf%iounit, varid=ncf%var(i)%indx,  & 
-                      values=ncf%var(i)%ptr(:,:,ncf%ia:ncf%iz),  & 
-                      start=(/1,1,1,ncf%ntimes/), & 
+      stat(i)  &
+      = nf90_put_var( ncid=ncf%iounit, varid=ncf%var(i)%indx,  &
+                      values=ncf%var(i)%ptr(:,:,ncf%ia:ncf%iz),  &
+                      start=(/1,1,1,ncf%ntimes/), &
                       count=(/ncf%nlon,ncf%nlat,ncf%iz,1/) )
 
     end do ! i=1..nvar
@@ -280,7 +280,7 @@ module output_netcdf
     if ( any (stat /= NF90_NOERR ) ) then
       do i=1,ncf%nvar,1
         if( stat(i) /= NF90_NOERR ) then
-          write(unit=fstderr,fmt=*) ncf%var(i)%name,  & 
+          write(unit=fstderr,fmt=*) ncf%var(i)%name,  &
             trim( nf90_strerror( stat(i) ) )
         end if
       end do
@@ -297,8 +297,8 @@ module output_netcdf
 
 !-------------------------------------------------------------------------------
   subroutine define_netcdf( ncid, nlat, nlon, iz, &
-                            day, month, year, time, & 
-                            LatDimId, LongDimId, AltDimId, TimeDimId, & 
+                            day, month, year, time, &
+                            LatDimId, LongDimId, AltDimId, TimeDimId, &
                             LatVarId, LongVarId, AltVarId, TimeVarId )
 
 ! Description:
@@ -307,21 +307,21 @@ module output_netcdf
 ! References:
 !   None
 !-------------------------------------------------------------------------------
-    use netcdf, only: & 
+    use netcdf, only: &
       NF90_NOERR,   & ! Constants
-      NF90_DOUBLE, & 
+      NF90_DOUBLE, &
       NF90_UNLIMITED
 
-    use netcdf, only: & 
+    use netcdf, only: &
       nf90_def_dim,  & ! Functions
-      nf90_strerror, & 
-      nf90_def_var, & 
+      nf90_strerror, &
+      nf90_def_var, &
       nf90_put_att
 
-    use clubb_precision, only:  & 
+    use clubb_precision, only:  &
       time_precision ! Variable(s)
 
-    use constants_clubb, only:  & 
+    use constants_clubb, only:  &
       fstderr ! Variable(s)
 
     use error_code, only: &
@@ -330,25 +330,25 @@ module output_netcdf
 
     implicit none
 
-    integer, intent(in) ::  & 
+    integer, intent(in) ::  &
       nlat,   & ! Number of points in the N/S direction
       nlon      ! Number of points in the E/W direction
 
     ! Input Variables
-    integer, intent(in) ::  & 
+    integer, intent(in) ::  &
       day, month, year,  & ! Time of year
       ncid,              & ! Number used by NetCDF for ref. the file
       iz                   ! Dimension in z
 
-    real(kind=time_precision), intent(in) ::  & 
+    real(kind=time_precision), intent(in) ::  &
       time    ! Current model time [s]
 
     ! Output Variables
-    integer, intent(out) ::  & 
+    integer, intent(out) ::  &
       LatDimId, LongDimId, AltDimId, TimeDimId  ! NetCDF id's for dimensions
 
     ! NetCDF id's for data (e.g. longitude) associated with each dimension
-    integer, intent(out) ::  & 
+    integer, intent(out) ::  &
       LatVarId, LongVarId, AltVarId, TimeVarId
 
     ! Local variables
@@ -361,7 +361,7 @@ module output_netcdf
     stat = nf90_def_dim( ncid, "longitude", nlon, LongDimId )
 
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error defining longitude: ", & 
+      write(fstderr,*) "Error defining longitude: ", &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
@@ -369,7 +369,7 @@ module output_netcdf
 
     stat =  nf90_def_dim( ncid, "latitude", nlat, LatDimId )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error defining latitude: ", & 
+      write(fstderr,*) "Error defining latitude: ", &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
@@ -377,7 +377,7 @@ module output_netcdf
 
     stat = nf90_def_dim( ncid, "altitude", iz, AltDimId )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error defining altitude: ", & 
+      write(fstderr,*) "Error defining altitude: ", &
       trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
@@ -385,7 +385,7 @@ module output_netcdf
 
     stat =  nf90_def_dim( ncid, "time", NF90_UNLIMITED, TimeDimId )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error defining time: ", & 
+      write(fstderr,*) "Error defining time: ", &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
@@ -393,19 +393,19 @@ module output_netcdf
 
     ! Define the initial variables for the dimensions
     ! Longitude = deg_E = X
-    stat = nf90_def_var( ncid, "longitude", NF90_DOUBLE, & 
+    stat = nf90_def_var( ncid, "longitude", NF90_DOUBLE, &
                          (/LongDimId/), LongVarId )
 
     ! Latitude = deg_N = Y
-    stat = nf90_def_var( ncid, "latitude", NF90_DOUBLE, & 
+    stat = nf90_def_var( ncid, "latitude", NF90_DOUBLE, &
                          (/LatDimId/), LatVarId )
 
     ! Altitude = meters above the surface = Z
-    stat = nf90_def_var( ncid, "altitude", NF90_DOUBLE, & 
+    stat = nf90_def_var( ncid, "altitude", NF90_DOUBLE, &
                         (/AltDimId/), AltVarId )
 
     ! grads2nc stores time as a double prec. value, so we follow that
-    stat = nf90_def_var( ncid, "time", NF90_DOUBLE, & 
+    stat = nf90_def_var( ncid, "time", NF90_DOUBLE, &
                          (/TimeDimId/), TimeVarId )
 
     ! Assign attribute values
@@ -479,15 +479,15 @@ module output_netcdf
 !   details. -dschanen
 !-------------------------------------------------------------------------------
 
-    use stat_file_module, only: & 
+    use stat_file_module, only: &
         stat_file ! Type
 
-    use netcdf, only: & 
+    use netcdf, only: &
         NF90_NOERR,  & ! Variable
         nf90_close,  & ! Procedure(s)
         nf90_strerror
 
-    use constants_clubb, only:  & 
+    use constants_clubb, only:  &
         fstderr  ! Variable
 
     implicit none
@@ -507,7 +507,7 @@ module output_netcdf
 
     stat = nf90_close( ncf%iounit )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error closing file "//  & 
+      write(fstderr,*) "Error closing file "//  &
         trim( ncf%fname )//": ", trim( nf90_strerror( stat ) )
       stop "Fatal error"
     end if
@@ -529,14 +529,14 @@ module output_netcdf
 !   None
 !-------------------------------------------------------------------------------
 
-    use netcdf, only: & 
+    use netcdf, only: &
       NF90_NOERR,  & ! Constants
       NF90_FLOAT,  &
-      NF90_DOUBLE, & 
+      NF90_DOUBLE, &
       NF90_GLOBAL, &
       nf90_def_var,  & ! Procedure(s)
-      nf90_strerror, & 
-      nf90_put_att, & 
+      nf90_strerror, &
+      nf90_put_att, &
       nf90_enddef
 
     use stat_file_module, only: &
@@ -602,7 +602,7 @@ module output_netcdf
 
     ! Local Variables
     integer, dimension(:), allocatable :: stat
-    
+
     integer :: netcdf_precision ! Level of precision for netCDF output
 
     real( kind = core_rknd ), dimension(nparams) :: params ! Tunable parameters
@@ -660,37 +660,37 @@ module output_netcdf
 !     stat(i) = nf90_def_var( ncf%iounit, trim( ncf%var(i)%name ), &
 !                  NF90_FLOAT, (/ncf%TimeDimId, ncf%AltDimId, &
 !                  ncf%LatDimId, ncf%LongDimId/), ncf%var(i)%indx )
-      stat(i) = nf90_def_var( ncf%iounit, trim( ncf%var(i)%name ), & 
+      stat(i) = nf90_def_var( ncf%iounit, trim( ncf%var(i)%name ), &
                 netcdf_precision, var_dim(:), ncf%var(i)%indx )
       if ( stat(i) /= NF90_NOERR ) then
-        write(fstderr,*) "Error defining variable ",  & 
+        write(fstderr,*) "Error defining variable ",  &
           ncf%var(i)%name //": ", trim( nf90_strerror( stat(i) ) )
         err_code = clubb_fatal_error
         return
       end if
 
-      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, & 
+      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, &
                 "valid_range", var_range(1:2) )
       if ( stat(i) /= NF90_NOERR ) then
-        write(fstderr,*) "Error defining valid range", & 
+        write(fstderr,*) "Error defining valid range", &
           trim( nf90_strerror( stat(i) ) )
         err_code = clubb_fatal_error
         return
       end if
 
-      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, "long_name",  & 
+      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, "long_name",  &
                 trim( ncf%var(i)%description ) )
       if ( stat(i) /= NF90_NOERR ) then
-        write(fstderr,*) "Error in description", & 
+        write(fstderr,*) "Error in description", &
           trim( nf90_strerror( stat(i) ) )
         err_code = clubb_fatal_error
         return
       end if
 
-      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, "units",  & 
+      stat(i) = nf90_put_att( ncf%iounit, ncf%var(i)%indx, "units",  &
                 trim( ncf%var(i)%units ) )
       if ( stat(i) /= NF90_NOERR ) then
-        write(fstderr,*) "Error in units", & 
+        write(fstderr,*) "Error in units", &
           trim( nf90_strerror( stat(i) ) )
         err_code = clubb_fatal_error
         return
@@ -788,7 +788,7 @@ module output_netcdf
 
     stat(1) = nf90_enddef( ncf%iounit ) ! end definitions
     if ( stat(1) /= NF90_NOERR ) then
-      write(fstderr,*) "Error finalizing definitions", & 
+      write(fstderr,*) "Error finalizing definitions", &
         trim( nf90_strerror( stat(1) ) )
       err_code = clubb_fatal_error
       return
@@ -808,15 +808,15 @@ module output_netcdf
 !   None
 !-------------------------------------------------------------------------------
 
-    use netcdf, only: & 
+    use netcdf, only: &
         NF90_NOERR,   & ! Variable(s)
         nf90_put_var,  & ! Procedure(s)
         nf90_strerror
 
-    use stat_file_module, only: & 
+    use stat_file_module, only: &
         stat_file ! Type
 
-    use constants_clubb, only:  & 
+    use constants_clubb, only:  &
         fstderr ! Variable
 
     use error_code, only: &
@@ -832,28 +832,28 @@ module output_netcdf
 
     ! ---- Begin Code ----
 
-    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%AltVarId,  & 
+    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%AltVarId,  &
                          values=ncf%z(ncf%ia:ncf%iz) )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error entering grid: ",  & 
+      write(fstderr,*) "Error entering grid: ",  &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
     end if
 
-    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%LongVarId,  & 
+    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%LongVarId,  &
                          values=ncf%rlon )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error entering longitude: ",  & 
+      write(fstderr,*) "Error entering longitude: ",  &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
     end if
 
-    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%LatVarId,  & 
+    stat = nf90_put_var( ncid=ncf%iounit, varid=ncf%LatVarId,  &
                          values=ncf%rlat )
     if ( stat /= NF90_NOERR ) then
-      write(fstderr,*) "Error entering latitude: ",  & 
+      write(fstderr,*) "Error entering latitude: ",  &
         trim( nf90_strerror( stat ) )
       err_code = clubb_fatal_error
       return
@@ -864,7 +864,7 @@ module output_netcdf
 
 !-------------------------------------------------------------------------------
 
-  subroutine format_date & 
+  subroutine format_date &
              ( day_in, month_in, year_in, time_in, date )
 
 ! Description:
@@ -880,7 +880,7 @@ module output_netcdf
     use calendar, only:  &
       compute_current_date ! Procedure(s)
 
-    use clubb_precision, only:  & 
+    use clubb_precision, only:  &
         time_precision ! Variable(s)
 
     implicit none
@@ -889,7 +889,7 @@ module output_netcdf
     intrinsic :: floor, int, mod, nint
 
     ! Input Variables
-    integer, intent(in) ::  & 
+    integer, intent(in) ::  &
       day_in,           & ! Day of Month at Model Start   [dd]
       month_in,         & ! Month of Year at Model Start  [mm]
       year_in             ! Year at Model Start         [yyyy]
@@ -899,16 +899,16 @@ module output_netcdf
     ! Output Variables
     character(len=35), intent(out) :: date
 
-    integer::  & 
+    integer::  &
       iday, imonth, iyear  ! Integer for day, month and year.
 
     real(kind=time_precision) :: st_time ! Start time [s]
 
-    call compute_current_date( day_in, month_in,  & 
-                               year_in, & 
-                               time_in, & 
-                               iday, imonth, & 
-                               iyear, & 
+    call compute_current_date( day_in, month_in,  &
+                               year_in, &
+                               time_in, &
+                               iday, imonth, &
+                               iyear, &
                                st_time )
 
     if ( .not. l_grads_netcdf_boost_ts ) then
@@ -921,10 +921,10 @@ module output_netcdf
     write(date(23:24),'(i2.2)') iday
     write(date(26:27),'(i2.2)') floor( st_time / 3600._time_precision )
     write(date(29:30),'(i2.2)') int( mod( nint( st_time ),3600 ) / 60 )
-    
+
     if ( .not. l_grads_netcdf_boost_ts ) then
       write(date(32:33),'(i2.2)') nint(((real(mod( nint( st_time ),3600),kind=time_precision) / &
-                     60._time_precision) - (real(int(mod( nint( st_time ),3600 ) / 60 ), & 
+                     60._time_precision) - (real(int(mod( nint( st_time ),3600 ) / 60 ), &
                                                kind=time_precision) ) )*60._time_precision)
     end if
 

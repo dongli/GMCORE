@@ -1,4 +1,5 @@
 module physpkg
+
   !-----------------------------------------------------------------------
   ! Purpose:
   !
@@ -80,16 +81,8 @@ module physpkg
 
 contains
 
-  subroutine phys_register
-    !-----------------------------------------------------------------------
-    !
-    ! Purpose: Register constituents and physics buffer fields.
-    !
-    ! Author:    CSM Contact: M. Vertenstein, Aug. 1997
-    !            B.A. Boville, Oct 2001
-    !            A. Gettelman, Nov 2010 - put micro/macro physics into separate routines
-    !
-    !-----------------------------------------------------------------------
+  subroutine phys_register()
+
     use cam_abortutils      , only: endrun
     use physics_buffer      , only: pbuf_init_time
     use physics_buffer      , only: pbuf_add_field, dtype_r8, pbuf_register_subcol
@@ -136,18 +129,16 @@ contains
     use subcol_utils        , only: is_subcol_on, subcol_get_scheme
     use dyn_comp            , only: dyn_register
 
-    integer m        ! loop index
-    integer mm       ! constituent index
-    integer nmodes
+    integer m, nmodes
 
     ! Get physics options
-    call phys_getopts(shallow_scheme_out          = shallow_scheme          , &
-                      macrop_scheme_out           = macrop_scheme           , &
-                      microp_scheme_out           = microp_scheme           , &
-                      cld_macmic_num_steps_out    = cld_macmic_num_steps    , &
-                      do_clubb_sgs_out            = do_clubb_sgs            , &
-                      use_subcol_microp_out       = use_subcol_microp       , &
-                      state_debug_checks_out      = state_debug_checks      )
+    call phys_getopts(shallow_scheme_out          =shallow_scheme      , &
+                      macrop_scheme_out           =macrop_scheme       , &
+                      microp_scheme_out           =microp_scheme       , &
+                      cld_macmic_num_steps_out    =cld_macmic_num_steps, &
+                      do_clubb_sgs_out            =do_clubb_sgs        , &
+                      use_subcol_microp_out       =use_subcol_microp   , &
+                      state_debug_checks_out      =state_debug_checks  )
 
     subcol_scheme = subcol_get_scheme()
 
@@ -161,10 +152,10 @@ contains
     ! ***** N.B. ***** This must be the first call to cnst_add so that
     !                  water vapor is constituent 1.
     if (moist_physics) then
-      call cnst_add('Q', mwh2o, cpwv, 1.0e-12_r8, mm, &
+      call cnst_add('Q', mwh2o, cpwv, 1.0e-12_r8, m, &
         longname='Specific humidity', readiv=.true., is_convtran1=.true.)
     else
-      call cnst_add('Q', mwh2o, cpwv, 0.0_r8, mm, &
+      call cnst_add('Q', mwh2o, cpwv, 0.0_r8, m, &
         longname='Specific humidity', readiv=.false., is_convtran1=.true.)
     end if
 
@@ -219,7 +210,7 @@ contains
       ! Who should add FRACIS?
       ! -- It does not seem that aero_intr should add it since FRACIS is used in convection
       !     even if there are no prognostic aerosols ... so do it here for now
-      call pbuf_add_field('FRACIS','physpkg', dtype_r8,[pcols,pver,pcnst],m)
+      call pbuf_add_field('FRACIS', 'physpkg', dtype_r8, [pcols,pver,pcnst], m)
 
       call conv_water_register()
 
@@ -620,68 +611,62 @@ contains
 
   subroutine phys_init(phys_state, phys_tend, pbuf2d, cam_in, cam_out)
 
-    !-----------------------------------------------------------------------
-    !
-    ! Initialization of physics package.
-    !
-    !-----------------------------------------------------------------------
-
-    use physics_buffer,       only: physics_buffer_desc, pbuf_initialize, pbuf_get_index
-    use physconst,            only: rair, cpair, gravit, stebol, tmelt, &
+    use physics_buffer      , only: physics_buffer_desc, pbuf_initialize, pbuf_get_index
+    use physconst           , only: rair, cpair, gravit, stebol, tmelt, &
                                     latvap, latice, rh2o, rhoh2o, pstd, zvir, &
                                     karman, rhodair, physconst_init
-    use ref_pres,             only: pref_edge, pref_mid
-    use carma_intr,           only: carma_init
-    use cam_control_mod,      only: initial_run
-    use check_energy,         only: check_energy_init
-    use chemistry,            only: chem_init
-    use prescribed_ozone,     only: prescribed_ozone_init
-    use prescribed_ghg,       only: prescribed_ghg_init
-    use prescribed_aero,      only: prescribed_aero_init
-    use aerodep_flx,          only: aerodep_flx_init
-    use aircraft_emit,        only: aircraft_emit_init
-    use prescribed_volcaero,  only: prescribed_volcaero_init
+    use ref_pres            , only: pref_edge, pref_mid
+    use carma_intr          , only: carma_init
+    use cam_control_mod     , only: initial_run
+    use check_energy        , only: check_energy_init
+    use chemistry           , only: chem_init
+    use prescribed_ozone    , only: prescribed_ozone_init
+    use prescribed_ghg      , only: prescribed_ghg_init
+    use prescribed_aero     , only: prescribed_aero_init
+    use aerodep_flx         , only: aerodep_flx_init
+    use aircraft_emit       , only: aircraft_emit_init
+    use prescribed_volcaero , only: prescribed_volcaero_init
     use prescribed_strataero, only: prescribed_strataero_init
-    use cloud_fraction,       only: cldfrc_init
-    use cldfrc2m,             only: cldfrc2m_init
-    use co2_cycle,            only: co2_init, co2_transport
-    use convect_deep,         only: convect_deep_init
-    use convect_shallow,      only: convect_shallow_init
-    use cam_diagnostics,      only: diag_init
-    use gw_drag,              only: gw_init
-    use cam3_aero_data,       only: cam3_aero_data_on, cam3_aero_data_init
-    use cam3_ozone_data,      only: cam3_ozone_data_on, cam3_ozone_data_init
-    use radheat,              only: radheat_init
-    use radiation,            only: radiation_init
-    use cloud_diagnostics,    only: cloud_diagnostics_init
-    use rk_stratiform,        only: rk_stratiform_init
-    use wv_saturation,        only: wv_sat_init
-    use microp_driver,        only: microp_driver_init
-    use microp_aero,          only: microp_aero_init
-    use macrop_driver,        only: macrop_driver_init
-    use conv_water,           only: conv_water_init
-    use aoa_tracers,          only: aoa_tracers_init
-    use rayleigh_friction,    only: rayleigh_friction_init
-    use pbl_utils,            only: pbl_utils_init
-    use vertical_diffusion,   only: vertical_diffusion_init
-    use phys_debug_util,      only: phys_debug_init
-    use phys_debug,           only: phys_debug_state_init
-    use rad_constituents,     only: rad_cnst_init
-    use aer_rad_props,        only: aer_rad_props_init
-    use subcol,               only: subcol_init
-    use qbo,                  only: qbo_init
-    use qneg_module,          only: qneg_init
-    use lunar_tides,          only: lunar_tides_init
-    use iondrag,              only: iondrag_init, do_waccm_ions
-    use epp_ionization,       only: epp_ionization_init, epp_ionization_active
-    use waccmx_phys_intr,     only: waccmx_phys_ion_elec_temp_init  ! Initialization of ionosphere module (WACCM-X)
-    use waccmx_phys_intr,     only: waccmx_phys_mspd_init           ! Initialization of major species diffusion module (WACCM-X)
-    use clubb_intr,           only: clubb_ini_cam
-    use sslt_rebin,           only: sslt_rebin_init
-    use tropopause,           only: tropopause_init
-    use solar_data,           only: solar_data_init
-    use dadadj_cam,           only: dadadj_init
-    use cam_abortutils,       only: endrun
+    use cloud_fraction      , only: cldfrc_init
+    use cldfrc2m            , only: cldfrc2m_init
+    use co2_cycle           , only: co2_init, co2_transport
+    use convect_deep        , only: convect_deep_init
+    use convect_shallow     , only: convect_shallow_init
+    use cam_diagnostics     , only: diag_init
+    use gw_drag             , only: gw_init
+    use cam3_aero_data      , only: cam3_aero_data_on, cam3_aero_data_init
+    use cam3_ozone_data     , only: cam3_ozone_data_on, cam3_ozone_data_init
+    use radheat             , only: radheat_init
+    use radiation           , only: radiation_init
+    use cloud_diagnostics   , only: cloud_diagnostics_init
+    use rk_stratiform       , only: rk_stratiform_init
+    use wv_saturation       , only: wv_sat_init
+    use microp_driver       , only: microp_driver_init
+    use microp_aero         , only: microp_aero_init
+    use macrop_driver       , only: macrop_driver_init
+    use conv_water          , only: conv_water_init
+    use aoa_tracers         , only: aoa_tracers_init
+    use rayleigh_friction   , only: rayleigh_friction_init
+    use pbl_utils           , only: pbl_utils_init
+    use vertical_diffusion  , only: vertical_diffusion_init
+    use phys_debug_util     , only: phys_debug_init
+    use phys_debug          , only: phys_debug_state_init
+    use rad_constituents    , only: rad_cnst_init
+    use aer_rad_props       , only: aer_rad_props_init
+    use subcol              , only: subcol_init
+    use qbo                 , only: qbo_init
+    use qneg_module         , only: qneg_init
+    use lunar_tides         , only: lunar_tides_init
+    use iondrag             , only: iondrag_init, do_waccm_ions
+    use epp_ionization      , only: epp_ionization_init, epp_ionization_active
+    use waccmx_phys_intr    , only: waccmx_phys_ion_elec_temp_init  ! Initialization of ionosphere module (WACCM-X)
+    use waccmx_phys_intr    , only: waccmx_phys_mspd_init           ! Initialization of major species diffusion module (WACCM-X)
+    use clubb_intr          , only: clubb_ini_cam
+    use sslt_rebin          , only: sslt_rebin_init
+    use tropopause          , only: tropopause_init
+    use solar_data          , only: solar_data_init
+    use dadadj_cam          , only: dadadj_init
+    use cam_abortutils      , only: endrun
 
     type(physics_state), pointer       :: phys_state(:)
     type(physics_tend ), pointer       :: phys_tend(:)
@@ -698,31 +683,26 @@ contains
       call physics_state_set_grid(lchnk, phys_state(lchnk))
     end do
 
-    !-------------------------------------------------------------------------------------------
-    ! Initialize any variables in physconst which are not temporally and/or spatially constant
-    !-------------------------------------------------------------------------------------------
+    ! Initialize any variables in physconst which are not temporally and/or
+    ! spatially constant.
     call physconst_init()
 
-    ! Initialize debugging a physics column
     call phys_debug_init()
 
     call pbuf_initialize(pbuf2d)
 
-    ! Initialize subcol scheme
     call subcol_init(pbuf2d)
 
     ! diag_init makes addfld calls for dynamics fields that are output from
-    ! the physics decomposition
+    ! the physics decomposition.
     call diag_init(pbuf2d)
 
     call check_energy_init()
 
-    ! age of air tracers
     call aoa_tracers_init()
 
     teout_idx = pbuf_get_index( 'TEOUT')
 
-    ! adiabatic or ideal physics should be only used if in simple_physics
     if (adiabatic .or. ideal_phys) then
       if (adiabatic) then
         call endrun('phys_init: adiabatic configuration error')
@@ -731,31 +711,25 @@ contains
       end if
     end if
 
-    if (initial_run) then
-      call phys_inidat(cam_out, pbuf2d)
-    end if
+    ! if (initial_run) then
+    !   call phys_inidat(cam_out, pbuf2d)
+    ! end if
 
-    ! wv_saturation is relatively independent of everything else and
-    ! low level, so init it early. Must at least do this before radiation.
+    ! wv_saturation is relatively independent of everything else and low level,
+    ! so initialize it early. Must at least do this before radiation.
     call wv_sat_init()
 
-    ! CAM3 prescribed aerosols
     if (cam3_aero_data_on) call cam3_aero_data_init(phys_state)
 
-    ! Initialize rad constituents and their properties
     call rad_cnst_init()
     call aer_rad_props_init()
 
-    ! initialize carma
     call carma_init()
 
-    ! solar irradiance data modules
     call solar_data_init()
 
-    ! Prognostic chemistry.
     call chem_init(phys_state, pbuf2d)
 
-    ! Prescribed tracers
     call prescribed_ozone_init()
     call prescribed_ghg_init()
     call prescribed_aero_init()
@@ -764,12 +738,8 @@ contains
     call prescribed_volcaero_init()
     call prescribed_strataero_init()
 
-    ! co2 cycle
-    if (co2_transport()) then
-      call co2_init()
-    end if
+    if (co2_transport()) call co2_init()
 
-    ! CAM3 prescribed ozone
     if (cam3_ozone_data_on) call cam3_ozone_data_init(phys_state)
 
     call gw_init()
@@ -781,7 +751,6 @@ contains
 
     if (waccmx_is('ionosphere') .or. waccmx_is('neutral')) then
       call waccmx_phys_mspd_init ()
-      ! Initialization of ionosphere module if mode set to ionosphere
       if (waccmx_is('ionosphere')) then
         call waccmx_phys_ion_elec_temp_init(pbuf2d)
       end if
@@ -811,7 +780,6 @@ contains
       call conv_water_init()
     end if
 
-    ! initiate CLUBB within CAM
     if (do_clubb_sgs) call clubb_ini_cam(pbuf2d)
 
     call qbo_init()
@@ -819,7 +787,6 @@ contains
     call lunar_tides_init()
 
     call iondrag_init(pref_mid)
-    ! Geomagnetic module -- after iondrag_init
     if (epp_ionization_active) then
       call epp_ionization_init()
     endif
@@ -848,7 +815,6 @@ contains
       call modal_aero_wateruptake_init(pbuf2d)
     end if
 
-    ! Initialize qneg3 and qneg4
     call qneg_init()
 
   end subroutine phys_init

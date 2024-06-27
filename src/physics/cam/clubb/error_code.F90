@@ -25,15 +25,15 @@ module error_code
 
     private ! Default Scope
 
-    public :: & 
-        clubb_at_least_debug_level,  & 
+    public :: &
+        clubb_at_least_debug_level,  &
         set_clubb_debug_level, &
         initialize_error_headers
 
     private :: clubb_debug_level
 
     ! Model-Wide Debug Level
-    integer, save :: clubb_debug_level = 5
+    integer, save :: clubb_debug_level = 0
 
     integer, public :: err_code = 0;
 
@@ -42,8 +42,8 @@ module error_code
     !$omp threadprivate(clubb_debug_level,err_code,err_header)
 
     ! Error Code Values
-    integer, parameter, public :: & 
-        clubb_no_error                 = 0, & 
+    integer, parameter, public :: &
+        clubb_no_error                 = 0, &
         clubb_fatal_error              = 99
 
     contains
@@ -77,8 +77,8 @@ module error_code
 #else
         integer :: getpid
         write(err_header,'(A20)') " -- CLUBB -- ERROR: "
-#endif               
-        
+#endif
+
 
     end subroutine initialize_error_headers
 
