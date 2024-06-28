@@ -150,7 +150,10 @@ contains
       perpetual_ymd=20000101                                                , &
       initial_run=.not. restart                                             )
     call read_namelist(merge(namelist_path, cam_namelist_path, cam_namelist_path=='N/A'))
-    call cam_initfiles_open()
+
+    ! FIXME: Read initial data for CAM physics.
+    ! call cam_initfiles_open()
+
     call dyn_grid_init()
     call phys_grid_init()
     call phys_register()

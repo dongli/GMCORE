@@ -58,10 +58,6 @@ contains
 
   subroutine history_init_stage2()
 
-    call history_setup_h0()
-    call history_setup_h1()
-    call history_setup_h2()
-
   end subroutine history_init_stage2
 
   subroutine history_init_stage3()
@@ -128,6 +124,10 @@ contains
     end if
 
     call fiona_set_time(time_units, start_time_str)
+
+    call history_setup_h0()
+    call history_setup_h1()
+    call history_setup_h2()
 
   end subroutine history_init_stage3
 

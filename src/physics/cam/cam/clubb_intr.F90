@@ -14,17 +14,16 @@ module clubb_intr
   !---------------------------Code history-------------------------------------------------------------- !
   ! Authors:  P. Bogenschutz, C. Craig, A. Gettelman                                                     !
   ! Modified by: K Thayer-Calder                                                     !
-  !                                                                                                      !
   !----------------------------------------------------------------------------------------------------- !
 
   use shr_kind_mod,  only: r8 => SHR_KIND_R8
-  use ppgrid,        only: pver, pverp, pcols, begchunk, endchunk
+  use ppgrid      ,  only: pver, pverp, pcols, begchunk, endchunk
   use phys_control,  only: phys_getopts
-  use physconst,     only: rairv, cpairv, cpair, gravit, latvap, latice, zvir, rh2o, karman
-  use spmd_utils,    only: masterproc
+  use physconst   ,  only: rairv, cpairv, cpair, gravit, latvap, latice, zvir, rh2o, karman
+  use spmd_utils  ,  only: masterproc
   use constituents,  only: pcnst, cnst_add
-  use pbl_utils,     only: calc_ustar, calc_obklen
-  use ref_pres,      only: top_lev => trop_cloud_top_lev
+  use pbl_utils   ,  only: calc_ustar, calc_obklen
+  use ref_pres    ,  only: top_lev => trop_cloud_top_lev
   use zm_conv_intr,  only: zmconv_microp
 #ifdef CLUBB_SGS
   use clubb_api_module, only: pdf_parameter, implicit_coefs_terms
@@ -36,10 +35,6 @@ module clubb_intr
   private
 
   save
-
-  ! ----------------- !
-  ! Public interfaces !
-  ! ----------------- !
 
   public clubb_ini_cam, clubb_register_cam, clubb_tend_cam, &
 #ifdef CLUBB_SGS
@@ -53,126 +48,122 @@ module clubb_intr
     clubb_implements_cnst
 
 #ifdef CLUBB_SGS
-  ! Both of these utilize CLUBB specific variables in their interface
-  private stats_zero, stats_avg
+    ! Both of these utilize CLUBB specific variables in their interface
+    private stats_zero, stats_avg
 #endif
 
-  logical, public :: do_cldcool
-  logical         :: clubb_do_icesuper
+    logical, public :: do_cldcool
+    logical         :: clubb_do_icesuper
 
 #ifdef CLUBB_SGS
-  type(clubb_config_flags_type), public :: clubb_config_flags
+    type(clubb_config_flags_type), public :: clubb_config_flags
 #endif
 
-  ! ------------ !
-  ! Private data !
-  ! ------------ !
+    integer, parameter :: &
+      grid_type    = 3, &                         ! The 2 option specifies stretched thermodynamic levels
+      hydromet_dim = 0                            ! The hydromet array in SAM-CLUBB is currently 0 elements
 
-  integer, parameter :: &
-    grid_type    = 3, &               ! The 2 option specifies stretched thermodynamic levels
-    hydromet_dim = 0                  ! The hydromet array in SAM-CLUBB is currently 0 elements
+    real(r8), parameter, dimension(0) :: &
+      sclr_tol = 1.e-8_r8                         ! Total water in kg/kg
 
-  real(r8), parameter, dimension(0) :: &
-    sclr_tol = 1.e-8_r8               ! Total water in kg/kg
+    character(6) saturation_equation
 
-  character(len=6) :: saturation_equation
+    real(r8), parameter ::   &
+      theta0   = 300.0_r8  , &                    ! Reference temperature                     [K]
+      ts_nudge = 86400.0_r8, &                    ! Time scale for u/v nudging (not used)     [s]
+      p0_clubb = 100000.0_r8
 
-  real(r8), parameter :: &
-    theta0   = 300._r8, &             ! Reference temperature                     [K]
-    ts_nudge = 86400._r8, &           ! Time scale for u/v nudging (not used)     [s]
-    p0_clubb = 100000._r8
+    integer, parameter :: &
+      sclr_dim = 0                                ! Higher-order scalars, set to zero
 
-  integer, parameter :: &
-    sclr_dim = 0                      ! Higher-order scalars, set to zero
+    real(r8), parameter :: &
+      wp3_const = 1.0_r8                          ! Constant to add to wp3 when moments are advected
 
-  real(r8), parameter :: &
-    wp3_const = 1.0_r8                ! Constant to add to wp3 when moments are advected
+    real(r8), parameter :: &
+      wpthlp_const = 10.0_r8                      ! Constant to add to wpthlp when moments are advected
 
-  real(r8), parameter :: &
-    wpthlp_const = 10.0_r8              ! Constant to add to wpthlp when moments are advected
+    real(r8), parameter :: &
+      wprtp_const = 0.01_r8                       ! Constant to add to wprtp when moments are advected
 
-  real(r8), parameter :: &
-    wprtp_const = 0.01_r8               ! Constant to add to wprtp when moments are advected
+    real(r8), parameter :: &
+      rtpthlp_const = 0.01_r8                     ! Constant to add to rtpthlp when moments are advected
 
-  real(r8), parameter :: &
-    rtpthlp_const = 0.01_r8             ! Constant to add to rtpthlp when moments are advected
+    real(r8), parameter :: unset_r8 = huge(1.0_r8)
 
-  real(r8), parameter :: unset_r8 = huge(1.0_r8)
-
-  real(r8) :: clubb_timestep = unset_r8  ! Default CLUBB timestep, unless overwriten by namelist
-  real(r8) :: clubb_rnevap_effic = unset_r8
-
-  real(r8) :: clubb_c1 = unset_r8
-  real(r8) :: clubb_c1b = unset_r8
-  real(r8) :: clubb_C2rt = unset_r8
-  real(r8) :: clubb_C2thl = unset_r8
-  real(r8) :: clubb_C2rtthl = unset_r8
-  real(r8) :: clubb_C4 = unset_r8
-  real(r8) :: clubb_C8 = unset_r8
-  real(r8) :: clubb_C8b = unset_r8
-  real(r8) :: clubb_C7 = unset_r8
-  real(r8) :: clubb_C7b = unset_r8
-  real(r8) :: clubb_c11 = unset_r8
-  real(r8) :: clubb_c11b = unset_r8
-  real(r8) :: clubb_c14 = unset_r8
-  real(r8) :: clubb_c_K9 = unset_r8
-  real(r8) :: clubb_nu9 = unset_r8
-  real(r8) :: clubb_c_K10 = unset_r8
-  real(r8) :: clubb_c_K10h = unset_r8
-  real(r8) :: clubb_gamma_coef = unset_r8
-  real(r8) :: clubb_gamma_coefb = unset_r8
-  real(r8) :: clubb_beta = unset_r8
-  real(r8) :: clubb_lambda0_stability_coef = unset_r8
-  real(r8) :: clubb_lmin_coef = unset_r8
-  real(r8) :: clubb_mult_coef = unset_r8
-  real(r8) :: clubb_Skw_denom_coef = unset_r8
-  real(r8) :: clubb_skw_max_mag = unset_r8
-  real(r8) :: clubb_up2_vp2_factor = unset_r8
-  real(r8) :: clubb_C_wp2_splat = unset_r8
-  logical  :: clubb_l_brunt_vaisala_freq_moist = .false.
-  logical  :: clubb_l_call_pdf_closure_twice = .false.
-  logical  :: clubb_l_damp_wp3_Skw_squared = .false.
-  logical  :: clubb_l_min_wp2_from_corr_wx = .false.
-  logical  :: clubb_l_min_xp2_from_corr_wx = .false.
-  logical  :: clubb_l_predict_upwp_vpwp = .false.
-  logical  :: clubb_l_rcm_supersat_adj = .false.
-  logical  :: clubb_l_stability_correct_tau_zm = .false.
-  logical  :: clubb_l_trapezoidal_rule_zt = .false.
-  logical  :: clubb_l_trapezoidal_rule_zm = .false.
-  logical  :: clubb_l_upwind_xpyp_ta = .false.
-  logical  :: clubb_l_use_C7_Richardson = .false.
-  logical  :: clubb_l_use_C11_Richardson = .false.
-  logical  :: clubb_l_use_cloud_cover = .false.
-  logical  :: clubb_l_use_thvm_in_bv_freq = .false.
-  logical  :: clubb_l_vert_avg_closure = .false.
-  logical  :: clubb_l_diag_Lscale_from_tau = .false.
-  logical  :: clubb_l_damp_wp2_using_em = .false.
-
-!  Constant parameters
-  logical, parameter, private :: &
-    l_implemented    = .true.,        &  ! Implemented in a host model (always true)
-    l_host_applies_sfc_fluxes = .false.  ! Whether the host model applies the surface fluxes
+    real(r8) ::                                &
+      clubb_timestep               = unset_r8, &  ! Default CLUBB timestep, unless overwriten by namelist
+      clubb_rnevap_effic           = unset_r8, &
+      clubb_c1                     = unset_r8, &
+      clubb_c1b                    = unset_r8, &
+      clubb_C2rt                   = unset_r8, &
+      clubb_C2thl                  = unset_r8, &
+      clubb_C2rtthl                = unset_r8, &
+      clubb_C4                     = unset_r8, &
+      clubb_C8                     = unset_r8, &
+      clubb_C8b                    = unset_r8, &
+      clubb_C7                     = unset_r8, &
+      clubb_C7b                    = unset_r8, &
+      clubb_c11                    = unset_r8, &
+      clubb_c11b                   = unset_r8, &
+      clubb_c14                    = unset_r8, &
+      clubb_c_K9                   = unset_r8, &
+      clubb_nu9                    = unset_r8, &
+      clubb_c_K10                  = unset_r8, &
+      clubb_c_K10h                 = unset_r8, &
+      clubb_gamma_coef             = unset_r8, &
+      clubb_gamma_coefb            = unset_r8, &
+      clubb_beta                   = unset_r8, &
+      clubb_lambda0_stability_coef = unset_r8, &
+      clubb_lmin_coef              = unset_r8, &
+      clubb_mult_coef              = unset_r8, &
+      clubb_Skw_denom_coef         = unset_r8, &
+      clubb_skw_max_mag            = unset_r8, &
+      clubb_up2_vp2_factor         = unset_r8, &
+      clubb_C_wp2_splat            = unset_r8
+  logical ::                                    &
+    clubb_l_brunt_vaisala_freq_moist = .false., &
+    clubb_l_call_pdf_closure_twice   = .false., &
+    clubb_l_damp_wp3_Skw_squared     = .false., &
+    clubb_l_min_wp2_from_corr_wx     = .false., &
+    clubb_l_min_xp2_from_corr_wx     = .false., &
+    clubb_l_predict_upwp_vpwp        = .false., &
+    clubb_l_rcm_supersat_adj         = .false., &
+    clubb_l_stability_correct_tau_zm = .false., &
+    clubb_l_trapezoidal_rule_zt      = .false., &
+    clubb_l_trapezoidal_rule_zm      = .false., &
+    clubb_l_upwind_xpyp_ta           = .false., &
+    clubb_l_use_C7_Richardson        = .false., &
+    clubb_l_use_C11_Richardson       = .false., &
+    clubb_l_use_cloud_cover          = .false., &
+    clubb_l_use_thvm_in_bv_freq      = .false., &
+    clubb_l_vert_avg_closure         = .false., &
+    clubb_l_diag_Lscale_from_tau     = .false., &
+    clubb_l_damp_wp2_using_em        = .false.
 
   logical, parameter, private :: &
-    apply_to_heat    = .false.           ! Apply WACCM energy fixer to heat or not (.true. = yes (duh))
+    l_implemented             = .true., & ! Implemented in a host model (always true)
+    l_host_applies_sfc_fluxes = .false.   ! Whether the host model applies the surface fluxes
 
-  logical lq(PCNST)
-  logical prog_modal_aero
-  logical do_rainturb
-  logical do_expldiff
-  logical clubb_do_adv
-  logical :: clubb_do_liqsupersat = .false.
-  logical :: clubb_do_energyfix   = .true.
-  logical history_budget
+  logical, parameter, private :: &
+    apply_to_heat             = .false.   ! Apply WACCM energy fixer to heat or not (.true. = yes (duh))
 
-  logical clubb_l_lscale_plume_centered
-  logical clubb_l_use_ice_latent
+  logical :: &
+    lq(PCNST)                     , &
+    prog_modal_aero               , &
+    do_rainturb                   , &
+    do_expldiff                   , &
+    clubb_do_adv                  , &
+    clubb_do_liqsupersat = .false., &
+    clubb_do_energyfix   = .true. , &
+    history_budget                , &
+    clubb_l_lscale_plume_centered , &
+    clubb_l_use_ice_latent
 
   integer history_budget_histfile_num
   integer edsclr_dim       ! Number of scalars to transport in CLUBB
   integer offset
 
-  !  define physics buffer indicies here
+  ! Define physics buffer indicies here
   integer &
     wp2_idx           , & ! vertical velocity variances
     wp3_idx           , & ! third moment of vertical velocity
@@ -228,7 +219,7 @@ module clubb_intr
     ztodt_idx             ! physics timestep for SILHS
 
   ! Indices for microphysical covariance tendencies
-  integer &
+  integer               &
     rtp2_mc_zt_idx    , &
     thlp2_mc_zt_idx   , &
     wprtp_mc_zt_idx   , &
@@ -236,15 +227,15 @@ module clubb_intr
     rtpthlp_mc_zt_idx
 
   integer, public :: &
-    ixthlp2         = 0, &
-    ixwpthlp        = 0, &
-    ixwprtp         = 0, &
-    ixwp2           = 0, &
-    ixwp3           = 0, &
-    ixrtpthlp       = 0, &
-    ixrtp2          = 0, &
-    ixup2           = 0, &
-    ixvp2           = 0
+    ixthlp2        = 0, &
+    ixwpthlp       = 0, &
+    ixwprtp        = 0, &
+    ixwp2          = 0, &
+    ixwp3          = 0, &
+    ixrtpthlp      = 0, &
+    ixrtp2         = 0, &
+    ixup2          = 0, &
+    ixvp2          = 0
 
   integer :: cmfmc_sh_idx = 0
 
@@ -254,7 +245,7 @@ module clubb_intr
     dnlfzm_idx = -1, & ! ZM detrained convective cloud water num concen.
     dnifzm_idx = -1    ! ZM detrained convective cloud ice num concen.
 
-  !  Output arrays for CLUBB statistics
+  ! Output arrays for CLUBB statistics
   real(r8), allocatable, dimension(:,:,:) :: out_zt, out_zm, out_radzt, out_radzm, out_sfc
 
   character(16) eddy_scheme   ! Default set in phys_control.F90
@@ -267,9 +258,11 @@ module clubb_intr
 
 #ifdef CLUBB_SGS
   type(pdf_parameter), target, allocatable, public, protected :: &
-                                              pdf_params_chnk(:,:)    ! PDF parameters (thermo. levs.) [units vary]
-  type(pdf_parameter), target, allocatable :: pdf_params_zm_chnk(:,:) ! PDF parameters on momentum levs. [units vary]
-  type(implicit_coefs_terms), target, allocatable :: pdf_implicit_coefs_terms_chnk(:,:) ! PDF impl. coefs. & expl. terms      [units vary]
+    pdf_params_chnk(:,:)               ! PDF parameters (thermo. levs.)   [units vary]
+  type(pdf_parameter), target, allocatable :: &
+    pdf_params_zm_chnk(:,:)            ! PDF parameters on momentum levs. [units vary]
+  type(implicit_coefs_terms), target, allocatable :: &
+    pdf_implicit_coefs_terms_chnk(:,:) ! PDF impl. coefs. & expl. terms   [units vary]
 #endif
 
 contains
@@ -281,22 +274,15 @@ contains
     !   Register the constituents and fields in the physics buffer
     ! Author: P. Bogenschutz, C. Craig, A. Gettelman
     ! Modified: 7/2013 by K Thayer-Calder to include support for SILHS/subcolumns
-    !
     !-------------------------------------------------------------------------------
 #ifdef CLUBB_SGS
-
-    !------------------------------------------------ !
-    ! Register physics buffer fields and constituents !
-    !------------------------------------------------ !
-
-    !  Add CLUBB fields to pbuf
     use physics_buffer,  only: pbuf_add_field, dtype_r8, dyn_time_lvls
-    use subcol_utils,    only: subcol_get_scheme
+    use subcol_utils  ,  only: subcol_get_scheme
 
-    call phys_getopts(eddy_scheme_out                 = eddy_scheme                , &
-                      deep_scheme_out                 = deep_scheme                , &
-                      history_budget_out              = history_budget             , &
-                      history_budget_histfile_num_out = history_budget_histfile_num)
+    call phys_getopts(eddy_scheme_out                 =eddy_scheme                , &
+                      deep_scheme_out                 =deep_scheme                , &
+                      history_budget_out              =history_budget             , &
+                      history_budget_histfile_num_out =history_budget_histfile_num)
     subcol_scheme = subcol_get_scheme()
 
     if (trim(subcol_scheme) == 'SILHS') then
@@ -306,14 +292,23 @@ contains
     end if
 
     if (clubb_do_adv) then
-      cnst_names = (/'THLP2  ','RTP2   ','RTPTHLP','WPTHLP ','WPRTP  ','WP2    ','WP3    ','UP2    ','VP2    '/)
+      cnst_names = [ &
+        'THLP2  '  , &
+        'RTP2   '  , &
+        'RTPTHLP'  , &
+        'WPTHLP '  , &
+        'WPRTP  '  , &
+        'WP2    '  , &
+        'WP3    '  , &
+        'UP2    '  , &
+        'VP2    '  ]
       do_cnst = .true.
       !  If CLUBB moments are advected, do not output them automatically which is typically done.  Some moments
       !    need a constant added to them before they are advected, thus this would corrupt the output.
       !    Users should refer to the "XXXX_CLUBB" (THLP2_CLUBB for instance) output variables for these moments
-      call cnst_add(trim(cnst_names(1)), 0.0_r8, 0.0_r8, 0.0_r8     , ixthlp2  , longname='second moment vertical velocity', cam_outfld=.false.)
-      call cnst_add(trim(cnst_names(2)), 0.0_r8, 0.0_r8, 0.0_r8     , ixrtp2   , longname='second moment rtp'              , cam_outfld=.false.)
-      call cnst_add(trim(cnst_names(3)), 0.0_r8, 0.0_r8, -999999._r8, ixrtpthlp, longname='covariance rtp thlp'            , cam_outfld=.false.)
+      call cnst_add(trim(cnst_names(1)), 0.0_r8, 0.0_r8, 0.0_r8     , ixthlp2  , longname='Second moment vertical velocity', cam_outfld=.false.)
+      call cnst_add(trim(cnst_names(2)), 0.0_r8, 0.0_r8, 0.0_r8     , ixrtp2   , longname='Second moment rtp'              , cam_outfld=.false.)
+      call cnst_add(trim(cnst_names(3)), 0.0_r8, 0.0_r8, -999999._r8, ixrtpthlp, longname='Covariance rtp thlp'            , cam_outfld=.false.)
       call cnst_add(trim(cnst_names(4)), 0.0_r8, 0.0_r8, -999999._r8, ixwpthlp , longname='CLUBB heat flux'                , cam_outfld=.false.)
       call cnst_add(trim(cnst_names(5)), 0.0_r8, 0.0_r8, -999999._r8, ixwprtp  , longname='CLUBB moisture flux'            , cam_outfld=.false.)
       call cnst_add(trim(cnst_names(6)), 0.0_r8, 0.0_r8, 0.0_r8     , ixwp2    , longname='CLUBB wp2'                      , cam_outfld=.false.)
@@ -322,57 +317,56 @@ contains
       call cnst_add(trim(cnst_names(9)), 0.0_r8, 0.0_r8, 0.0_r8     , ixvp2    , longname='CLUBB 2nd moment v wind'        , cam_outfld=.false.)
     end if
 
-    !  put pbuf_add calls here (see macrop_driver.F90 for sample) use indicies defined at top
-    call pbuf_add_field('pblh'        , 'global' , dtype_r8, (/pcols/)                    , pblh_idx)
-    call pbuf_add_field('tke'         , 'global' , dtype_r8, (/pcols, pverp/)             , tke_idx)
-    call pbuf_add_field('kvh'         , 'global' , dtype_r8, (/pcols, pverp/)             , kvh_idx)
-    call pbuf_add_field('tpert'       , 'global' , dtype_r8, (/pcols/)                    , tpert_idx)
-    call pbuf_add_field('AST'         , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , ast_idx)
-    call pbuf_add_field('AIST'        , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , aist_idx)
-    call pbuf_add_field('ALST'        , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , alst_idx)
-    call pbuf_add_field('QIST'        , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , qist_idx)
-    call pbuf_add_field('QLST'        , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , qlst_idx)
-    call pbuf_add_field('CONCLD'      , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , concld_idx)
-    call pbuf_add_field('CLD'         , 'global' , dtype_r8, (/pcols,pver,dyn_time_lvls/) , cld_idx)
-    call pbuf_add_field('FICE'        , 'physpkg', dtype_r8, (/pcols,pver/)               , fice_idx)
-    call pbuf_add_field('RAD_CLUBB'   , 'global' , dtype_r8, (/pcols,pver/)               , radf_idx)
-    call pbuf_add_field('CMELIQ'      , 'physpkg', dtype_r8, (/pcols,pver/)               , cmeliq_idx)
-    call pbuf_add_field('QSATFAC'     , 'physpkg', dtype_r8, (/pcols,pver/)               , qsatfac_idx)
-    call pbuf_add_field('WP2_nadv'    , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), wp2_idx)
-    call pbuf_add_field('WP3_nadv'    , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), wp3_idx)
-    call pbuf_add_field('WPTHLP_nadv' , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), wpthlp_idx)
-    call pbuf_add_field('WPRTP_nadv'  , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), wprtp_idx)
-    call pbuf_add_field('RTPTHLP_nadv', 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtpthlp_idx)
-    call pbuf_add_field('RTP2_nadv'   , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtp2_idx)
-    call pbuf_add_field('THLP2_nadv'  , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlp2_idx)
-    call pbuf_add_field('UP2_nadv'    , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), up2_idx)
-    call pbuf_add_field('VP2_nadv'    , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), vp2_idx)
-    call pbuf_add_field('RTP3'        , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtp3_idx)
-    call pbuf_add_field('THLP3'       , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlp3_idx)
-    call pbuf_add_field('UP3'         , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), up3_idx)
-    call pbuf_add_field('VP3'         , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), vp3_idx)
-    call pbuf_add_field('UPWP'        , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), upwp_idx)
-    call pbuf_add_field('VPWP'        , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), vpwp_idx)
-    call pbuf_add_field('THLM'        , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), thlm_idx)
-    call pbuf_add_field('RTM'         , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), rtm_idx)
-    call pbuf_add_field('UM'          , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), um_idx)
-    call pbuf_add_field('VM'          , 'global' , dtype_r8, (/pcols,pverp,dyn_time_lvls/), vm_idx)
-    call pbuf_add_field('WPTHVP'      , 'global' , dtype_r8, (/pcols,pverp/)              , wpthvp_idx)
-    call pbuf_add_field('WP2THVP'     , 'physpkg', dtype_r8, (/pcols,pverp/)              , wp2thvp_idx)
-    call pbuf_add_field('RTPTHVP'     , 'physpkg', dtype_r8, (/pcols,pverp/)              , rtpthvp_idx)
-    call pbuf_add_field('THLPTHVP'    , 'physpkg', dtype_r8, (/pcols,pverp/)              , thlpthvp_idx)
-    call pbuf_add_field('CLOUD_FRAC'  , 'physpkg', dtype_r8, (/pcols,pverp/)              , cloud_frac_idx)
-    call pbuf_add_field('ISS_FRAC'    , 'physpkg', dtype_r8, (/pcols,pverp/)              , ice_supersat_idx)
-    call pbuf_add_field('RCM'         , 'physpkg', dtype_r8, (/pcols,pverp/)              , rcm_idx)
-    call pbuf_add_field('ZTODT'       , 'physpkg', dtype_r8, (/pcols/)                    , ztodt_idx)
+    ! Put pbuf_add calls here (see macrop_driver.F90 for sample) use indicies defined at top
+    call pbuf_add_field('pblh'        , 'global' , dtype_r8, [pcols]                    , pblh_idx)
+    call pbuf_add_field('tke'         , 'global' , dtype_r8, [pcols, pverp]             , tke_idx)
+    call pbuf_add_field('kvh'         , 'global' , dtype_r8, [pcols, pverp]             , kvh_idx)
+    call pbuf_add_field('tpert'       , 'global' , dtype_r8, [pcols]                    , tpert_idx)
+    call pbuf_add_field('AST'         , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , ast_idx)
+    call pbuf_add_field('AIST'        , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , aist_idx)
+    call pbuf_add_field('ALST'        , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , alst_idx)
+    call pbuf_add_field('QIST'        , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , qist_idx)
+    call pbuf_add_field('QLST'        , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , qlst_idx)
+    call pbuf_add_field('CONCLD'      , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , concld_idx)
+    call pbuf_add_field('CLD'         , 'global' , dtype_r8, [pcols,pver,dyn_time_lvls] , cld_idx)
+    call pbuf_add_field('FICE'        , 'physpkg', dtype_r8, [pcols,pver]               , fice_idx)
+    call pbuf_add_field('RAD_CLUBB'   , 'global' , dtype_r8, [pcols,pver]               , radf_idx)
+    call pbuf_add_field('CMELIQ'      , 'physpkg', dtype_r8, [pcols,pver]               , cmeliq_idx)
+    call pbuf_add_field('QSATFAC'     , 'physpkg', dtype_r8, [pcols,pver]               , qsatfac_idx)
+    call pbuf_add_field('WP2_nadv'    , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], wp2_idx)
+    call pbuf_add_field('WP3_nadv'    , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], wp3_idx)
+    call pbuf_add_field('WPTHLP_nadv' , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], wpthlp_idx)
+    call pbuf_add_field('WPRTP_nadv'  , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], wprtp_idx)
+    call pbuf_add_field('RTPTHLP_nadv', 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], rtpthlp_idx)
+    call pbuf_add_field('RTP2_nadv'   , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], rtp2_idx)
+    call pbuf_add_field('THLP2_nadv'  , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], thlp2_idx)
+    call pbuf_add_field('UP2_nadv'    , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], up2_idx)
+    call pbuf_add_field('VP2_nadv'    , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], vp2_idx)
+    call pbuf_add_field('RTP3'        , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], rtp3_idx)
+    call pbuf_add_field('THLP3'       , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], thlp3_idx)
+    call pbuf_add_field('UP3'         , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], up3_idx)
+    call pbuf_add_field('VP3'         , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], vp3_idx)
+    call pbuf_add_field('UPWP'        , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], upwp_idx)
+    call pbuf_add_field('VPWP'        , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], vpwp_idx)
+    call pbuf_add_field('THLM'        , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], thlm_idx)
+    call pbuf_add_field('RTM'         , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], rtm_idx)
+    call pbuf_add_field('UM'          , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], um_idx)
+    call pbuf_add_field('VM'          , 'global' , dtype_r8, [pcols,pverp,dyn_time_lvls], vm_idx)
+    call pbuf_add_field('WPTHVP'      , 'global' , dtype_r8, [pcols,pverp]              , wpthvp_idx)
+    call pbuf_add_field('WP2THVP'     , 'physpkg', dtype_r8, [pcols,pverp]              , wp2thvp_idx)
+    call pbuf_add_field('RTPTHVP'     , 'physpkg', dtype_r8, [pcols,pverp]              , rtpthvp_idx)
+    call pbuf_add_field('THLPTHVP'    , 'physpkg', dtype_r8, [pcols,pverp]              , thlpthvp_idx)
+    call pbuf_add_field('CLOUD_FRAC'  , 'physpkg', dtype_r8, [pcols,pverp]              , cloud_frac_idx)
+    call pbuf_add_field('ISS_FRAC'    , 'physpkg', dtype_r8, [pcols,pverp]              , ice_supersat_idx)
+    call pbuf_add_field('RCM'         , 'physpkg', dtype_r8, [pcols,pverp]              , rcm_idx)
+    call pbuf_add_field('ZTODT'       , 'physpkg', dtype_r8, [pcols]                    , ztodt_idx)
 
     ! For SILHS microphysical covariance contributions
-    call pbuf_add_field('rtp2_mc_zt'   , 'global', dtype_r8, (/pcols,pverp/), rtp2_mc_zt_idx)
-    call pbuf_add_field('thlp2_mc_zt'  , 'global', dtype_r8, (/pcols,pverp/), thlp2_mc_zt_idx)
-    call pbuf_add_field('wprtp_mc_zt'  , 'global', dtype_r8, (/pcols,pverp/), wprtp_mc_zt_idx)
-    call pbuf_add_field('wpthlp_mc_zt' , 'global', dtype_r8, (/pcols,pverp/), wpthlp_mc_zt_idx)
-    call pbuf_add_field('rtpthlp_mc_zt', 'global', dtype_r8, (/pcols,pverp/), rtpthlp_mc_zt_idx)
-
+    call pbuf_add_field('rtp2_mc_zt'   , 'global', dtype_r8, [pcols,pverp], rtp2_mc_zt_idx)
+    call pbuf_add_field('thlp2_mc_zt'  , 'global', dtype_r8, [pcols,pverp], thlp2_mc_zt_idx)
+    call pbuf_add_field('wprtp_mc_zt'  , 'global', dtype_r8, [pcols,pverp], wprtp_mc_zt_idx)
+    call pbuf_add_field('wpthlp_mc_zt' , 'global', dtype_r8, [pcols,pverp], wpthlp_mc_zt_idx)
+    call pbuf_add_field('rtpthlp_mc_zt', 'global', dtype_r8, [pcols,pverp], rtpthlp_mc_zt_idx)
 #endif
 
   end subroutine clubb_register_cam
@@ -859,35 +853,35 @@ contains
     nlev = pver + 1 - top_lev
 
     if (core_rknd /= r8) then
-      call endrun('clubb_ini_cam:  CLUBB library core_rknd must match CAM r8 and it does not')
+      call endrun('clubb_ini_cam: CLUBB library core_rknd must match CAM r8 and it does not')
     end if
 
     ! Allocate PDF parameters across columns and chunks
     allocate( &
-       pdf_params_chnk(pcols,begchunk:endchunk),   &
-       pdf_params_zm_chnk(pcols,begchunk:endchunk), &
-       pdf_implicit_coefs_terms_chnk(pcols,begchunk:endchunk) )
+      pdf_params_chnk              (pcols,begchunk:endchunk), &
+      pdf_params_zm_chnk           (pcols,begchunk:endchunk), &
+      pdf_implicit_coefs_terms_chnk(pcols,begchunk:endchunk))
 
     ! Allocate (in the vertical) and zero PDF parameters
     do l = begchunk, endchunk
        do j = 1, pcols
-          call init_pdf_params_api( pverp+1-top_lev, pdf_params_chnk(j,l) )
-          call init_pdf_params_api( pverp+1-top_lev, pdf_params_zm_chnk(j,l) )
-          call init_pdf_implicit_coefs_terms_api( pverp+1-top_lev, sclr_dim, &
-                                                  pdf_implicit_coefs_terms_chnk(j,l) )
+          call init_pdf_params_api(pverp+1-top_lev, pdf_params_chnk   (j,l))
+          call init_pdf_params_api(pverp+1-top_lev, pdf_params_zm_chnk(j,l))
+          call init_pdf_implicit_coefs_terms_api(pverp+1-top_lev, sclr_dim, &
+                                                 pdf_implicit_coefs_terms_chnk(j,l) )
        end do
     end do
 
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
     ! Determine how many constituents CLUBB will transport.  Note that
     ! CLUBB does not transport aerosol consituents.  Therefore, need to
     ! determine how many aerosols constituents there are and subtract that
     ! off of pcnst (the total consituents)
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
 
     call phys_getopts(prog_modal_aero_out=prog_modal_aero, &
-                      history_amwg_out=history_amwg, &
-                      history_clubb_out=history_clubb)
+                      history_amwg_out   =history_amwg   , &
+                      history_clubb_out  =history_clubb)
 
     !  Select variables to apply tendencies back to CAM
 
@@ -895,55 +889,55 @@ contains
     lq(1:pcnst) = .true.
     edsclr_dim  = pcnst
 
-    call cnst_get_ind('Q',ixq)
-    call cnst_get_ind('NUMICE',ixnumice)
-    call cnst_get_ind('NUMLIQ',ixnumliq)
-    call cnst_get_ind('CLDLIQ',ixcldliq)
-    call cnst_get_ind('CLDICE',ixcldice)
+    call cnst_get_ind('Q'     , ixq)
+    call cnst_get_ind('NUMICE', ixnumice)
+    call cnst_get_ind('NUMLIQ', ixnumliq)
+    call cnst_get_ind('CLDLIQ', ixcldliq)
+    call cnst_get_ind('CLDICE', ixcldice)
 
     if (prog_modal_aero) then
-       ! Turn off modal aerosols and decrement edsclr_dim accordingly
-       call rad_cnst_get_info(0, nmodes=nmodes)
+      ! Turn off modal aerosols and decrement edsclr_dim accordingly
+      call rad_cnst_get_info(0, nmodes=nmodes)
 
-       do m = 1, nmodes
-          call rad_cnst_get_mode_num_idx(m, lptr)
-          lq(lptr)=.false.
-          edsclr_dim = edsclr_dim-1
+      do m = 1, nmodes
+        call rad_cnst_get_mode_num_idx(m, lptr)
+        lq(lptr) = .false.
+        edsclr_dim = edsclr_dim - 1
 
-          call rad_cnst_get_info(0, m, nspec=nspec)
-          do l = 1, nspec
-             call rad_cnst_get_mam_mmr_idx(m, l, lptr)
-             lq(lptr)=.false.
-             edsclr_dim = edsclr_dim-1
-          end do
-       end do
+        call rad_cnst_get_info(0, m, nspec=nspec)
+        do l = 1, nspec
+          call rad_cnst_get_mam_mmr_idx(m, l, lptr)
+          lq(lptr) = .false.
+          edsclr_dim = edsclr_dim - 1
+        end do
+      end do
 
-       !  In addition, if running with MAM, droplet number is transported
-       !  in dropmixnuc, therefore we do NOT want CLUBB to apply transport
-       !  tendencies to avoid double counted.  Else, we apply tendencies.
-       lq(ixnumliq) = .false.
-       edsclr_dim = edsclr_dim-1
+      ! In addition, if running with MAM, droplet number is transported
+      ! in dropmixnuc, therefore we do NOT want CLUBB to apply transport
+      ! tendencies to avoid double counted. Else, we apply tendencies.
+      lq(ixnumliq) = .false.
+      edsclr_dim = edsclr_dim - 1
     end if
 
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
     ! Set the debug level.  Level 2 has additional computational expense since
     ! it checks the array variables in CLUBB for invalid values.
-    ! ----------------------------------------------------------------- !
-    call set_clubb_debug_level_api( 5 )
+    ! --------------------------------------------------------------------------
+    call set_clubb_debug_level_api(0)
 
-    ! ----------------------------------------------------------------- !
-    ! use pbuf_get_fld_idx to get existing physics buffer fields from other
+    ! --------------------------------------------------------------------------
+    ! Use pbuf_get_fld_idx to get existing physics buffer fields from other
     ! physics packages (e.g. tke)
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
 
-    !  Defaults
+    ! Defaults
     l_stats_samp = .false.
-    l_grads = .false.
+    l_grads      = .false.
 
-    !  Overwrite defaults if needbe
+    ! Overwrite defaults if need be
     if (l_stats) l_stats_samp = .true.
 
-    !  Define physics buffers indexes
+    ! Define physics buffers indexes
     cld_idx         = pbuf_get_index('CLD')         ! Cloud fraction
     concld_idx      = pbuf_get_index('CONCLD')      ! Convective cloud cover
     ast_idx         = pbuf_get_index('AST')         ! Stratiform cloud fraction
@@ -977,104 +971,114 @@ contains
       dnifzm_idx = pbuf_get_index('DNIFZM')
     end if
 
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
     ! Define number of tracers for CLUBB to diffuse
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
 
     if (do_expldiff) then
-       offset = 2 ! diffuse temperature and moisture explicitly
+       offset = 2 ! Diffuse temperature and moisture explicitly
        edsclr_dim = edsclr_dim + offset
     end if
 
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
     ! Setup CLUBB core
-    ! ----------------------------------------------------------------- !
+    ! --------------------------------------------------------------------------
 
-    !  Read in parameters for CLUBB.  Just read in default values
+    ! Read in parameters for CLUBB.  Just read in default values
     call read_parameters_api(-99, '', clubb_params)
 
-    !  Fill in dummy arrays for height.  Note that these are overwrote
-    !  at every CLUBB step to physical values.
+    ! Fill in dummy arrays for height.  Note that these are overwrote
+    ! at every CLUBB step to physical values.
     do k = 1, nlev + 1
-      zt_g(k) = ((k-1)*1000._r8)-500._r8  !  this is dummy garbage
-      zi_g(k) = (k-1)*1000._r8            !  this is dummy garbage
+      zt_g(k) = (k - 1) * 1000 - 500  ! This is dummy garbage
+      zi_g(k) = (k - 1) * 1000        ! This is dummy garbage
     end do
 
-    clubb_params(iC2rtthl) = clubb_C2rtthl
-    clubb_params(iC8) = clubb_C8
-    clubb_params(iC11) = clubb_c11
-    clubb_params(iC11b) = clubb_c11b
-    clubb_params(iC14) = clubb_c14
-    clubb_params(ic_K10) = clubb_c_K10
-    clubb_params(imult_coef) = clubb_mult_coef
-    clubb_params(iSkw_denom_coef) = clubb_Skw_denom_coef
-    clubb_params(iC2rt) = clubb_C2rt
-    clubb_params(iC2thl) = clubb_C2thl
-    clubb_params(ibeta) = clubb_beta
-    clubb_params(iC7) = clubb_C7
-    clubb_params(iC7b) = clubb_C7b
-    clubb_params(igamma_coef) = clubb_gamma_coef
-    clubb_params(ic_K10h) = clubb_c_K10h
+    clubb_params(iC2rtthl               ) = clubb_C2rtthl
+    clubb_params(iC8                    ) = clubb_C8
+    clubb_params(iC11                   ) = clubb_c11
+    clubb_params(iC11b                  ) = clubb_c11b
+    clubb_params(iC14                   ) = clubb_c14
+    clubb_params(ic_K10                 ) = clubb_c_K10
+    clubb_params(imult_coef             ) = clubb_mult_coef
+    clubb_params(iSkw_denom_coef        ) = clubb_Skw_denom_coef
+    clubb_params(iC2rt                  ) = clubb_C2rt
+    clubb_params(iC2thl                 ) = clubb_C2thl
+    clubb_params(ibeta                  ) = clubb_beta
+    clubb_params(iC7                    ) = clubb_C7
+    clubb_params(iC7b                   ) = clubb_C7b
+    clubb_params(igamma_coef            ) = clubb_gamma_coef
+    clubb_params(ic_K10h                ) = clubb_c_K10h
     clubb_params(ilambda0_stability_coef) = clubb_lambda0_stability_coef
-    clubb_params(ilmin_coef) = clubb_lmin_coef
-    clubb_params(iC8b) = clubb_C8b
-    clubb_params(iskw_max_mag) = clubb_skw_max_mag
-    clubb_params(iC1)  = clubb_C1
-    clubb_params(iC1b) = clubb_C1b
-    clubb_params(igamma_coefb) = clubb_gamma_coefb
-    clubb_params(iup2_vp2_factor) = clubb_up2_vp2_factor
-    clubb_params(iC4) = clubb_C4
-    clubb_params(ic_K9) = clubb_c_K9
-    clubb_params(inu9)  = clubb_nu9
-    clubb_params(iC_wp2_splat) = clubb_C_wp2_splat
+    clubb_params(ilmin_coef             ) = clubb_lmin_coef
+    clubb_params(iC8b                   ) = clubb_C8b
+    clubb_params(iskw_max_mag           ) = clubb_skw_max_mag
+    clubb_params(iC1                    ) = clubb_C1
+    clubb_params(iC1b                   ) = clubb_C1b
+    clubb_params(igamma_coefb           ) = clubb_gamma_coefb
+    clubb_params(iup2_vp2_factor        ) = clubb_up2_vp2_factor
+    clubb_params(iC4                    ) = clubb_C4
+    clubb_params(ic_K9                  ) = clubb_c_K9
+    clubb_params(inu9                   ) = clubb_nu9
+    clubb_params(iC_wp2_splat           ) = clubb_C_wp2_splat
 
-    call init_clubb_config_flags( clubb_config_flags ) ! In/Out
-    clubb_config_flags%l_use_C7_Richardson = clubb_l_use_C7_Richardson
-    clubb_config_flags%l_use_C11_Richardson = clubb_l_use_C11_Richardson
-    clubb_config_flags%l_brunt_vaisala_freq_moist = clubb_l_brunt_vaisala_freq_moist
-    clubb_config_flags%l_use_thvm_in_bv_freq = clubb_l_use_thvm_in_bv_freq
-    clubb_config_flags%l_rcm_supersat_adj = clubb_l_rcm_supersat_adj
-    clubb_config_flags%l_damp_wp3_Skw_squared = clubb_l_damp_wp3_Skw_squared
-    clubb_config_flags%l_predict_upwp_vpwp = clubb_l_predict_upwp_vpwp
-    clubb_config_flags%l_min_wp2_from_corr_wx = clubb_l_min_wp2_from_corr_wx
-    clubb_config_flags%l_min_xp2_from_corr_wx = clubb_l_min_xp2_from_corr_wx
-    clubb_config_flags%l_upwind_xpyp_ta = clubb_l_upwind_xpyp_ta
-    clubb_config_flags%l_vert_avg_closure = clubb_l_vert_avg_closure
-    clubb_config_flags%l_trapezoidal_rule_zt = clubb_l_trapezoidal_rule_zt
-    clubb_config_flags%l_trapezoidal_rule_zm = clubb_l_trapezoidal_rule_zm
-    clubb_config_flags%l_call_pdf_closure_twice = clubb_l_call_pdf_closure_twice
-    clubb_config_flags%l_use_cloud_cover = clubb_l_use_cloud_cover
-    clubb_config_flags%l_stability_correct_tau_zm = clubb_l_stability_correct_tau_zm
-    clubb_config_flags%l_do_expldiff_rtm_thlm = do_expldiff
-    clubb_config_flags%l_Lscale_plume_centered = clubb_l_lscale_plume_centered
-    clubb_config_flags%l_use_ice_latent = clubb_l_use_ice_latent
-    clubb_config_flags%l_diag_Lscale_from_tau = clubb_l_diag_Lscale_from_tau
-    clubb_config_flags%l_damp_wp2_using_em = clubb_l_damp_wp2_using_em
-    clubb_config_flags%l_update_pressure = l_update_pressure
+    call init_clubb_config_flags(clubb_config_flags) ! In/Out
+    clubb_config_flags%l_use_C7_Richardson          = clubb_l_use_C7_Richardson
+    clubb_config_flags%l_use_C11_Richardson         = clubb_l_use_C11_Richardson
+    clubb_config_flags%l_brunt_vaisala_freq_moist   = clubb_l_brunt_vaisala_freq_moist
+    clubb_config_flags%l_use_thvm_in_bv_freq        = clubb_l_use_thvm_in_bv_freq
+    clubb_config_flags%l_rcm_supersat_adj           = clubb_l_rcm_supersat_adj
+    clubb_config_flags%l_damp_wp3_Skw_squared       = clubb_l_damp_wp3_Skw_squared
+    clubb_config_flags%l_predict_upwp_vpwp          = clubb_l_predict_upwp_vpwp
+    clubb_config_flags%l_min_wp2_from_corr_wx       = clubb_l_min_wp2_from_corr_wx
+    clubb_config_flags%l_min_xp2_from_corr_wx       = clubb_l_min_xp2_from_corr_wx
+    clubb_config_flags%l_upwind_xpyp_ta             = clubb_l_upwind_xpyp_ta
+    clubb_config_flags%l_vert_avg_closure           = clubb_l_vert_avg_closure
+    clubb_config_flags%l_trapezoidal_rule_zt        = clubb_l_trapezoidal_rule_zt
+    clubb_config_flags%l_trapezoidal_rule_zm        = clubb_l_trapezoidal_rule_zm
+    clubb_config_flags%l_call_pdf_closure_twice     = clubb_l_call_pdf_closure_twice
+    clubb_config_flags%l_use_cloud_cover            = clubb_l_use_cloud_cover
+    clubb_config_flags%l_stability_correct_tau_zm   = clubb_l_stability_correct_tau_zm
+    clubb_config_flags%l_do_expldiff_rtm_thlm       = do_expldiff
+    clubb_config_flags%l_Lscale_plume_centered      = clubb_l_lscale_plume_centered
+    clubb_config_flags%l_use_ice_latent             = clubb_l_use_ice_latent
+    clubb_config_flags%l_diag_Lscale_from_tau       = clubb_l_diag_Lscale_from_tau
+    clubb_config_flags%l_damp_wp2_using_em          = clubb_l_damp_wp2_using_em
+    clubb_config_flags%l_update_pressure            = l_update_pressure
 
-
-    !  Set up CLUBB core.  Note that some of these inputs are overwritten
-    !  when clubb_tend_cam is called.  The reason is that heights can change
-    !  at each time step, which is why dummy arrays are read in here for heights
-    !  as they are immediately overwrote.
+    ! Set up CLUBB core.  Note that some of these inputs are overwritten
+    ! when clubb_tend_cam is called.  The reason is that heights can change
+    ! at each time step, which is why dummy arrays are read in here for heights
+    ! as they are immediately overwrote.
 !$OMP PARALLEL
-    call setup_clubb_core_api &
-         ( nlev+1, theta0, ts_nudge, &                                ! In
-           hydromet_dim,  sclr_dim, &                                 ! In
-           sclr_tol, edsclr_dim, clubb_params, &                      ! In
-           l_host_applies_sfc_fluxes, &                               ! In
-           saturation_equation, &                                     ! In
-           l_input_fields, &
-           l_implemented, grid_type, zi_g(2), zi_g(1), zi_g(nlev+1),& ! In
-           zi_g(1:nlev+1), zt_g(1:nlev+1), sfc_elevation, &           ! In
-           clubb_config_flags%l_predict_upwp_vpwp, &                  ! In
-           clubb_config_flags%l_use_ice_latent, &                     ! In
-           clubb_config_flags%l_prescribed_avg_deltaz, &              ! In
-           clubb_config_flags%l_damp_wp2_using_em, &                  ! In
-           clubb_config_flags%l_stability_correct_tau_zm, &           ! In
-           err_code )
+    call setup_clubb_core_api(                                                  &
+      nzmax                     =nlev+1                                       , &
+      T0_in                     =theta0                                       , &
+      ts_nudge_in               =ts_nudge                                     , &
+      hydromet_dim_in           =hydromet_dim                                 , &
+      sclr_dim_in               =sclr_dim                                     , &
+      sclr_tol_in               =sclr_tol                                     , &
+      edsclr_dim_in             =edsclr_dim                                   , &
+      params                    =clubb_params                                 , &
+      l_host_applies_sfc_fluxes =l_host_applies_sfc_fluxes                    , &
+      saturation_formula        =saturation_equation                          , &
+      l_input_fields            =l_input_fields                               , &
+      l_implemented             =l_implemented                                , &
+      grid_type                 =grid_type                                    , &
+      deltaz                    =zi_g(2)                                      , &
+      zm_init                   =zi_g(1)                                      , &
+      zm_top                    =zi_g(nlev+1)                                 , &
+      momentum_heights          =zi_g(1:nlev+1)                               , &
+      thermodynamic_heights     =zt_g(1:nlev+1)                               , &
+      sfc_elevation             =sfc_elevation                                , &
+      l_predict_upwp_vpwp       =clubb_config_flags%l_predict_upwp_vpwp       , &
+      l_use_ice_latent          =clubb_config_flags%l_use_ice_latent          , &
+      l_prescribed_avg_deltaz   =clubb_config_flags%l_prescribed_avg_deltaz   , &
+      l_damp_wp2_using_em       =clubb_config_flags%l_damp_wp2_using_em       , &
+      l_stability_correct_tau_zm=clubb_config_flags%l_stability_correct_tau_zm, &
+      err_code_api              =err_code                                     )
 
-    if ( err_code == clubb_fatal_error ) then
+    if (err_code == clubb_fatal_error) then
       call endrun('clubb_ini_cam:  FATAL ERROR CALLING SETUP_CLUBB_CORE')
     end if
 !$OMP END PARALLEL
@@ -1105,67 +1109,67 @@ contains
     ! ----------------------------------------------------------------- !
 
     !  These are default CLUBB output.  Not the higher order history budgets
-    call addfld('RHO_CLUBB',        (/ 'ilev' /), 'A', 'kg/m3',    'Air Density')
-    call addfld('UP2_CLUBB',        (/ 'ilev' /), 'A', 'm2/s2',    'Zonal Velocity Variance')
-    call addfld('VP2_CLUBB',        (/ 'ilev' /), 'A', 'm2/s2',    'Meridional Velocity Variance')
-    call addfld('WP2_CLUBB',        (/ 'ilev' /), 'A', 'm2/s2',    'Vertical Velocity Variance')
-    call addfld('WP2_ZT_CLUBB',     (/ 'ilev' /), 'A', 'm2/s2',    'Vert Vel Variance on zt grid')
-    call addfld('UPWP_CLUBB',       (/ 'ilev' /), 'A', 'm2/s2',    'Zonal Momentum Flux')
-    call addfld('VPWP_CLUBB',       (/ 'ilev' /), 'A', 'm2/s2',    'Meridional Momentum Flux')
-    call addfld('WP3_CLUBB',        (/ 'ilev' /), 'A', 'm3/s3',    'Third Moment Vertical Velocity')
-    call addfld('WPTHLP_CLUBB',     (/ 'ilev' /), 'A', 'W/m2',     'Heat Flux')
-    call addfld('WPRTP_CLUBB',      (/ 'ilev' /), 'A', 'W/m2',     'Moisture Flux')
-    call addfld('RTP2_CLUBB',       (/ 'ilev' /), 'A', 'g^2/kg^2', 'Moisture Variance')
-    call addfld('RTP2_ZT_CLUBB',    (/ 'ilev' /), 'A', 'kg^2/kg^2','Moisture Variance on zt grid')
-    call addfld('PDFP_RTP2_CLUBB',  (/ 'ilev' /), 'A', 'kg^2/kg^2','PDF Rtot Variance')
-    call addfld('THLP2_CLUBB',      (/ 'ilev' /), 'A', 'K^2',      'Temperature Variance')
-    call addfld('THLP2_ZT_CLUBB',   (/ 'ilev' /), 'A', 'K^2',      'Temperature Variance on zt grid')
-    call addfld('RTPTHLP_CLUBB',    (/ 'ilev' /), 'A', 'K g/kg',   'Temp. Moist. Covariance')
-    call addfld('RCM_CLUBB',        (/ 'ilev' /), 'A', 'g/kg',     'Cloud Water Mixing Ratio')
-    call addfld('WPRCP_CLUBB',      (/ 'ilev' /), 'A', 'W/m2',     'Liquid Water Flux')
-    call addfld('CLOUDFRAC_CLUBB',  (/ 'lev' /),  'A', 'fraction', 'Cloud Fraction')
-    call addfld('RCMINLAYER_CLUBB', (/ 'ilev' /), 'A', 'g/kg',     'Cloud Water in Layer')
-    call addfld('CLOUDCOVER_CLUBB', (/ 'ilev' /), 'A', 'fraction', 'Cloud Cover')
-    call addfld('WPTHVP_CLUBB',     (/ 'lev' /),  'A', 'W/m2',     'Buoyancy Flux')
-    call addfld('RVMTEND_CLUBB',    (/ 'lev' /),  'A', 'g/kg /s',  'Water vapor tendency')
-    call addfld('STEND_CLUBB',      (/ 'lev' /),  'A', 'J/(kg s)', 'Static energy tendency')
-    call addfld('RCMTEND_CLUBB',    (/ 'lev' /),  'A', 'g/kg /s',  'Cloud Liquid Water Tendency')
-    call addfld('RIMTEND_CLUBB',    (/ 'lev' /),  'A', 'g/kg /s',  'Cloud Ice Tendency')
-    call addfld('UTEND_CLUBB',      (/ 'lev' /),  'A', 'm/s /s',   'U-wind Tendency')
-    call addfld('VTEND_CLUBB',      (/ 'lev' /),  'A', 'm/s /s',   'V-wind Tendency')
-    call addfld('ZT_CLUBB',         (/ 'ilev' /), 'A', 'm',        'Thermodynamic Heights')
-    call addfld('ZM_CLUBB',         (/ 'ilev' /), 'A', 'm',        'Momentum Heights')
-    call addfld('UM_CLUBB',         (/ 'ilev' /), 'A', 'm/s',      'Zonal Wind')
-    call addfld('VM_CLUBB',         (/ 'ilev' /), 'A', 'm/s',      'Meridional Wind')
-    call addfld('WM_ZT_CLUBB',      (/ 'ilev' /), 'A', 'm/s',      'Vertical Velocity')
-    call addfld('THETAL',           (/ 'lev' /),  'A', 'K',        'Liquid Water Potential Temperature')
+    call addfld('RHO_CLUBB',        [ 'ilev' ], 'A', 'kg/m3',    'Air Density')
+    call addfld('UP2_CLUBB',        [ 'ilev' ], 'A', 'm2/s2',    'Zonal Velocity Variance')
+    call addfld('VP2_CLUBB',        [ 'ilev' ], 'A', 'm2/s2',    'Meridional Velocity Variance')
+    call addfld('WP2_CLUBB',        [ 'ilev' ], 'A', 'm2/s2',    'Vertical Velocity Variance')
+    call addfld('WP2_ZT_CLUBB',     [ 'ilev' ], 'A', 'm2/s2',    'Vert Vel Variance on zt grid')
+    call addfld('UPWP_CLUBB',       [ 'ilev' ], 'A', 'm2/s2',    'Zonal Momentum Flux')
+    call addfld('VPWP_CLUBB',       [ 'ilev' ], 'A', 'm2/s2',    'Meridional Momentum Flux')
+    call addfld('WP3_CLUBB',        [ 'ilev' ], 'A', 'm3/s3',    'Third Moment Vertical Velocity')
+    call addfld('WPTHLP_CLUBB',     [ 'ilev' ], 'A', 'W/m2',     'Heat Flux')
+    call addfld('WPRTP_CLUBB',      [ 'ilev' ], 'A', 'W/m2',     'Moisture Flux')
+    call addfld('RTP2_CLUBB',       [ 'ilev' ], 'A', 'g^2/kg^2', 'Moisture Variance')
+    call addfld('RTP2_ZT_CLUBB',    [ 'ilev' ], 'A', 'kg^2/kg^2','Moisture Variance on zt grid')
+    call addfld('PDFP_RTP2_CLUBB',  [ 'ilev' ], 'A', 'kg^2/kg^2','PDF Rtot Variance')
+    call addfld('THLP2_CLUBB',      [ 'ilev' ], 'A', 'K^2',      'Temperature Variance')
+    call addfld('THLP2_ZT_CLUBB',   [ 'ilev' ], 'A', 'K^2',      'Temperature Variance on zt grid')
+    call addfld('RTPTHLP_CLUBB',    [ 'ilev' ], 'A', 'K g/kg',   'Temp. Moist. Covariance')
+    call addfld('RCM_CLUBB',        [ 'ilev' ], 'A', 'g/kg',     'Cloud Water Mixing Ratio')
+    call addfld('WPRCP_CLUBB',      [ 'ilev' ], 'A', 'W/m2',     'Liquid Water Flux')
+    call addfld('CLOUDFRAC_CLUBB',  [ 'lev' ],  'A', 'fraction', 'Cloud Fraction')
+    call addfld('RCMINLAYER_CLUBB', [ 'ilev' ], 'A', 'g/kg',     'Cloud Water in Layer')
+    call addfld('CLOUDCOVER_CLUBB', [ 'ilev' ], 'A', 'fraction', 'Cloud Cover')
+    call addfld('WPTHVP_CLUBB',     [ 'lev' ],  'A', 'W/m2',     'Buoyancy Flux')
+    call addfld('RVMTEND_CLUBB',    [ 'lev' ],  'A', 'g/kg /s',  'Water vapor tendency')
+    call addfld('STEND_CLUBB',      [ 'lev' ],  'A', 'J/(kg s)', 'Static energy tendency')
+    call addfld('RCMTEND_CLUBB',    [ 'lev' ],  'A', 'g/kg /s',  'Cloud Liquid Water Tendency')
+    call addfld('RIMTEND_CLUBB',    [ 'lev' ],  'A', 'g/kg /s',  'Cloud Ice Tendency')
+    call addfld('UTEND_CLUBB',      [ 'lev' ],  'A', 'm/s /s',   'U-wind Tendency')
+    call addfld('VTEND_CLUBB',      [ 'lev' ],  'A', 'm/s /s',   'V-wind Tendency')
+    call addfld('ZT_CLUBB',         [ 'ilev' ], 'A', 'm',        'Thermodynamic Heights')
+    call addfld('ZM_CLUBB',         [ 'ilev' ], 'A', 'm',        'Momentum Heights')
+    call addfld('UM_CLUBB',         [ 'ilev' ], 'A', 'm/s',      'Zonal Wind')
+    call addfld('VM_CLUBB',         [ 'ilev' ], 'A', 'm/s',      'Meridional Wind')
+    call addfld('WM_ZT_CLUBB',      [ 'ilev' ], 'A', 'm/s',      'Vertical Velocity')
+    call addfld('THETAL',           [ 'lev' ],  'A', 'K',        'Liquid Water Potential Temperature')
     call addfld('PBLH',             horiz_only,   'A', 'm',        'PBL height')
-    call addfld('QT',               (/ 'lev' /),  'A', 'kg/kg',    'Total water mixing ratio')
-    call addfld('SL',               (/ 'lev' /),  'A', 'J/kg',     'Liquid water static energy')
-    call addfld('CLDST',            (/ 'lev' /),  'A', 'fraction', 'Stratus cloud fraction')
-    call addfld('ZMDLF',            (/ 'lev' /),  'A', 'kg/kg/s',  'Detrained liquid water from ZM convection')
-    call addfld('TTENDICE',         (/ 'lev' /),  'A', 'K/s',      'T tendency from Ice Saturation Adjustment')
-    call addfld('QVTENDICE',        (/ 'lev' /),  'A', 'kg/kg/s',  'Q tendency from Ice Saturation Adjustment')
-    call addfld('QITENDICE',        (/ 'lev' /),  'A', 'kg/kg/s',  'CLDICE tendency from Ice Saturation Adjustment')
-    call addfld('NITENDICE',        (/ 'lev' /),  'A', 'kg/kg/s',  'NUMICE tendency from Ice Saturation Adjustment')
+    call addfld('QT',               [ 'lev' ],  'A', 'kg/kg',    'Total water mixing ratio')
+    call addfld('SL',               [ 'lev' ],  'A', 'J/kg',     'Liquid water static energy')
+    call addfld('CLDST',            [ 'lev' ],  'A', 'fraction', 'Stratus cloud fraction')
+    call addfld('ZMDLF',            [ 'lev' ],  'A', 'kg/kg/s',  'Detrained liquid water from ZM convection')
+    call addfld('TTENDICE',         [ 'lev' ],  'A', 'K/s',      'T tendency from Ice Saturation Adjustment')
+    call addfld('QVTENDICE',        [ 'lev' ],  'A', 'kg/kg/s',  'Q tendency from Ice Saturation Adjustment')
+    call addfld('QITENDICE',        [ 'lev' ],  'A', 'kg/kg/s',  'CLDICE tendency from Ice Saturation Adjustment')
+    call addfld('NITENDICE',        [ 'lev' ],  'A', 'kg/kg/s',  'NUMICE tendency from Ice Saturation Adjustment')
 
-    call addfld('QCTENDICE',        (/ 'lev' /),  'A', 'kg/kg/s',  'CLDICE tendency from Ice Saturation Adjustment')
-    call addfld('NCTENDICE',        (/ 'lev' /),  'A', 'kg/kg/s',  'NUMICE tendency from Ice Saturation Adjustment')
-    call addfld('FQTENDICE',        (/ 'lev' /),  'A', 'fraction', 'Frequency of Ice Saturation Adjustment')
+    call addfld('QCTENDICE',        [ 'lev' ],  'A', 'kg/kg/s',  'CLDICE tendency from Ice Saturation Adjustment')
+    call addfld('NCTENDICE',        [ 'lev' ],  'A', 'kg/kg/s',  'NUMICE tendency from Ice Saturation Adjustment')
+    call addfld('FQTENDICE',        [ 'lev' ],  'A', 'fraction', 'Frequency of Ice Saturation Adjustment')
 
-    call addfld('DPDLFLIQ',         (/ 'lev' /),  'A', 'kg/kg/s',  'Detrained liquid water from deep convection')
-    call addfld('DPDLFICE',         (/ 'lev' /),  'A', 'kg/kg/s',  'Detrained ice from deep convection')
-    call addfld('DPDLFT',           (/ 'lev' /),  'A', 'K/s',      'T-tendency due to deep convective detrainment')
-    call addfld('RELVAR',           (/ 'lev' /),  'A', '-',        'Relative cloud water variance')
+    call addfld('DPDLFLIQ',         [ 'lev' ],  'A', 'kg/kg/s',  'Detrained liquid water from deep convection')
+    call addfld('DPDLFICE',         [ 'lev' ],  'A', 'kg/kg/s',  'Detrained ice from deep convection')
+    call addfld('DPDLFT',           [ 'lev' ],  'A', 'K/s',      'T-tendency due to deep convective detrainment')
+    call addfld('RELVAR',           [ 'lev' ],  'A', '-',        'Relative cloud water variance')
     call addfld('CLUBB_GRID_SIZE',  horiz_only,   'A', 'm',        'Horizontal grid box size seen by CLUBB')
 
-    call addfld('ZMDLFI',           (/ 'lev' /),  'A', 'kg/kg/s',  'Detrained ice water from ZM convection')
-    call addfld('CONCLD',           (/ 'lev' /),  'A', 'fraction', 'Convective cloud cover')
-    call addfld('CMELIQ',           (/ 'lev' /),  'A', 'kg/kg/s',  'Rate of cond-evap of liq within the cloud')
-    call addfld('DETNLIQTND',       (/ 'lev' /),  'A', '1/kg/s',   'CLDNUM tendency in detrained water')
+    call addfld('ZMDLFI',           [ 'lev' ],  'A', 'kg/kg/s',  'Detrained ice water from ZM convection')
+    call addfld('CONCLD',           [ 'lev' ],  'A', 'fraction', 'Convective cloud cover')
+    call addfld('CMELIQ',           [ 'lev' ],  'A', 'kg/kg/s',  'Rate of cond-evap of liq within the cloud')
+    call addfld('DETNLIQTND',       [ 'lev' ],  'A', '1/kg/s',   'CLDNUM tendency in detrained water')
 
-    call addfld('QSATFAC',          (/ 'lev' /),  'A', '-', 'Subgrid cloud water saturation scaling factor')
-    call addfld('KVH_CLUBB',        (/ 'ilev' /), 'A', 'm2/s', 'CLUBB vertical diffusivity of heat/moisture on interface levels')
+    call addfld('QSATFAC',          [ 'lev' ],  'A', '-', 'Subgrid cloud water saturation scaling factor')
+    call addfld('KVH_CLUBB',        [ 'ilev' ], 'A', 'm2/s', 'CLUBB vertical diffusivity of heat/moisture on interface levels')
 
     !  Initialize statistics, below are dummy variables
     dum1 = 300._r8
@@ -1176,9 +1180,9 @@ contains
       call stats_init_clubb( .true., dum1, dum2, &
                         nlev+1, nlev+1, nlev+1, dum3 )
 
-      allocate(out_zt(pcols,pverp,stats_zt%num_output_fields))
-      allocate(out_zm(pcols,pverp,stats_zm%num_output_fields))
-      allocate(out_sfc(pcols,1,stats_sfc%num_output_fields))
+      allocate(out_zt   (pcols,pverp,stats_zt    %num_output_fields))
+      allocate(out_zm   (pcols,pverp,stats_zm    %num_output_fields))
+      allocate(out_sfc  (pcols,1    ,stats_sfc   %num_output_fields))
       allocate(out_radzt(pcols,pverp,stats_rad_zt%num_output_fields))
       allocate(out_radzm(pcols,pverp,stats_rad_zm%num_output_fields))
     end if
@@ -1188,90 +1192,90 @@ contains
     ! ----------------------------------------------------------------- !
 
     if (clubb_do_adv .or. history_clubb) then
-      call add_default('RHO_CLUBB',        1, ' ')
-      call add_default('UP2_CLUBB',        1, ' ')
-      call add_default('VP2_CLUBB',        1, ' ')
-      call add_default('WP2_CLUBB',        1, ' ')
-      call add_default('WP2_ZT_CLUBB',     1, ' ')
-      call add_default('WP3_CLUBB',        1, ' ')
-      call add_default('UPWP_CLUBB',       1, ' ')
-      call add_default('VPWP_CLUBB',       1, ' ')
-      call add_default('WPTHLP_CLUBB',     1, ' ')
-      call add_default('WPRTP_CLUBB',      1, ' ')
-      call add_default('RTP2_CLUBB',       1, ' ')
-      call add_default('RTP2_ZT_CLUBB',    1, ' ')
-      call add_default('PDFP_RTP2_CLUBB',  1, ' ')
-      call add_default('THLP2_CLUBB',      1, ' ')
-      call add_default('THLP2_ZT_CLUBB',   1, ' ')
-      call add_default('RTPTHLP_CLUBB',    1, ' ')
-      call add_default('RCM_CLUBB',        1, ' ')
-      call add_default('WPRCP_CLUBB',      1, ' ')
-      call add_default('CLOUDFRAC_CLUBB',  1, ' ')
+      call add_default('RHO_CLUBB'       , 1, ' ')
+      call add_default('UP2_CLUBB'       , 1, ' ')
+      call add_default('VP2_CLUBB'       , 1, ' ')
+      call add_default('WP2_CLUBB'       , 1, ' ')
+      call add_default('WP2_ZT_CLUBB'    , 1, ' ')
+      call add_default('WP3_CLUBB'       , 1, ' ')
+      call add_default('UPWP_CLUBB'      , 1, ' ')
+      call add_default('VPWP_CLUBB'      , 1, ' ')
+      call add_default('WPTHLP_CLUBB'    , 1, ' ')
+      call add_default('WPRTP_CLUBB'     , 1, ' ')
+      call add_default('RTP2_CLUBB'      , 1, ' ')
+      call add_default('RTP2_ZT_CLUBB'   , 1, ' ')
+      call add_default('PDFP_RTP2_CLUBB' , 1, ' ')
+      call add_default('THLP2_CLUBB'     , 1, ' ')
+      call add_default('THLP2_ZT_CLUBB'  , 1, ' ')
+      call add_default('RTPTHLP_CLUBB'   , 1, ' ')
+      call add_default('RCM_CLUBB'       , 1, ' ')
+      call add_default('WPRCP_CLUBB'     , 1, ' ')
+      call add_default('CLOUDFRAC_CLUBB' , 1, ' ')
       call add_default('RCMINLAYER_CLUBB', 1, ' ')
       call add_default('CLOUDCOVER_CLUBB', 1, ' ')
-      call add_default('WPTHVP_CLUBB',     1, ' ')
-      call add_default('RVMTEND_CLUBB',    1, ' ')
-      call add_default('STEND_CLUBB',      1, ' ')
-      call add_default('RCMTEND_CLUBB',    1, ' ')
-      call add_default('RIMTEND_CLUBB',    1, ' ')
-      call add_default('UTEND_CLUBB',      1, ' ')
-      call add_default('VTEND_CLUBB',      1, ' ')
-      call add_default('ZT_CLUBB',         1, ' ')
-      call add_default('ZM_CLUBB',         1, ' ')
-      call add_default('UM_CLUBB',         1, ' ')
-      call add_default('VM_CLUBB',         1, ' ')
-      call add_default('WM_ZT_CLUBB',      1, ' ')
-      call add_default('PBLH',             1, ' ')
-      call add_default('SL',               1, ' ')
-      call add_default('QT',               1, ' ')
-      call add_default('THETAL',           1, ' ')
-      call add_default('CONCLD',           1, ' ')
+      call add_default('WPTHVP_CLUBB'    , 1, ' ')
+      call add_default('RVMTEND_CLUBB'   , 1, ' ')
+      call add_default('STEND_CLUBB'     , 1, ' ')
+      call add_default('RCMTEND_CLUBB'   , 1, ' ')
+      call add_default('RIMTEND_CLUBB'   , 1, ' ')
+      call add_default('UTEND_CLUBB'     , 1, ' ')
+      call add_default('VTEND_CLUBB'     , 1, ' ')
+      call add_default('ZT_CLUBB'        , 1, ' ')
+      call add_default('ZM_CLUBB'        , 1, ' ')
+      call add_default('UM_CLUBB'        , 1, ' ')
+      call add_default('VM_CLUBB'        , 1, ' ')
+      call add_default('WM_ZT_CLUBB'     , 1, ' ')
+      call add_default('PBLH'            , 1, ' ')
+      call add_default('SL'              , 1, ' ')
+      call add_default('QT'              , 1, ' ')
+      call add_default('THETAL'          , 1, ' ')
+      call add_default('CONCLD'          , 1, ' ')
     end if
 
     if (history_amwg) then
-      call add_default('PBLH',             1, ' ')
+      call add_default('PBLH'            , 1, ' ')
     end if
 
     if (history_clubb) then
-      call add_default('RELVAR',           1, ' ')
-      call add_default('RHO_CLUBB',        1, ' ')
-      call add_default('UPWP_CLUBB',       1, ' ')
-      call add_default('VPWP_CLUBB',       1, ' ')
-      call add_default('RCM_CLUBB',        1, ' ')
-      call add_default('WPRCP_CLUBB',      1, ' ')
-      call add_default('CLOUDFRAC_CLUBB',  1, ' ')
+      call add_default('RELVAR'          , 1, ' ')
+      call add_default('RHO_CLUBB'       , 1, ' ')
+      call add_default('UPWP_CLUBB'      , 1, ' ')
+      call add_default('VPWP_CLUBB'      , 1, ' ')
+      call add_default('RCM_CLUBB'       , 1, ' ')
+      call add_default('WPRCP_CLUBB'     , 1, ' ')
+      call add_default('CLOUDFRAC_CLUBB' , 1, ' ')
       call add_default('RCMINLAYER_CLUBB', 1, ' ')
       call add_default('CLOUDCOVER_CLUBB', 1, ' ')
-      call add_default('WPTHVP_CLUBB',     1, ' ')
-      call add_default('RVMTEND_CLUBB',    1, ' ')
-      call add_default('STEND_CLUBB',      1, ' ')
-      call add_default('RCMTEND_CLUBB',    1, ' ')
-      call add_default('RIMTEND_CLUBB',    1, ' ')
-      call add_default('UTEND_CLUBB',      1, ' ')
-      call add_default('VTEND_CLUBB',      1, ' ')
-      call add_default('ZT_CLUBB',         1, ' ')
-      call add_default('ZM_CLUBB',         1, ' ')
-      call add_default('UM_CLUBB',         1, ' ')
-      call add_default('VM_CLUBB',         1, ' ')
-      call add_default('SL',               1, ' ')
-      call add_default('QT',               1, ' ')
-      call add_default('CONCLD',           1, ' ')
+      call add_default('WPTHVP_CLUBB'    , 1, ' ')
+      call add_default('RVMTEND_CLUBB'   , 1, ' ')
+      call add_default('STEND_CLUBB'     , 1, ' ')
+      call add_default('RCMTEND_CLUBB'   , 1, ' ')
+      call add_default('RIMTEND_CLUBB'   , 1, ' ')
+      call add_default('UTEND_CLUBB'     , 1, ' ')
+      call add_default('VTEND_CLUBB'     , 1, ' ')
+      call add_default('ZT_CLUBB'        , 1, ' ')
+      call add_default('ZM_CLUBB'        , 1, ' ')
+      call add_default('UM_CLUBB'        , 1, ' ')
+      call add_default('VM_CLUBB'        , 1, ' ')
+      call add_default('SL'              , 1, ' ')
+      call add_default('QT'              , 1, ' ')
+      call add_default('CONCLD'          , 1, ' ')
     end if
 
     if (history_amwg) then
-      call add_default('PBLH',             1, ' ')
+      call add_default('PBLH'            , 1, ' ')
     end if
 
     if (history_budget) then
-      call add_default('DPDLFLIQ',         history_budget_histfile_num, ' ')
-      call add_default('DPDLFICE',         history_budget_histfile_num, ' ')
-      call add_default('DPDLFT',           history_budget_histfile_num, ' ')
-      call add_default('STEND_CLUBB',      history_budget_histfile_num, ' ')
-      call add_default('RCMTEND_CLUBB',    history_budget_histfile_num, ' ')
-      call add_default('RIMTEND_CLUBB',    history_budget_histfile_num, ' ')
-      call add_default('RVMTEND_CLUBB',    history_budget_histfile_num, ' ')
-      call add_default('UTEND_CLUBB',      history_budget_histfile_num, ' ')
-      call add_default('VTEND_CLUBB',      history_budget_histfile_num, ' ')
+      call add_default('DPDLFLIQ'        , history_budget_histfile_num, ' ')
+      call add_default('DPDLFICE'        , history_budget_histfile_num, ' ')
+      call add_default('DPDLFT'          , history_budget_histfile_num, ' ')
+      call add_default('STEND_CLUBB'     , history_budget_histfile_num, ' ')
+      call add_default('RCMTEND_CLUBB'   , history_budget_histfile_num, ' ')
+      call add_default('RIMTEND_CLUBB'   , history_budget_histfile_num, ' ')
+      call add_default('RVMTEND_CLUBB'   , history_budget_histfile_num, ' ')
+      call add_default('UTEND_CLUBB'     , history_budget_histfile_num, ' ')
+      call add_default('VTEND_CLUBB'     , history_budget_histfile_num, ' ')
     end if
 
     ! --------------- !
@@ -1281,39 +1285,39 @@ contains
 
     !  Is this the first time step?  If so then initialize CLUBB variables as follows
     if (is_first_step()) then
-      call pbuf_set_field(pbuf2d, wp2_idx,     w_tol_sqd)
-      call pbuf_set_field(pbuf2d, wp3_idx,     0.0_r8)
-      call pbuf_set_field(pbuf2d, wpthlp_idx,  0.0_r8)
-      call pbuf_set_field(pbuf2d, wprtp_idx,   0.0_r8)
-      call pbuf_set_field(pbuf2d, rtpthlp_idx, 0.0_r8)
-      call pbuf_set_field(pbuf2d, rtp2_idx,    rt_tol**2)
-      call pbuf_set_field(pbuf2d, thlp2_idx,   thl_tol**2)
-      call pbuf_set_field(pbuf2d, up2_idx,     w_tol_sqd)
-      call pbuf_set_field(pbuf2d, vp2_idx,     w_tol_sqd)
+      call pbuf_set_field(pbuf2d, wp2_idx               , w_tol_sqd)
+      call pbuf_set_field(pbuf2d, wp3_idx               , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wpthlp_idx            , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wprtp_idx             , 0.0_r8)
+      call pbuf_set_field(pbuf2d, rtpthlp_idx           , 0.0_r8)
+      call pbuf_set_field(pbuf2d, rtp2_idx              , rt_tol**2)
+      call pbuf_set_field(pbuf2d, thlp2_idx             , thl_tol**2)
+      call pbuf_set_field(pbuf2d, up2_idx               , w_tol_sqd)
+      call pbuf_set_field(pbuf2d, vp2_idx               , w_tol_sqd)
 
-      call pbuf_set_field(pbuf2d, rtp3_idx,    0.0_r8)
-      call pbuf_set_field(pbuf2d, thlp3_idx,   0.0_r8)
-      call pbuf_set_field(pbuf2d, up3_idx,     0.0_r8)
-      call pbuf_set_field(pbuf2d, vp3_idx,     0.0_r8)
+      call pbuf_set_field(pbuf2d, rtp3_idx              , 0.0_r8)
+      call pbuf_set_field(pbuf2d, thlp3_idx             , 0.0_r8)
+      call pbuf_set_field(pbuf2d, up3_idx               , 0.0_r8)
+      call pbuf_set_field(pbuf2d, vp3_idx               , 0.0_r8)
 
-      call pbuf_set_field(pbuf2d, upwp_idx,    0.0_r8)
-      call pbuf_set_field(pbuf2d, vpwp_idx,    0.0_r8)
-      call pbuf_set_field(pbuf2d, wpthvp_idx,  0.0_r8)
-      call pbuf_set_field(pbuf2d, wp2thvp_idx, 0.0_r8)
-      call pbuf_set_field(pbuf2d, rtpthvp_idx, 0.0_r8)
-      call pbuf_set_field(pbuf2d, thlpthvp_idx,0.0_r8)
-      call pbuf_set_field(pbuf2d, rcm_idx,     0.0_r8)
-      call pbuf_set_field(pbuf2d, cloud_frac_idx, 0.0_r8)
-      call pbuf_set_field(pbuf2d, tke_idx,     0.0_r8)
-      call pbuf_set_field(pbuf2d, kvh_idx,     0.0_r8)
-      call pbuf_set_field(pbuf2d, radf_idx,    0.0_r8)
+      call pbuf_set_field(pbuf2d, upwp_idx              , 0.0_r8)
+      call pbuf_set_field(pbuf2d, vpwp_idx              , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wpthvp_idx            , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wp2thvp_idx           , 0.0_r8)
+      call pbuf_set_field(pbuf2d, rtpthvp_idx           , 0.0_r8)
+      call pbuf_set_field(pbuf2d, thlpthvp_idx          , 0.0_r8)
+      call pbuf_set_field(pbuf2d, rcm_idx               , 0.0_r8)
+      call pbuf_set_field(pbuf2d, cloud_frac_idx        , 0.0_r8)
+      call pbuf_set_field(pbuf2d, tke_idx               , 0.0_r8)
+      call pbuf_set_field(pbuf2d, kvh_idx               , 0.0_r8)
+      call pbuf_set_field(pbuf2d, radf_idx              , 0.0_r8)
 
       ! Initialize SILHS covariance contributions
-      call pbuf_set_field(pbuf2d, rtp2_mc_zt_idx,    0.0_r8)
-      call pbuf_set_field(pbuf2d, thlp2_mc_zt_idx,   0.0_r8)
-      call pbuf_set_field(pbuf2d, wprtp_mc_zt_idx,   0.0_r8)
-      call pbuf_set_field(pbuf2d, wpthlp_mc_zt_idx,  0.0_r8)
-      call pbuf_set_field(pbuf2d, rtpthlp_mc_zt_idx, 0.0_r8)
+      call pbuf_set_field(pbuf2d, rtp2_mc_zt_idx        , 0.0_r8)
+      call pbuf_set_field(pbuf2d, thlp2_mc_zt_idx       , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wprtp_mc_zt_idx       , 0.0_r8)
+      call pbuf_set_field(pbuf2d, wpthlp_mc_zt_idx      , 0.0_r8)
+      call pbuf_set_field(pbuf2d, rtpthlp_mc_zt_idx     , 0.0_r8)
     end if
 
     ! The following is physpkg, so it needs to be initialized every time
@@ -1323,14 +1327,12 @@ contains
     ! End             !
     ! Initialization  !
     ! --------------- !
-
 #endif
+
   end subroutine clubb_ini_cam
 
-  subroutine clubb_tend_cam( &
-                              state,   ptend_all,   pbuf,     hdtime, &
-                              cmfmc,   cam_in,                        &
-                              macmic_it, cld_macmic_num_steps,dlf, det_s, det_ice)
+  subroutine clubb_tend_cam(state, ptend_all, pbuf, hdtime, cmfmc, cam_in, &
+                            macmic_it, cld_macmic_num_steps,dlf, det_s, det_ice)
 
     !-------------------------------------------------------------------------------
     ! Description: Provide tendencies of shallow convection, turbulence, and
@@ -1343,22 +1345,20 @@ contains
     !   None
     !-------------------------------------------------------------------------------
 
-    use physics_types,  only: physics_state, physics_ptend, &
+    use physics_types , only: physics_state, physics_ptend, &
                               physics_state_copy, physics_ptend_init, &
                               physics_ptend_sum, physics_update, set_dry_to_wet
-
     use physics_buffer, only: pbuf_old_tim_idx, pbuf_get_field, physics_buffer_desc
-
-    use constituents,   only: cnst_get_ind, cnst_type
-    use camsrfexch,     only: cam_in_t
-    use time_manager,   only: is_first_step
+    use constituents  , only: cnst_get_ind, cnst_type
+    use camsrfexch    , only: cam_in_t
+    use time_manager  , only: is_first_step
     use cam_abortutils, only: endrun
-    use cam_logfile,    only: iulog
-    use tropopause,     only: tropopause_findChemTrop
-    use time_manager,   only: get_nstep
+    use cam_logfile   , only: iulog
+    use tropopause    , only: tropopause_findChemTrop
+    use time_manager  , only: get_nstep
 
 #ifdef CLUBB_SGS
-    use hb_diff,        only: pblintd
+    use hb_diff       , only: pblintd
     use clubb_api_module, only: &
          nparams, &
          read_parameters_api, &
@@ -1387,263 +1387,251 @@ contains
 
     use clubb_api_module, only: &
         clubb_fatal_error    ! Error code value to indicate a fatal error
-
-    use cldfrc2m,                  only: aist_vector, rhmini_const, rhmaxi_const, rhminis_const, rhmaxis_const
-    use cam_history,               only: outfld
-
-    use macrop_driver,             only: liquid_macro_tend
+    use cldfrc2m        , only: aist_vector, rhmini_const, rhmaxi_const, rhminis_const, rhmaxis_const
+    use cam_history     , only: outfld
+    use macrop_driver   , only: liquid_macro_tend
 #endif
 
-    implicit none
-
-    type(physics_state), intent(in) :: state                    ! Physics state variables                 [vary]
-    type(cam_in_t),      intent(in) :: cam_in
-    real(r8),            intent(in) :: hdtime                   ! Host model timestep                     [s]
-    real(r8),            intent(in) :: dlf(pcols,pver)          ! Detraining cld H20 from deep convection [kg/ks/s]
-    real(r8),            intent(in) :: cmfmc(pcols,pverp)       ! convective mass flux--m sub c           [kg/m2/s]
-    integer,             intent(in) :: cld_macmic_num_steps     ! number of mac-mic iterations
-    integer,             intent(in) :: macmic_it                ! number of mac-mic iterations
+    type(physics_state), intent(in) :: state
+    type(cam_in_t)     , intent(in) :: cam_in
+    real(r8)           , intent(in) :: hdtime                   ! Host model timestep                     [s]
+    real(r8)           , intent(in) :: dlf(pcols,pver)          ! Detraining cld H20 from deep convection [kg/ks/s]
+    real(r8)           , intent(in) :: cmfmc(pcols,pverp)       ! convective mass flux--m sub c           [kg/m2/s]
+    integer            , intent(in) :: cld_macmic_num_steps     ! number of mac-mic iterations
+    integer            , intent(in) :: macmic_it                ! number of mac-mic iterations
 
     type(physics_buffer_desc), pointer :: pbuf(:)
 
-    type(physics_ptend), intent(out)   :: ptend_all                 ! package tendencies
+    type(physics_ptend), intent(out)   :: ptend_all
 
     ! These two variables are needed for energy check
-    real(r8),            intent(out)   :: det_s(pcols)              ! Integral of detrained static energy from ice
-    real(r8),            intent(out)   :: det_ice(pcols)            ! Integral of detrained ice for energy check
+    real(r8),            intent(out)   :: det_s(pcols)          ! Integral of detrained static energy from ice
+    real(r8),            intent(out)   :: det_ice(pcols)        ! Integral of detrained ice for energy check
 
-
-   ! --------------- !
-   ! Local Variables !
-   ! --------------- !
 
 #ifdef CLUBB_SGS
-
     type(physics_state) state1                ! Local copy of state variable
     type(physics_ptend) ptend_loc             ! Local tendency from processes, added up to return as ptend_all
 
-    integer i, j,  k, t, ixind, nadv
+    integer i, j, k, t, ixind, nadv
     integer ixcldice, ixcldliq, ixnumliq, ixnumice, ixq
     integer itim_old
     integer ncol, lchnk                       ! # of columns, and chunk identifier
     integer err_code                          ! Diagnostic, for if some calculation goes amiss.
     integer icnt, clubbtop
     logical lq2(pcnst)
-
     integer iter
-
     real(r8) frac_limit, ic_limit
-
-    real(r8) dtime				                         ! CLUBB time step [s]
-    real(r8) edsclr_in(pverp+1-top_lev,edsclr_dim) ! Scalars to be diffused through CLUBB [units vary]
-    real(r8) wp2_in(pverp+1-top_lev)               ! vertical velocity variance (CLUBB) [m^2/s^2]
-    real(r8) wp3_in(pverp+1-top_lev)               ! third moment vertical velocity [m^3/s^3]
-    real(r8) wpthlp_in(pverp+1-top_lev)		         ! turbulent flux of thetal [K m/s]
-    real(r8) wprtp_in(pverp+1-top_lev)		         ! turbulent flux of total water [kg/kg m/s]
-    real(r8) rtpthlp_in(pverp+1-top_lev)		       ! covariance of thetal and qt [kg/kg K]
-    real(r8) rtp2_in(pverp+1-top_lev)			         ! total water variance [kg^2/kg^2]
-    real(r8) thlp2_in(pverp+1-top_lev)		         ! thetal variance [K^2]
-    real(r8) rtp3_in(pverp+1-top_lev)			         ! total water 3rd order [kg^3/kg^3]
-    real(r8) thlp3_in(pverp+1-top_lev)             ! thetal 3rd order [K^3]
-    real(r8) up2_in(pverp+1-top_lev)               ! meridional wind variance [m^2/s^2]
-    real(r8) vp2_in(pverp+1-top_lev)               ! zonal wind variance [m^2/s^2]
-    real(r8) up3_in(pverp+1-top_lev)               ! meridional wind third-order [m^3/s^3]
-    real(r8) vp3_in(pverp+1-top_lev)               ! zonal wind third-order [m^3/s^3]
-    real(r8) upwp_in(pverp+1-top_lev)              ! meridional wind flux [m^2/s^2]
-    real(r8) vpwp_in(pverp+1-top_lev)              ! zonal wind flux [m^2/s^2]
-    real(r8) wpthvp_in(pverp+1-top_lev)            ! w'th_v' (momentum levels) [m/s K]
-    real(r8) wp2thvp_in(pverp+1-top_lev)           ! w'^2 th_v' (thermodynamic levels) [m^2/s^2 K]
-    real(r8) rtpthvp_in(pverp+1-top_lev)           ! r_t'th_v' (momentum levels) [kg/kg K]
-    real(r8) thlpthvp_in(pverp+1-top_lev)          ! th_l'th_v' (momentum levels) [K^2]
-    real(r8) thlm_in(pverp+1-top_lev)              ! liquid water potential temperature (thetal) [K]
-    real(r8) rtm_in(pverp+1-top_lev)               ! total water mixing ratio [kg/kg]
-    real(r8) rvm_in(pverp+1-top_lev)               ! water vapor mixing ratio [kg/kg]
-    real(r8) um_in(pverp+1-top_lev)                ! meridional wind [m/s]
-    real(r8) vm_in(pverp+1-top_lev)                ! zonal wind [m/s]
-    real(r8) rho_in(pverp+1-top_lev)               ! mid-point density [kg/m^3]
-    real(r8) pre_in(pverp+1-top_lev)               ! input for precip evaporation
-    real(r8) rtp2_mc_out(pverp+1-top_lev)          ! total water tendency from rain evap
-    real(r8) thlp2_mc_out(pverp+1-top_lev)         ! thetal tendency from rain evap
-    real(r8) wprtp_mc_out(pverp+1-top_lev)
-    real(r8) wpthlp_mc_out(pverp+1-top_lev)
-    real(r8) rtpthlp_mc_out(pverp+1-top_lev)
-    real(r8) rcm_inout(pverp+1-top_lev)            ! CLUBB output of liquid water mixing ratio	[kg/kg]
-    real(r8) rcm_out_zm(pverp+1-top_lev)
-    real(r8) wprcp_out(pverp+1-top_lev)            ! CLUBB output of flux of liquid water		[kg/kg m/s]
-    real(r8) cloud_frac_inout(pverp+1-top_lev)     ! CLUBB output of cloud fraction	[fraction]
-    real(r8) rcm_in_layer_out(pverp+1-top_lev)     ! CLUBB output of in-cloud liq. wat. mix. ratio [kg/kg]
-    real(r8) cloud_cover_out(pverp+1-top_lev)      ! CLUBB output of in-cloud cloud fraction [fraction]
-    real(r8) thlprcp_out(pverp+1-top_lev)
-    real(r8) rho_ds_zm(pverp+1-top_lev)            ! Dry, static density on momentum levels [kg/m^3]
-    real(r8) rho_ds_zt(pverp+1-top_lev)            ! Dry, static density on thermodynamic levels [kg/m^3]
-    real(r8) invrs_rho_ds_zm(pverp+1-top_lev)      ! Inv. dry, static density on momentum levels [m^3/kg]
-    real(r8) invrs_rho_ds_zt(pverp+1-top_lev)      ! Inv. dry, static density on thermo. levels [m^3/kg]
-    real(r8) thv_ds_zm(pverp+1-top_lev)            ! Dry, base-state theta_v on momentum levels [K]
-    real(r8) thv_ds_zt(pverp+1-top_lev)            ! Dry, base-state theta_v on thermo. levels [K]
-    real(r8) rfrzm(pverp+1-top_lev)
-    real(r8) radf(pverp+1-top_lev)
-    real(r8) wprtp_forcing(pverp+1-top_lev)
-    real(r8) wpthlp_forcing(pverp+1-top_lev)
-    real(r8) rtp2_forcing(pverp+1-top_lev)
-    real(r8) thlp2_forcing(pverp+1-top_lev)
-    real(r8) rtpthlp_forcing(pverp+1-top_lev)
+    real(r8) dtime				                                      ! CLUBB time step [s]
+    real(r8) edsclr_in            (pverp+1-top_lev,edsclr_dim)  ! Scalars to be diffused through CLUBB [units vary]
+    real(r8) wp2_in               (pverp+1-top_lev)             ! Vertical velocity variance (CLUBB) [m^2/s^2]
+    real(r8) wp3_in               (pverp+1-top_lev)             ! Third moment vertical velocity [m^3/s^3]
+    real(r8) wpthlp_in            (pverp+1-top_lev)		          ! Turbulent flux of thetal [K m/s]
+    real(r8) wprtp_in             (pverp+1-top_lev)		          ! Turbulent flux of total water [kg/kg m/s]
+    real(r8) rtpthlp_in           (pverp+1-top_lev)		          ! Covariance of thetal and qt [kg/kg K]
+    real(r8) rtp2_in              (pverp+1-top_lev)			        ! Total water variance [kg^2/kg^2]
+    real(r8) thlp2_in             (pverp+1-top_lev)		          ! Thetal variance [K^2]
+    real(r8) rtp3_in              (pverp+1-top_lev)			        ! Total water 3rd order [kg^3/kg^3]
+    real(r8) thlp3_in             (pverp+1-top_lev)             ! Thetal 3rd order [K^3]
+    real(r8) up2_in               (pverp+1-top_lev)             ! Meridional wind variance [m^2/s^2]
+    real(r8) vp2_in               (pverp+1-top_lev)             ! Zonal wind variance [m^2/s^2]
+    real(r8) up3_in               (pverp+1-top_lev)             ! Meridional wind third-order [m^3/s^3]
+    real(r8) vp3_in               (pverp+1-top_lev)             ! Zonal wind third-order [m^3/s^3]
+    real(r8) upwp_in              (pverp+1-top_lev)             ! Meridional wind flux [m^2/s^2]
+    real(r8) vpwp_in              (pverp+1-top_lev)             ! Zonal wind flux [m^2/s^2]
+    real(r8) wpthvp_in            (pverp+1-top_lev)             ! w'th_v' (momentum levels) [m/s K]
+    real(r8) wp2thvp_in           (pverp+1-top_lev)             ! w'^2 th_v' (thermodynamic levels) [m^2/s^2 K]
+    real(r8) rtpthvp_in           (pverp+1-top_lev)             ! r_t'th_v' (momentum levels) [kg/kg K]
+    real(r8) thlpthvp_in          (pverp+1-top_lev)             ! th_l'th_v' (momentum levels) [K^2]
+    real(r8) thlm_in              (pverp+1-top_lev)             ! Liquid water potential temperature (thetal) [K]
+    real(r8) rtm_in               (pverp+1-top_lev)             ! Total water mixing ratio [kg/kg]
+    real(r8) rvm_in               (pverp+1-top_lev)             ! Water vapor mixing ratio [kg/kg]
+    real(r8) um_in                (pverp+1-top_lev)             ! Meridional wind [m/s]
+    real(r8) vm_in                (pverp+1-top_lev)             ! Zonal wind [m/s]
+    real(r8) rho_in               (pverp+1-top_lev)             ! Mid-point density [kg/m^3]
+    real(r8) pre_in               (pverp+1-top_lev)             ! Input for precip evaporation
+    real(r8) rtp2_mc_out          (pverp+1-top_lev)             ! Total water tendency from rain evap
+    real(r8) thlp2_mc_out         (pverp+1-top_lev)             ! Thetal tendency from rain evap
+    real(r8) wprtp_mc_out         (pverp+1-top_lev)
+    real(r8) wpthlp_mc_out        (pverp+1-top_lev)
+    real(r8) rtpthlp_mc_out       (pverp+1-top_lev)
+    real(r8) rcm_inout            (pverp+1-top_lev)             ! CLUBB output of liquid water mixing ratio	[kg/kg]
+    real(r8) rcm_out_zm           (pverp+1-top_lev)
+    real(r8) wprcp_out            (pverp+1-top_lev)             ! CLUBB output of flux of liquid water		[kg/kg m/s]
+    real(r8) cloud_frac_inout     (pverp+1-top_lev)             ! CLUBB output of cloud fraction	[fraction]
+    real(r8) rcm_in_layer_out     (pverp+1-top_lev)             ! CLUBB output of in-cloud liq. wat. mix. ratio [kg/kg]
+    real(r8) cloud_cover_out      (pverp+1-top_lev)             ! CLUBB output of in-cloud cloud fraction [fraction]
+    real(r8) thlprcp_out          (pverp+1-top_lev)
+    real(r8) rho_ds_zm            (pverp+1-top_lev)             ! Dry, static density on momentum levels [kg/m^3]
+    real(r8) rho_ds_zt            (pverp+1-top_lev)             ! Dry, static density on thermodynamic levels [kg/m^3]
+    real(r8) invrs_rho_ds_zm      (pverp+1-top_lev)             ! Inv. dry, static density on momentum levels [m^3/kg]
+    real(r8) invrs_rho_ds_zt      (pverp+1-top_lev)             ! Inv. dry, static density on thermo. levels [m^3/kg]
+    real(r8) thv_ds_zm            (pverp+1-top_lev)             ! Dry, base-state theta_v on momentum levels [K]
+    real(r8) thv_ds_zt            (pverp+1-top_lev)             ! Dry, base-state theta_v on thermo. levels [K]
+    real(r8) rfrzm                (pverp+1-top_lev)
+    real(r8) radf                 (pverp+1-top_lev)
+    real(r8) wprtp_forcing        (pverp+1-top_lev)
+    real(r8) wpthlp_forcing       (pverp+1-top_lev)
+    real(r8) rtp2_forcing         (pverp+1-top_lev)
+    real(r8) thlp2_forcing        (pverp+1-top_lev)
+    real(r8) rtpthlp_forcing      (pverp+1-top_lev)
     real(r8) ice_supersat_frac_out(pverp+1-top_lev)
-    real(r8) zt_g(pverp+1-top_lev)                 ! Thermodynamic grid of CLUBB [m]
-    real(r8) zi_g(pverp+1-top_lev)                 ! Momentum grid of CLUBB [m]
-    real(r8) zt_out(pcols,pverp)                   ! output for the thermo CLUBB grid           	[m]
-    real(r8) zi_out(pcols,pverp)                   ! output for momentum CLUBB grid             	[m]
-    real(r8) fcor                                  ! Coriolis forcing 			      	[s^-1]
-    real(r8) sfc_elevation                         ! Elevation of ground			      	[m AMSL]			      	[m]
-    real(r8) ubar                                  ! surface wind                                [m/s]
-    real(r8) ustar                                 ! surface stress				[m/s]
-    real(r8) z0                                    ! roughness height				[m]
-    real(r8) thlm_forcing(pverp+1-top_lev)         ! theta_l forcing (thermodynamic levels)      [K/s]
-    real(r8) rtm_forcing(pverp+1-top_lev)          ! r_t forcing (thermodynamic levels)          [(kg/kg)/s]
-    real(r8) um_forcing(pverp+1-top_lev)           ! u wind forcing (thermodynamic levels)     	[m/s/s]
-    real(r8) vm_forcing(pverp+1-top_lev)           ! v wind forcing (thermodynamic levels)     	[m/s/s]
-    real(r8) wm_zm(pverp+1-top_lev)                ! w mean wind component on momentum levels  	[m/s]
-    real(r8) wm_zt(pverp+1-top_lev)                ! w mean wind component on thermo. levels   	[m/s]
-    real(r8) p_in_Pa(pverp+1-top_lev)              ! Air pressure (thermodynamic levels)       	[Pa]
-    real(r8) rho_zt(pverp+1-top_lev)               ! Air density on thermo levels                [kt/m^3]
-    real(r8) rho_zm(pverp+1-top_lev)               ! Air density on momentum levels              [kg/m^3]
-    real(r8) exner(pverp+1-top_lev)                ! Exner function (thermodynamic levels)       [-]
-    real(r8) wpthlp_sfc                            ! w' theta_l' at surface                        [(m K)/s]
-    real(r8) wprtp_sfc                             ! w' r_t' at surface                            [(kg m)/( kg s)]
-    real(r8) upwp_sfc                              ! u'w' at surface                               [m^2/s^2]
-    real(r8) vpwp_sfc                              ! v'w' at surface                               [m^2/s^2]
-    real(r8) sclrm_forcing(pverp+1-top_lev,sclr_dim) ! Passive scalar forcing                        [{units vary}/s]
-    real(r8) wpsclrp_sfc(sclr_dim)                 ! Scalar flux at surface                        [{units vary} m/s]
-    real(r8) edsclrm_forcing(pverp+1-top_lev,edsclr_dim) ! Eddy passive scalar forcing                   [{units vary}/s]
-    real(r8) wpedsclrp_sfc(edsclr_dim)             ! Eddy-scalar flux at surface                   [{units vary} m/s]
-    real(r8) sclrm(pverp+1-top_lev,sclr_dim)       ! Passive scalar mean (thermo. levels)          [units vary]
-    real(r8) wpsclrp(pverp+1-top_lev,sclr_dim)     ! w'sclr' (momentum levels)                     [{units vary} m/s]
-    real(r8) sclrp2(pverp+1-top_lev,sclr_dim)      ! sclr'^2 (momentum levels)                     [{units vary}^2]
-    real(r8) sclrp3(pverp+1-top_lev,sclr_dim)      ! sclr'^3 (thermo. levels)                      [{units vary}^3]
-    real(r8) sclrprtp(pverp+1-top_lev,sclr_dim)    ! sclr'rt' (momentum levels)          [{units vary} (kg/kg)]
-    real(r8) sclrpthlp(pverp+1-top_lev,sclr_dim)   ! sclr'thlp' (momentum levels)        [{units vary} (K)]
-    real(r8) sclrpthvp_inout(pverp,sclr_dim)       ! sclr'th_v' (momentum levels)                  [{units vary} (K)]
-    real(r8) hydromet(pverp+1-top_lev,hydromet_dim)
-    real(r8) wphydrometp(pverp+1-top_lev,hydromet_dim)
-    real(r8) wp2hmp(pverp+1-top_lev,hydromet_dim)
-    real(r8) rtphmp_zt(pverp+1-top_lev,hydromet_dim)
-    real(r8) thlphmp_zt (pverp+1-top_lev,hydromet_dim)
-    real(r8) bflx22                                ! Variable for buoyancy flux for pbl            [K m/s]
-    real(r8) khzm_out(pverp+1-top_lev)             ! Eddy diffusivity of heat/moisture on momentum (i.e. interface) levels  [m^2/s]
-    real(r8) khzt_out(pverp+1-top_lev)             ! eddy diffusivity on thermo grids              [m^2/s]
-    real(r8) qclvar_out(pverp+1-top_lev)           ! cloud water variance                          [kg^2/kg^2]
-    real(r8) qclvar(pcols,pverp)                   ! cloud water variance                          [kg^2/kg^2]
-    real(r8) zo                                    ! roughness height                              [m]
-    real(r8) dz_g(pver)                            ! thickness of layer                            [m]
+    real(r8) zt_g                 (pverp+1-top_lev)               ! Thermodynamic grid of CLUBB [m]
+    real(r8) zi_g                 (pverp+1-top_lev)               ! Momentum grid of CLUBB [m]
+    real(r8) zt_out         (pcols,pverp)                         ! Output for the thermo CLUBB grid           	[m]
+    real(r8) zi_out         (pcols,pverp)                         ! Output for momentum CLUBB grid             	[m]
+    real(r8) fcor                                                 ! Coriolis forcing 			      	              [s^-1]
+    real(r8) sfc_elevation                                        ! Elevation of ground			      	            [m AMSL]
+    real(r8) ubar                                                 ! Surface wind                                [m/s]
+    real(r8) ustar                                                ! Surface stress				                      [m/s]
+    real(r8) z0                                                   ! Roughness height				                    [m]
+    real(r8) thlm_forcing         (pverp+1-top_lev)               ! theta_l forcing (thermodynamic levels)      [K/s]
+    real(r8) rtm_forcing          (pverp+1-top_lev)               ! r_t forcing (thermodynamic levels)          [(kg/kg)/s]
+    real(r8) um_forcing           (pverp+1-top_lev)               ! u wind forcing (thermodynamic levels)     	[m/s/s]
+    real(r8) vm_forcing           (pverp+1-top_lev)               ! v wind forcing (thermodynamic levels)     	[m/s/s]
+    real(r8) wm_zm                (pverp+1-top_lev)               ! w mean wind component on momentum levels  	[m/s]
+    real(r8) wm_zt                (pverp+1-top_lev)               ! w mean wind component on thermo. levels   	[m/s]
+    real(r8) p_in_Pa              (pverp+1-top_lev)               ! Air pressure (thermodynamic levels)       	[Pa]
+    real(r8) rho_zt               (pverp+1-top_lev)               ! Air density on thermo levels                [kt/m^3]
+    real(r8) rho_zm               (pverp+1-top_lev)               ! Air density on momentum levels              [kg/m^3]
+    real(r8) exner                (pverp+1-top_lev)               ! Exner function (thermodynamic levels)       [-]
+    real(r8) wpthlp_sfc                                           ! w' theta_l' at surface                      [(m K)/s]
+    real(r8) wprtp_sfc                                            ! w' r_t' at surface                          [(kg m)/( kg s)]
+    real(r8) upwp_sfc                                             ! u'w' at surface                             [m^2/s^2]
+    real(r8) vpwp_sfc                                             ! v'w' at surface                             [m^2/s^2]
+    real(r8) sclrm_forcing        (pverp+1-top_lev,sclr_dim)      ! Passive scalar forcing                      [{units vary}/s]
+    real(r8) wpsclrp_sfc                          (sclr_dim)      ! Scalar flux at surface                      [{units vary} m/s]
+    real(r8) edsclrm_forcing      (pverp+1-top_lev,edsclr_dim)    ! Eddy passive scalar forcing                 [{units vary}/s]
+    real(r8) wpedsclrp_sfc                        (edsclr_dim)    ! Eddy-scalar flux at surface                 [{units vary} m/s]
+    real(r8) sclrm                (pverp+1-top_lev,sclr_dim)      ! Passive scalar mean (thermo. levels)        [units vary]
+    real(r8) wpsclrp              (pverp+1-top_lev,sclr_dim)      ! w'sclr' (momentum levels)                   [{units vary} m/s]
+    real(r8) sclrp2               (pverp+1-top_lev,sclr_dim)      ! sclr'^2 (momentum levels)                   [{units vary}^2]
+    real(r8) sclrp3               (pverp+1-top_lev,sclr_dim)      ! sclr'^3 (thermo. levels)                    [{units vary}^3]
+    real(r8) sclrprtp             (pverp+1-top_lev,sclr_dim)      ! sclr'rt' (momentum levels)                  [{units vary} (kg/kg)]
+    real(r8) sclrpthlp            (pverp+1-top_lev,sclr_dim)      ! sclr'thlp' (momentum levels)                [{units vary} (K)]
+    real(r8) sclrpthvp_inout      (pverp          ,sclr_dim)      ! sclr'th_v' (momentum levels)                [{units vary} (K)]
+    real(r8) hydromet             (pverp+1-top_lev,hydromet_dim)
+    real(r8) wphydrometp          (pverp+1-top_lev,hydromet_dim)
+    real(r8) wp2hmp               (pverp+1-top_lev,hydromet_dim)
+    real(r8) rtphmp_zt            (pverp+1-top_lev,hydromet_dim)
+    real(r8) thlphmp_zt           (pverp+1-top_lev,hydromet_dim)
+    real(r8) bflx22                                               ! Variable for buoyancy flux for pbl            [K m/s]
+    real(r8) khzm_out             (pverp+1-top_lev)               ! Eddy diffusivity of heat/moisture on momentum (i.e. interface) levels  [m^2/s]
+    real(r8) khzt_out             (pverp+1-top_lev)               ! Eddy diffusivity on thermo grids              [m^2/s]
+    real(r8) qclvar_out           (pverp+1-top_lev)               ! Cloud water variance                          [kg^2/kg^2]
+    real(r8) qclvar         (pcols,pverp)                         ! Cloud water variance                          [kg^2/kg^2]
+    real(r8) zo                                                   ! Roughness height                              [m]
+    real(r8) dz_g                 (pver)                          ! Thickness of layer                            [m]
     real(r8) relvarmax
     real(r8) se_upper_a, se_upper_b, se_upper_diss
     real(r8) tw_upper_a, tw_upper_b, tw_upper_diss
-    real(r8) grid_dx(pcols), grid_dy(pcols)        ! CAM grid [m]
-    real(r8) host_dx, host_dy                      ! CAM grid [m]
+    real(r8) grid_dx(pcols), grid_dy(pcols)                       ! Host model grid [m]
+    real(r8) host_dx, host_dy                                     ! Host model grid [m]
 
     ! Variables below are needed to compute energy integrals for conservation
     real(r8) ke_a(pcols), ke_b(pcols), te_a(pcols), te_b(pcols)
     real(r8) wv_a(pcols), wv_b(pcols), wl_b(pcols), wl_a(pcols)
     real(r8) se_dis, se_a(pcols), se_b(pcols), clubb_s(pver)
 
-    real(r8) inv_exner_clubb(pcols,pverp)     ! Inverse exner function consistent with CLUBB  [-]
-    real(r8) wpthlp_output(pcols,pverp)       ! Heat flux output variable                     [W/m2]
-    real(r8) wprtp_output(pcols,pverp)        ! Total water flux output variable              [W/m2]
-    real(r8) wp3_output(pcols,pverp)          ! wp3 output                                    [m^3/s^3]
-    real(r8) rtpthlp_output(pcols,pverp)      ! rtpthlp ouptut                                [K kg/kg]
-    real(r8) qt_output(pcols,pver)            ! Total water mixing ratio for output           [kg/kg]
-    real(r8) thetal_output(pcols,pver)        ! Liquid water potential temperature output     [K]
-    real(r8) sl_output(pcols,pver)            ! Liquid water static energy                    [J/kg]
-    real(r8) ustar2(pcols)                    ! Surface stress for PBL height                 [m2/s2]
-    real(r8) rho(pcols,pverp)                 ! Midpoint density in CAM                       [kg/m^3]
-    real(r8) thv(pcols,pver)                  ! Virtual potential temperature                 [K]
-    real(r8) edsclr_out(pverp,edsclr_dim)     ! Scalars to be diffused through CLUBB          [units vary]
-    real(r8) rcm_in_layer(pcols,pverp)        ! CLUBB in-cloud liquid water mixing ratio      [kg/kg]
-    real(r8) cloud_cover(pcols,pverp)         ! CLUBB in-cloud cloud fraction                 [fraction]
-    real(r8) wprcp(pcols,pverp)               ! CLUBB liquid water flux                       [m/s kg/kg]
-    real(r8) wpthvp_diag(pcols,pverp)         ! CLUBB buoyancy flux                           [W/m^2]
-    real(r8) rvm(pcols,pverp)
-    real(r8) pdfp_rtp2(pcols, pverp)          ! Calculated R-tot variance from pdf_params     [kg^2/kg^2]
-    real(r8) rtp2_zt(pverp+1-top_lev)         ! CLUBB R-tot variance on thermo levs
-    real(r8) rtp2_zt_out(pcols, pverp)        ! CLUBB R-tot variance on thermo levs           [kg^2/kg^2]
-    real(r8) thl2_zt(pverp+1-top_lev)         ! CLUBB Theta-l variance on thermo levs         [K^2]
-    real(r8) thl2_zt_out(pcols, pverp)        ! CLUBB Theta-l variance on thermo levs
-    real(r8) wp2_zt(pverp+1-top_lev)          ! CLUBB W variance on theromo levs              [m^2/s^2]
-    real(r8) wp2_zt_out(pcols, pverp)
-    real(r8) dlf_liq_out(pcols, pverp)        ! Detrained liquid water from ZM                [kg/kg/s]
-    real(r8) dlf_ice_out(pcols, pverp)        ! Detrained ice water from ZM                   [kg/kg/s]
-    real(r8) wm_zt_out(pcols, pverp)          ! CLUBB mean W on thermo levs output            [m/s]
-    real(r8) mean_rt                          ! Calculated R-tot mean from pdf_params (temp)  [kg/kg]
-    real(r8) dlf2(pcols,pver)                 ! Detraining cld H20 from shallow convection    [kg/kg/day]
-    real(r8) eps                              ! Rv/Rd                                         [-]
-    real(r8) dum1                             ! dummy variable                                [units vary]
-    real(r8) obklen(pcols)                    ! Obukov length                                 [m]
-    real(r8) kbfs(pcols)                      ! Kinematic Surface heat flux                   [K m/s]
-    real(r8) th(pcols,pver)                   ! potential temperature                         [K]
-    real(r8) dummy2(pcols)                    ! dummy variable                                [units vary]
-    real(r8) dummy3(pcols)                    ! dummy variable                                [units vary]
-    real(r8) kinheat(pcols)                   ! Kinematic Surface heat flux                   [K m/s]
-    real(r8) rrho(pcols)                      ! Inverse of air density                        [1/kg/m^3]
-    real(r8) kinwat(pcols)                    ! Kinematic water vapor flux                    [m/s]
+    real(r8) inv_exner_clubb(pcols,pverp)            ! Inverse exner function consistent with CLUBB  [-]
+    real(r8) wpthlp_output  (pcols,pverp)            ! Heat flux output variable                     [W/m2]
+    real(r8) wprtp_output   (pcols,pverp)            ! Total water flux output variable              [W/m2]
+    real(r8) wp3_output     (pcols,pverp)            ! wp3 output                                    [m^3/s^3]
+    real(r8) rtpthlp_output (pcols,pverp)            ! rtpthlp ouptut                                [K kg/kg]
+    real(r8) qt_output      (pcols,pver)             ! Total water mixing ratio for output           [kg/kg]
+    real(r8) thetal_output  (pcols,pver)             ! Liquid water potential temperature output     [K]
+    real(r8) sl_output      (pcols,pver)             ! Liquid water static energy                    [J/kg]
+    real(r8) ustar2         (pcols)                  ! Surface stress for PBL height                 [m2/s2]
+    real(r8) rho            (pcols,pverp)            ! Midpoint density in CAM                       [kg/m^3]
+    real(r8) thv            (pcols,pver)             ! Virtual potential temperature                 [K]
+    real(r8) edsclr_out           (pverp,edsclr_dim) ! Scalars to be diffused through CLUBB          [units vary]
+    real(r8) rcm_in_layer   (pcols,pverp)            ! CLUBB in-cloud liquid water mixing ratio      [kg/kg]
+    real(r8) cloud_cover    (pcols,pverp)            ! CLUBB in-cloud cloud fraction                 [fraction]
+    real(r8) wprcp          (pcols,pverp)            ! CLUBB liquid water flux                       [m/s kg/kg]
+    real(r8) wpthvp_diag    (pcols,pverp)            ! CLUBB buoyancy flux                           [W/m^2]
+    real(r8) rvm            (pcols,pverp)
+    real(r8) pdfp_rtp2      (pcols,pverp)            ! Calculated R-tot variance from pdf_params     [kg^2/kg^2]
+    real(r8) rtp2_zt              (pverp+1-top_lev)  ! CLUBB R-tot variance on thermo levs
+    real(r8) rtp2_zt_out    (pcols,pverp)            ! CLUBB R-tot variance on thermo levs           [kg^2/kg^2]
+    real(r8) thl2_zt              (pverp+1-top_lev)  ! CLUBB Theta-l variance on thermo levs         [K^2]
+    real(r8) thl2_zt_out    (pcols,pverp)            ! CLUBB Theta-l variance on thermo levs
+    real(r8) wp2_zt               (pverp+1-top_lev)  ! CLUBB W variance on theromo levs              [m^2/s^2]
+    real(r8) wp2_zt_out     (pcols,pverp)
+    real(r8) dlf_liq_out    (pcols,pverp)            ! Detrained liquid water from ZM                [kg/kg/s]
+    real(r8) dlf_ice_out    (pcols,pverp)            ! Detrained ice water from ZM                   [kg/kg/s]
+    real(r8) wm_zt_out      (pcols,pverp)            ! CLUBB mean W on thermo levs output            [m/s]
+    real(r8) mean_rt                                 ! Calculated R-tot mean from pdf_params (temp)  [kg/kg]
+    real(r8) dlf2           (pcols,pver)             ! Detraining cld H20 from shallow convection    [kg/kg/day]
+    real(r8) eps                                     ! Rv/Rd                                         [-]
+    real(r8) dum1                                    ! Dummy variable                                [units vary]
+    real(r8) obklen         (pcols)                  ! Obukov length                                 [m]
+    real(r8) kbfs           (pcols)                  ! Kinematic Surface heat flux                   [K m/s]
+    real(r8) th             (pcols,pver)             ! Potential temperature                         [K]
+    real(r8) dummy2         (pcols)                  ! Dummy variable                                [units vary]
+    real(r8) dummy3         (pcols)                  ! Dummy variable                                [units vary]
+    real(r8) kinheat        (pcols)                  ! Kinematic Surface heat flux                   [K m/s]
+    real(r8) rrho           (pcols)                  ! Inverse of air density                        [1/kg/m^3]
+    real(r8) kinwat         (pcols)                  ! Kinematic water vapor flux                    [m/s]
     real(r8) latsub
-    real(r8) qrl_clubb(pverp+1-top_lev)
-    real(r8) qrl_zm(pverp+1-top_lev)
-    real(r8) thlp2_rad_out(pverp+1-top_lev)
+    real(r8) qrl_clubb            (pverp+1-top_lev)
+    real(r8) qrl_zm               (pverp+1-top_lev)
+    real(r8) thlp2_rad_out        (pverp+1-top_lev)
     real(r8) apply_const, rtm_test
 
-    real(r8), dimension(nparams) :: clubb_params ! These adjustable CLUBB parameters (C1, C2 ...)
-    real(r8), dimension(sclr_dim) :: sclr_tol 	! Tolerance on passive scalar                   [units vary]
+    real(r8), dimension(nparams) :: clubb_params     ! These adjustable CLUBB parameters (C1, C2 ...)
+    real(r8), dimension(sclr_dim) :: sclr_tol        ! Tolerance on passive scalar                   [units vary]
 
-    character(len=200) :: temp1, sub             ! Strings needed for CLUBB output
-    real(kind=time_precision) time_elapsed       ! time keep track of stats                      [s]
-    integer stats_nsamp, stats_nout           ! Stats sampling and output intervals for CLUBB [timestep]
+    character(len=200) :: temp1, sub                 ! Strings needed for CLUBB output
+    real(kind=time_precision) time_elapsed           ! time keep track of stats                      [s]
+    integer stats_nsamp, stats_nout                  ! Stats sampling and output intervals for CLUBB [timestep]
 
     real(r8) rtm_integral_1, rtm_integral_update, rtm_integral_forcing, rtm_integral_vtend, rtm_integral_ltend
 
-    real(r8), pointer, dimension(:,:) :: wp2      ! vertical velocity variance                   [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: wp3      ! third moment of vertical velocity            [m^3/s^3]
-    real(r8), pointer, dimension(:,:) :: wpthlp   ! turbulent flux of thetal                     [m/s K]
-    real(r8), pointer, dimension(:,:) :: wprtp    ! turbulent flux of moisture                   [m/s kg/kg]
-    real(r8), pointer, dimension(:,:) :: rtpthlp  ! covariance of thetal and qt                  [kg/kg K]
-    real(r8), pointer, dimension(:,:) :: rtp2     ! moisture variance                            [kg^2/kg^2]
-    real(r8), pointer, dimension(:,:) :: thlp2    ! temperature variance                         [K^2]
-    real(r8), pointer, dimension(:,:) :: rtp3     ! moisture 3rd order                           [kg^3/kg^3]
-    real(r8), pointer, dimension(:,:) :: thlp3    ! temperature 3rd order                        [K^3]
-    real(r8), pointer, dimension(:,:) :: up2      ! east-west wind variance                      [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: vp2      ! north-south wind variance                    [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: up3      ! east-west wind 3rd order                     [m^3/s^3]
-    real(r8), pointer, dimension(:,:) :: vp3      ! north-south wind 3rd order                   [m^3/s^3]
-    real(r8), pointer, dimension(:,:) :: upwp     ! east-west momentum flux                      [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: vpwp     ! north-south momentum flux                    [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: wpthvp   ! w'th_v' (momentum levels)                    [m/s K]
-    real(r8), pointer, dimension(:,:) :: wp2thvp  ! w'^2 th_v' (thermodynamic levels)            [m^2/s^2 K]
-    real(r8), pointer, dimension(:,:) :: rtpthvp  ! r_t'th_v' (momentum levels)                  [kg/kg K]
-    real(r8), pointer, dimension(:,:) :: thlpthvp ! th_l'th_v' (momentum levels)                 [K^2]
-    real(r8), pointer, dimension(:,:) :: cloud_frac ! Cloud fraction (thermodynamic levels)      [K^2]
-    real(r8), pointer, dimension(:,:) :: thlm     ! mean temperature                             [K]
-    real(r8), pointer, dimension(:,:) :: rtm      ! mean moisture mixing ratio                   [kg/kg]
-    real(r8), pointer, dimension(:,:) :: rcm      ! CLUBB cloud water mixing ratio               [kg/kg]
-    real(r8), pointer, dimension(:)   :: ztodtptr ! timestep to send to SILHS
-    real(r8), pointer, dimension(:,:) :: um       ! mean east-west wind                          [m/s]
-    real(r8), pointer, dimension(:,:) :: vm       ! mean north-south wind                        [m/s]
-    real(r8), pointer, dimension(:,:) :: cld      ! cloud fraction                               [fraction]
-    real(r8), pointer, dimension(:,:) :: concld   ! convective cloud fraction                    [fraction]
-    real(r8), pointer, dimension(:,:) :: ast      ! stratiform cloud fraction                    [fraction]
-    real(r8), pointer, dimension(:,:) :: alst     ! liquid stratiform cloud fraction             [fraction]
-    real(r8), pointer, dimension(:,:) :: aist     ! ice stratiform cloud fraction                [fraction]
-    real(r8), pointer, dimension(:,:) :: qlst     ! Physical in-stratus LWC                      [kg/kg]
-    real(r8), pointer, dimension(:,:) :: qist     ! Physical in-stratus IWC                      [kg/kg]
-    real(r8), pointer, dimension(:,:) :: deepcu   ! deep convection cloud fraction               [fraction]
-    real(r8), pointer, dimension(:,:) :: shalcu   ! shallow convection cloud fraction            [fraction]
-    real(r8), pointer, dimension(:,:) :: khzm     ! CLUBB's eddy diffusivity of heat/moisture on momentum (i.e. interface) levels          [m^2/s]
-    real(r8), pointer, dimension(:) :: pblh     ! planetary boundary layer height                [m]
-    real(r8), pointer, dimension(:,:) :: tke      ! turbulent kinetic energy                     [m^2/s^2]
-    real(r8), pointer, dimension(:,:) :: dp_icwmr ! deep convection in cloud mixing ratio        [kg/kg]
+    real(r8), pointer, dimension(:,:) :: wp2               ! vertical velocity variance                   [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: wp3               ! third moment of vertical velocity            [m^3/s^3]
+    real(r8), pointer, dimension(:,:) :: wpthlp            ! turbulent flux of thetal                     [m/s K]
+    real(r8), pointer, dimension(:,:) :: wprtp             ! turbulent flux of moisture                   [m/s kg/kg]
+    real(r8), pointer, dimension(:,:) :: rtpthlp           ! covariance of thetal and qt                  [kg/kg K]
+    real(r8), pointer, dimension(:,:) :: rtp2              ! moisture variance                            [kg^2/kg^2]
+    real(r8), pointer, dimension(:,:) :: thlp2             ! temperature variance                         [K^2]
+    real(r8), pointer, dimension(:,:) :: rtp3              ! moisture 3rd order                           [kg^3/kg^3]
+    real(r8), pointer, dimension(:,:) :: thlp3             ! temperature 3rd order                        [K^3]
+    real(r8), pointer, dimension(:,:) :: up2               ! east-west wind variance                      [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: vp2               ! north-south wind variance                    [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: up3               ! east-west wind 3rd order                     [m^3/s^3]
+    real(r8), pointer, dimension(:,:) :: vp3               ! north-south wind 3rd order                   [m^3/s^3]
+    real(r8), pointer, dimension(:,:) :: upwp              ! east-west momentum flux                      [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: vpwp              ! north-south momentum flux                    [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: wpthvp            ! w'th_v' (momentum levels)                    [m/s K]
+    real(r8), pointer, dimension(:,:) :: wp2thvp           ! w'^2 th_v' (thermodynamic levels)            [m^2/s^2 K]
+    real(r8), pointer, dimension(:,:) :: rtpthvp           ! r_t'th_v' (momentum levels)                  [kg/kg K]
+    real(r8), pointer, dimension(:,:) :: thlpthvp          ! th_l'th_v' (momentum levels)                 [K^2]
+    real(r8), pointer, dimension(:,:) :: cloud_frac        ! Cloud fraction (thermodynamic levels)        [K^2]
+    real(r8), pointer, dimension(:,:) :: thlm              ! mean temperature                             [K]
+    real(r8), pointer, dimension(:,:) :: rtm               ! mean moisture mixing ratio                   [kg/kg]
+    real(r8), pointer, dimension(:,:) :: rcm               ! CLUBB cloud water mixing ratio               [kg/kg]
+    real(r8), pointer, dimension(:  ) :: ztodtptr          ! timestep to send to SILHS
+    real(r8), pointer, dimension(:,:) :: um                ! mean east-west wind                          [m/s]
+    real(r8), pointer, dimension(:,:) :: vm                ! mean north-south wind                        [m/s]
+    real(r8), pointer, dimension(:,:) :: cld               ! cloud fraction                               [fraction]
+    real(r8), pointer, dimension(:,:) :: concld            ! convective cloud fraction                    [fraction]
+    real(r8), pointer, dimension(:,:) :: ast               ! stratiform cloud fraction                    [fraction]
+    real(r8), pointer, dimension(:,:) :: alst              ! liquid stratiform cloud fraction             [fraction]
+    real(r8), pointer, dimension(:,:) :: aist              ! ice stratiform cloud fraction                [fraction]
+    real(r8), pointer, dimension(:,:) :: qlst              ! Physical in-stratus LWC                      [kg/kg]
+    real(r8), pointer, dimension(:,:) :: qist              ! Physical in-stratus IWC                      [kg/kg]
+    real(r8), pointer, dimension(:,:) :: deepcu            ! deep convection cloud fraction               [fraction]
+    real(r8), pointer, dimension(:,:) :: shalcu            ! shallow convection cloud fraction            [fraction]
+    real(r8), pointer, dimension(:,:) :: khzm              ! CLUBB's eddy diffusivity of heat/moisture on momentum (i.e. interface) levels          [m^2/s]
+    real(r8), pointer, dimension(:  ) :: pblh              ! planetary boundary layer height              [m]
+    real(r8), pointer, dimension(:,:) :: tke               ! turbulent kinetic energy                     [m^2/s^2]
+    real(r8), pointer, dimension(:,:) :: dp_icwmr          ! deep convection in cloud mixing ratio        [kg/kg]
     real(r8), pointer, dimension(:,:) :: ice_supersat_frac ! Cloud fraction of ice clouds (pverp)[fraction]
-    real(r8), pointer, dimension(:,:) :: relvar   ! relative cloud water variance                [-]
-    real(r8), pointer, dimension(:,:) :: accre_enhan ! accretion enhancement factor              [-]
+    real(r8), pointer, dimension(:,:) :: relvar            ! Relative cloud water variance                [-]
+    real(r8), pointer, dimension(:,:) :: accre_enhan       ! Accretion enhancement factor                 [-]
     real(r8), pointer, dimension(:,:) :: naai
     real(r8), pointer, dimension(:,:) :: cmeliq
-    real(r8), pointer, dimension(:,:) :: cmfmc_sh ! Shallow convective mass flux--m subc (pcols,pverp) [kg/m2/s/]
+    real(r8), pointer, dimension(:,:) :: cmfmc_sh          ! Shallow convective mass flux--m subc (pcols,pverp) [kg/m2/s/]
 
     real(r8), pointer, dimension(:,:) :: qsatfac
     real(r8), pointer, dimension(:,:) :: npccn
@@ -1658,27 +1646,28 @@ contains
     real(r8), pointer, dimension(:,:) :: wpthlp_mc_zt
     real(r8), pointer, dimension(:,:) :: rtpthlp_mc_zt
 
-    real(r8)  qitend(pcols,pver)
+    real(r8)  qitend (pcols,pver)
     real(r8)  initend(pcols,pver)  ! Needed for ice supersaturation adjustment calculation
 
   !  ZM microphysics
-    real(r8), pointer :: dlfzm(:,:)  ! ZM detrained convective cloud water mixing ratio.
-    real(r8), pointer :: difzm(:,:)  ! ZM detrained convective cloud ice mixing ratio.
+    real(r8), pointer :: dlfzm (:,:) ! ZM detrained convective cloud water mixing ratio.
+    real(r8), pointer :: difzm (:,:) ! ZM detrained convective cloud ice mixing ratio.
     real(r8), pointer :: dnlfzm(:,:) ! ZM detrained convective cloud water num concen.
     real(r8), pointer :: dnifzm(:,:) ! ZM detrained convective cloud ice num concen.
 
-    real(r8) stend(pcols,pver)
-    real(r8) qvtend(pcols,pver)
-    real(r8) qctend(pcols,pver)
+    real(r8) stend  (pcols,pver)
+    real(r8) qvtend (pcols,pver)
+    real(r8) qctend (pcols,pver)
     real(r8) inctend(pcols,pver)
-    real(r8) fqtend(pcols,pver)
-    real(r8) rhmini(pcols)
-    real(r8) rhmaxi(pcols)
+    real(r8) fqtend (pcols,pver)
+    real(r8) rhmini (pcols)
+    real(r8) rhmaxi (pcols)
     integer  troplev(pcols)
+
     logical  lqice(pcnst)
     logical  apply_to_surface
 
-    real(r8) temp2d(pcols,pver), temp2dp(pcols,pverp)  ! temporary array for holding scaled outputs
+    real(r8) temp2d(pcols,pver), temp2dp(pcols,pverp)  ! Temporary array for holding scaled outputs
 
     integer nlev
     intrinsic max
@@ -1690,33 +1679,28 @@ contains
     det_ice(:) = 0.0_r8
 #ifdef CLUBB_SGS
 
-    !-----------------------------------------------------------------------------------------------!
-    !-----------------------------------------------------------------------------------------------!
-    !-----------------------------------------------------------------------------------------------!
-    !       MAIN COMPUTATION BEGINS HERE                                                            !
-    !-----------------------------------------------------------------------------------------------!
-    !-----------------------------------------------------------------------------------------------!
-    !-----------------------------------------------------------------------------------------------!
+    ! --------------------------------------------------------------------------
+    ! MAIN COMPUTATION BEGINS HERE
+    ! --------------------------------------------------------------------------
 
     nlev = pver + 1 - top_lev
 
-    rtp2_zt_out = 0._r8
-    thl2_zt_out = 0._r8
-    wp2_zt_out  = 0._r8
-    pdfp_rtp2   = 0._r8
-    wm_zt_out   = 0._r8
-
-    frac_limit = 0.01_r8
-    ic_limit   = 1.e-12_r8
+    rtp2_zt_out = 0
+    thl2_zt_out = 0
+    wp2_zt_out  = 0
+    pdfp_rtp2   = 0
+    wm_zt_out   = 0
+    frac_limit  = 0.01_r8
+    ic_limit    = 1.0e-12_r8
 
     if (clubb_do_adv) then
-      apply_const = 1._r8  ! Initialize to one, only if CLUBB's moments are advected
+      apply_const = 1  ! Initialize to one, only if CLUBB's moments are advected
     else
-      apply_const = 0._r8  ! Never want this if CLUBB's moments are not advected
+      apply_const = 0  ! Never want this if CLUBB's moments are not advected
     end if
 
     ! Get indicees for cloud and ice mass and cloud and ice number
-    call cnst_get_ind('Q', ixq)
+    call cnst_get_ind('Q'     , ixq)
     call cnst_get_ind('CLDLIQ', ixcldliq)
     call cnst_get_ind('CLDICE', ixcldice)
     call cnst_get_ind('NUMLIQ', ixnumliq)
@@ -1740,52 +1724,52 @@ contains
     end if
 
     ! Determine number of columns and which chunk computation is to be performed on
-    ncol = state%ncol
+    ncol  = state%ncol
     lchnk = state%lchnk
 
     ! Determine time step of physics buffer
     itim_old = pbuf_old_tim_idx()
 
     ! Establish associations between pointers and physics buffer fields
-    call pbuf_get_field(pbuf, wp2_idx,     wp2,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, wp3_idx,     wp3,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, wpthlp_idx,  wpthlp,  start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, wprtp_idx,   wprtp,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, rtpthlp_idx, rtpthlp, start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, rtp2_idx,    rtp2,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, thlp2_idx,   thlp2,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, up2_idx,     up2,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, vp2_idx,     vp2,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
+    call pbuf_get_field(pbuf, wp2_idx,     wp2,     start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, wp3_idx,     wp3,     start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, wpthlp_idx,  wpthlp,  start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, wprtp_idx,   wprtp,   start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, rtpthlp_idx, rtpthlp, start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, rtp2_idx,    rtp2,    start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, thlp2_idx,   thlp2,   start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, up2_idx,     up2,     start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, vp2_idx,     vp2,     start=[1,1,itim_old], kount=[pcols,pverp,1])
 
-    call pbuf_get_field(pbuf, rtp3_idx,    rtp3,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, thlp3_idx,   thlp3,   start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, up3_idx,     up3,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, vp3_idx,     vp3,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
+    call pbuf_get_field(pbuf, rtp3_idx,    rtp3,    start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, thlp3_idx,   thlp3,   start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, up3_idx,     up3,     start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, vp3_idx,     vp3,     start=[1,1,itim_old], kount=[pcols,pverp,1])
 
-    call pbuf_get_field(pbuf, upwp_idx,    upwp,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, vpwp_idx,    vpwp,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
+    call pbuf_get_field(pbuf, upwp_idx,    upwp,    start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, vpwp_idx,    vpwp,    start=[1,1,itim_old], kount=[pcols,pverp,1])
     call pbuf_get_field(pbuf, wpthvp_idx,  wpthvp)
     call pbuf_get_field(pbuf, wp2thvp_idx, wp2thvp)
     call pbuf_get_field(pbuf, rtpthvp_idx, rtpthvp)
     call pbuf_get_field(pbuf, thlpthvp_idx,thlpthvp)
     call pbuf_get_field(pbuf, rcm_idx,     rcm)
     call pbuf_get_field(pbuf, cloud_frac_idx, cloud_frac)
-    call pbuf_get_field(pbuf, thlm_idx,    thlm,    start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, rtm_idx,     rtm,     start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, um_idx,      um,      start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
-    call pbuf_get_field(pbuf, vm_idx,      vm,      start=(/1,1,itim_old/), kount=(/pcols,pverp,1/))
+    call pbuf_get_field(pbuf, thlm_idx,    thlm,    start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, rtm_idx,     rtm,     start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, um_idx,      um,      start=[1,1,itim_old], kount=[pcols,pverp,1])
+    call pbuf_get_field(pbuf, vm_idx,      vm,      start=[1,1,itim_old], kount=[pcols,pverp,1])
 
     call pbuf_get_field(pbuf, tke_idx,     tke)
     call pbuf_get_field(pbuf, qrl_idx,     qrl)
     call pbuf_get_field(pbuf, radf_idx,    radf_clubb)
 
-    call pbuf_get_field(pbuf, cld_idx,     cld,     start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, concld_idx,  concld,  start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, ast_idx,     ast,     start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, alst_idx,    alst,    start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, aist_idx,    aist,    start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, qlst_idx,    qlst,    start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-    call pbuf_get_field(pbuf, qist_idx,    qist,    start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+    call pbuf_get_field(pbuf, cld_idx,     cld,     start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, concld_idx,  concld,  start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, ast_idx,     ast,     start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, alst_idx,    alst,    start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, aist_idx,    aist,    start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, qlst_idx,    qlst,    start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, qist_idx,    qist,    start=[1,1,itim_old], kount=[pcols,pver,1])
 
     call pbuf_get_field(pbuf, qsatfac_idx, qsatfac)
 
@@ -1810,13 +1794,13 @@ contains
     call pbuf_get_field(pbuf, rtpthlp_mc_zt_idx, rtpthlp_mc_zt)
 
     ! Initialize the apply_const variable (note special logic is due to eularian backstepping)
-    if (clubb_do_adv .and. (is_first_step() .or. all(wpthlp(1:ncol,1:pver)  ==  0._r8))) then
-      apply_const = 0._r8  ! On first time through do not remove constant
-                           !  from moments since it has not been added yet
+    if (clubb_do_adv .and. (is_first_step() .or. all(wpthlp(1:ncol,1:pver)  ==  0))) then
+      apply_const = 0  ! On first time through do not remove constant
+                       !  from moments since it has not been added yet
     end if
 
     !  Set the ztodt timestep in pbuf for SILHS
-    ztodtptr(:) = 1.0_r8*hdtime
+    ztodtptr = 1.0_r8 * hdtime
 
     ! Define the grid box size.  CLUBB needs this information to determine what
     !  the maximum length scale should be.  This depends on the column for
@@ -1829,31 +1813,39 @@ contains
       ! Ice Saturation Adjustment Computation  !
       ! -------------------------------------- !
 
-      lq2(:)  = .FALSE.
-      lq2(1)  = .TRUE.
-      lq2(ixcldice) = .TRUE.
-      lq2(ixnumice) = .TRUE.
+      lq2(:)  = .false.
+      lq2(1)  = .true.
+      lq2(ixcldice) = .true.
+      lq2(ixnumice) = .true.
 
       latsub = latvap + latice
 
       call physics_ptend_init(ptend_loc, state%psetcols, 'iceadj', ls=.true., lq=lq2 )
 
-      stend(:ncol,:)=0._r8
-      qvtend(:ncol,:)=0._r8
-      qitend(:ncol,:)=0._r8
-      initend(:ncol,:)=0._r8
+      stend  (:ncol,:) = 0
+      qvtend (:ncol,:) = 0
+      qitend (:ncol,:) = 0
+      initend(:ncol,:) = 0
 
-      call ice_macro_tend(naai(:ncol,top_lev:pver),state1%t(:ncol,top_lev:pver), &
-         state1%pmid(:ncol,top_lev:pver),state1%q(:ncol,top_lev:pver,1),state1%q(:ncol,top_lev:pver,ixcldice),&
-         state1%q(:ncol,top_lev:pver,ixnumice),latsub,hdtime,&
-         stend(:ncol,top_lev:pver),qvtend(:ncol,top_lev:pver),qitend(:ncol,top_lev:pver),&
-         initend(:ncol,top_lev:pver))
+      call ice_macro_tend( &
+        naai    =naai       (:ncol,top_lev:pver), &
+        t       =state1%t   (:ncol,top_lev:pver), &
+        p       =state1%pmid(:ncol,top_lev:pver), &
+        qv      =state1%q   (:ncol,top_lev:pver,1), &
+        qi      =state1%q   (:ncol,top_lev:pver,ixcldice), &
+        ni      =state1%q   (:ncol,top_lev:pver,ixnumice), &
+        xxls    =latsub                         , &
+        deltat  =hdtime                         , &
+        stend   =stend      (:ncol,top_lev:pver), &
+        qvtend  =qvtend     (:ncol,top_lev:pver), &
+        qitend  =qitend     (:ncol,top_lev:pver), &
+        nitend  =initend    (:ncol,top_lev:pver))
 
-      ! update local copy of state with the tendencies
-      ptend_loc%q(:ncol,top_lev:pver,1)=qvtend(:ncol,top_lev:pver)
-      ptend_loc%q(:ncol,top_lev:pver,ixcldice)=qitend(:ncol,top_lev:pver)
-      ptend_loc%q(:ncol,top_lev:pver,ixnumice)=initend(:ncol,top_lev:pver)
-      ptend_loc%s(:ncol,top_lev:pver)=stend(:ncol,top_lev:pver)
+      ! Update local copy of state with the tendencies
+      ptend_loc%q(:ncol,top_lev:pver,1)        = qvtend (:ncol,top_lev:pver)
+      ptend_loc%q(:ncol,top_lev:pver,ixcldice) = qitend (:ncol,top_lev:pver)
+      ptend_loc%q(:ncol,top_lev:pver,ixnumice) = initend(:ncol,top_lev:pver)
+      ptend_loc%s(:ncol,top_lev:pver)          = stend  (:ncol,top_lev:pver)
 
       ! Add the ice tendency to the output tendency
       call physics_ptend_sum(ptend_loc, ptend_all, ncol)
@@ -1863,10 +1855,10 @@ contains
 
       ! Write output for tendencies:
       temp2d(:ncol,:pver) =  stend(:ncol,:pver)/cpairv(:ncol,:pver,lchnk)
-      call outfld( 'TTENDICE',  temp2d, pcols, lchnk )
-      call outfld( 'QVTENDICE', qvtend, pcols, lchnk )
-      call outfld( 'QITENDICE', qitend, pcols, lchnk )
-      call outfld( 'NITENDICE', initend, pcols, lchnk )
+      call outfld( 'TTENDICE' , temp2d , pcols, lchnk)
+      call outfld( 'QVTENDICE', qvtend , pcols, lchnk)
+      call outfld( 'QITENDICE', qitend , pcols, lchnk)
+      call outfld( 'NITENDICE', initend, pcols, lchnk)
 
     end if
 
@@ -1888,31 +1880,31 @@ contains
       dtime = hdtime
     end if
 
-    !  Now check to see if CLUBB time step divides evenly into
-    !    the host model time step.  If not, force it to divide evenly.
-    !    We also want it to be 5 minutes or less.  This section is
-    !    mainly for host model time steps that are not evenly divisible
-    !    by 5 minutes
+    ! Now check to see if CLUBB time step divides evenly into
+    !   the host model time step.  If not, force it to divide evenly.
+    !   We also want it to be 5 minutes or less.  This section is
+    !   mainly for host model time steps that are not evenly divisible
+    !   by 5 minutes
 
-    if (mod(hdtime,dtime) /= 0) then
-      dtime = hdtime/2._r8
+    if (mod(hdtime, dtime) /= 0) then
+      dtime = hdtime / 2.0_r8
       do while (dtime > clubb_timestep)
-        dtime = dtime/2._r8
+        dtime = dtime / 2.0_r8
       end do
     end if
 
-    !  If resulting host model time step and CLUBB time step do not divide evenly
-    !    into each other, have model throw a fit.
+    ! If resulting host model time step and CLUBB time step do not divide evenly
+    !   into each other, have model throw a fit.
 
-    if (mod(hdtime,dtime) /= 0) then
+    if (mod(hdtime, dtime) /= 0) then
       call endrun(subr // ': CLUBB time step and HOST time step NOT compatible')
     end if
 
-    !  determine number of timesteps CLUBB core should be advanced,
-    !  host time step divided by CLUBB time step
+    ! Determine number of timesteps CLUBB core should be advanced,
+    ! host time step divided by CLUBB time step
     nadv = max(hdtime/dtime, 1.0_r8)
 
-    !  Initialize forcings for transported scalars to zero
+    ! Initialize forcings for transported scalars to zero
     sclrm_forcing(:,:)   = 0
     edsclrm_forcing(:,:) = 0
     sclrm(:,:)           = 0
@@ -1943,19 +1935,18 @@ contains
 
         if (clubb_do_adv) then
           if (macmic_it == 1) then
-
-            !  Note that some of the moments below can be positive or negative.
-            !    Remove a constant that was added to prevent dynamics from clipping
-            !    them to prevent dynamics from making them positive.
-            thlp2(i,k)   = state1%q(i,k,ixthlp2)
-            rtp2(i,k)    = state1%q(i,k,ixrtp2)
-            rtpthlp(i,k) = state1%q(i,k,ixrtpthlp) - (rtpthlp_const*apply_const)
-            wpthlp(i,k)  = state1%q(i,k,ixwpthlp) - (wpthlp_const*apply_const)
-            wprtp(i,k)   = state1%q(i,k,ixwprtp) - (wprtp_const*apply_const)
-            wp2(i,k)     = state1%q(i,k,ixwp2)
-            wp3(i,k)     = state1%q(i,k,ixwp3) - (wp3_const*apply_const)
-            up2(i,k)     = state1%q(i,k,ixup2)
-            vp2(i,k)     = state1%q(i,k,ixvp2)
+            ! Note that some of the moments below can be positive or negative.
+            !   Remove a constant that was added to prevent dynamics from clipping
+            !   them to prevent dynamics from making them positive.
+            thlp2  (i,k) = state1%q(i,k,ixthlp2  )
+            rtp2   (i,k) = state1%q(i,k,ixrtp2   )
+            rtpthlp(i,k) = state1%q(i,k,ixrtpthlp) - rtpthlp_const * apply_const
+            wpthlp (i,k) = state1%q(i,k,ixwpthlp ) - wpthlp_const  * apply_const
+            wprtp  (i,k) = state1%q(i,k,ixwprtp  ) - wprtp_const   * apply_const
+            wp2    (i,k) = state1%q(i,k,ixwp2    )
+            wp3    (i,k) = state1%q(i,k,ixwp3    ) - wp3_const     * apply_const
+            up2    (i,k) = state1%q(i,k,ixup2    )
+            vp2    (i,k) = state1%q(i,k,ixvp2    )
           end if
         end if
       end do
@@ -1964,35 +1955,35 @@ contains
     if (clubb_do_adv) then
       ! If not last step of macmic loop then set apply_const back to
       !   zero to prevent output from being corrupted.
-      if (macmic_it  ==  cld_macmic_num_steps) then
-        apply_const = 1._r8
+      if (macmic_it == cld_macmic_num_steps) then
+        apply_const = 1
       else
-        apply_const = 0._r8
+        apply_const = 0
       end if
     end if
 
-    rtm(1:ncol,pverp)  = rtm(1:ncol,pver)
-    um(1:ncol,pverp)   = state1%u(1:ncol,pver)
-    vm(1:ncol,pverp)   = state1%v(1:ncol,pver)
-    thlm(1:ncol,pverp) = thlm(1:ncol,pver)
+    rtm (1:ncol,pverp) = rtm     (1:ncol,pver)
+    um  (1:ncol,pverp) = state1%u(1:ncol,pver)
+    vm  (1:ncol,pverp) = state1%v(1:ncol,pver)
+    thlm(1:ncol,pverp) = thlm    (1:ncol,pver)
 
     if (clubb_do_adv) then
-       thlp2(1:ncol,pverp)=thlp2(1:ncol,pver)
-       rtp2(1:ncol,pverp)=rtp2(1:ncol,pver)
-       rtpthlp(1:ncol,pverp)=rtpthlp(1:ncol,pver)
-       wpthlp(1:ncol,pverp)=wpthlp(1:ncol,pver)
-       wprtp(1:ncol,pverp)=wprtp(1:ncol,pver)
-       wp2(1:ncol,pverp)=wp2(1:ncol,pver)
-       wp3(1:ncol,pverp)=wp3(1:ncol,pver)
-       up2(1:ncol,pverp)=up2(1:ncol,pver)
-       vp2(1:ncol,pverp)=vp2(1:ncol,pver)
+       thlp2  (1:ncol,pverp) = thlp2  (1:ncol,pver)
+       rtp2   (1:ncol,pverp) = rtp2   (1:ncol,pver)
+       rtpthlp(1:ncol,pverp) = rtpthlp(1:ncol,pver)
+       wpthlp (1:ncol,pverp) = wpthlp (1:ncol,pver)
+       wprtp  (1:ncol,pverp) = wprtp  (1:ncol,pver)
+       wp2    (1:ncol,pverp) = wp2    (1:ncol,pver)
+       wp3    (1:ncol,pverp) = wp3    (1:ncol,pver)
+       up2    (1:ncol,pverp) = up2    (1:ncol,pver)
+       vp2    (1:ncol,pverp) = vp2    (1:ncol,pver)
     end if
 
     !  Compute virtual potential temperature, which is needed for CLUBB
     do k=1,pver
       do i=1,ncol
-        thv(i,k) = state1%t(i,k)*inv_exner_clubb(i,k)*(1._r8+zvir*state1%q(i,k,ixq)&
-                   -state1%q(i,k,ixcldliq))
+        thv(i,k) = state1%t(i,k) * inv_exner_clubb(i,k) * (1 + zvir * state1%q(i,k,ixq) &
+                 - state1%q(i,k,ixcldliq))
       end do
     end do
 
@@ -2009,7 +2000,7 @@ contains
 
       ! Define the CLUBB momentum grid (in height, units of m)
       do k = 1, nlev + 1
-         zi_g(k) = state1%zi(i,pverp-k+1) - state1%zi(i,pver+1)
+        zi_g(k) = state1%zi(i,pverp-k+1) - state1%zi(i,pver+1)
       end do
 
       ! Define the CLUBB thermodynamic grid (in units of m)
@@ -2018,11 +2009,11 @@ contains
       end do
 
       do k = 1, pver
-        dz_g(k) = state1%zi(i,k) - state1%zi(i,k+1)  ! compute thickness
+        dz_g(k) = state1%zi(i,k) - state1%zi(i,k+1)  ! Compute thickness
       end do
 
       ! Thermodynamic ghost point is below surface
-      zt_g(1) = -1.0_r8 * zt_g(2)
+      zt_g(1) = -zt_g(2)
 
       ! Set the elevation of the surface
       sfc_elevation = state1%zi(i,pver+1)
@@ -2034,34 +2025,34 @@ contains
       ! Compute thermodynamic stuff needed for CLUBB on thermo levels.
       ! Inputs for the momentum levels are set below setup_clubb core
       do k = 1, nlev
-        p_in_Pa(k+1)         = state1%pmid(i,pver-k+1)                              ! Pressure profile
-        exner(k+1)           = 1._r8/inv_exner_clubb(i,pver-k+1)
-        rho_ds_zt(k+1)       = (1._r8/gravit)*(state1%pdel(i,pver-k+1)/dz_g(pver-k+1))
-        invrs_rho_ds_zt(k+1) = 1._r8/(rho_ds_zt(k+1))                               ! Inverse ds rho at thermo
-        rho_in(k+1)          = rho_ds_zt(k+1)                                       ! rho on thermo
-        thv_ds_zt(k+1)       = thv(i,pver-k+1)                                      ! thetav on thermo
-        rfrzm(k+1)           = state1%q(i,pver-k+1,ixcldice)
-        radf(k+1)            = radf_clubb(i,pver-k+1)
-        qrl_clubb(k+1)       = qrl(i,pver-k+1)/(cpairv(i,k,lchnk)*state1%pdel(i,pver-k+1))
+        p_in_Pa        (k+1) = state1%pmid(i,pver-k+1)                              ! Pressure profile
+        exner          (k+1) = 1.0_r8 / inv_exner_clubb(i,pver-k+1)
+        rho_ds_zt      (k+1) = state1%pdel(i,pver-k+1) / dz_g(pver-k+1) / gravit
+        invrs_rho_ds_zt(k+1) = 1.0_r8 / rho_ds_zt(k+1)                              ! Inverse ds rho at thermo
+        rho_in         (k+1) = rho_ds_zt(k+1)                                       ! rho on thermo
+        thv_ds_zt      (k+1) = thv(i,pver-k+1)                                      ! thetav on thermo
+        rfrzm          (k+1) = state1%q(i,pver-k+1,ixcldice)
+        radf           (k+1) = radf_clubb(i,pver-k+1)
+        qrl_clubb      (k+1) = qrl(i,pver-k+1) / (cpairv(i,k,lchnk)*state1%pdel(i,pver-k+1))
       end do
 
       ! Below computes the same stuff for the ghost point.  May or may
       ! not be needed, just to be safe to avoid NaN's
-      rho_ds_zt(1)       = rho_ds_zt(2)
+      rho_ds_zt      (1) = rho_ds_zt      (2)
       invrs_rho_ds_zt(1) = invrs_rho_ds_zt(2)
-      rho_in(1)          = rho_ds_zt(2)
-      thv_ds_zt(1)       = thv_ds_zt(2)
-      rho_zt(:)          = rho_in(:)
-      p_in_Pa(1)         = p_in_Pa(2)
-      exner(1)           = exner(2)
-      rfrzm(1)           = rfrzm(2)
-      radf(1)            = radf(2)
-      qrl_clubb(1)       = qrl_clubb(2)
+      rho_in         (1) = rho_ds_zt      (2)
+      thv_ds_zt      (1) = thv_ds_zt      (2)
+      rho_zt         (:) = rho_in         (:)
+      p_in_Pa        (1) = p_in_Pa        (2)
+      exner          (1) = exner          (2)
+      rfrzm          (1) = rfrzm          (2)
+      radf           (1) = radf           (2)
+      qrl_clubb      (1) = qrl_clubb      (2)
 
       ! Compute mean w wind on thermo grid, convert from omega to w
       wm_zt(1) = 0
       do k = 1, nlev
-        wm_zt(k+1) = -1.0_r8 * state1%omega(i,pver-k+1) / (rho_in(k+1)*gravit)
+        wm_zt(k+1) = -state1%omega(i,pver-k+1) / (rho_in(k+1) * gravit)
       end do
 
       ! Define surface sources for transported variables for diffusion, will
@@ -2084,8 +2075,7 @@ contains
       ! Important note:  do not make any calls that use CLUBB grid-height
       !                  operators (such as zt2zm_api, etc.) until AFTER the
       !                  call to setup_grid_heights_api.
-      call setup_grid_heights_api(l_implemented, grid_type, zi_g(2), &
-           zi_g(1), zi_g, zt_g)
+      call setup_grid_heights_api(l_implemented, grid_type, zi_g(2), zi_g(1), zi_g, zt_g)
 
       call setup_parameters_api( zi_g(2), clubb_params, nlev+1, grid_type, &
                                  zi_g, zt_g, &
@@ -2115,10 +2105,10 @@ contains
       rtpthlp_forcing = rtpthlp_forcing + zt2zm_api(rtpthlp_mc_zt(i,:))
 
       ! Zero out SILHS covariance contribution terms
-      rtp2_mc_zt(i,:)    = 0
-      thlp2_mc_zt(i,:)   = 0
-      wprtp_mc_zt(i,:)   = 0
-      wpthlp_mc_zt(i,:)  = 0
+      rtp2_mc_zt   (i,:) = 0
+      thlp2_mc_zt  (i,:) = 0
+      wprtp_mc_zt  (i,:) = 0
+      wpthlp_mc_zt (i,:) = 0
       rtpthlp_mc_zt(i,:) = 0
 
       ! Compute some inputs from the thermodynamic grid
@@ -2130,87 +2120,87 @@ contains
       wm_zm           = zt2zm_api(wm_zt)
 
       ! Surface fluxes provided by host model
-      wpthlp_sfc = cam_in%shf(i)/(cpair*rho_ds_zm(1))       ! Sensible heat flux
-      wprtp_sfc  = cam_in%cflx(i,1)/rho_ds_zm(1)            ! Moisture flux  (check rho)
-      upwp_sfc   = cam_in%wsx(i)/rho_ds_zm(1)               ! Surface meridional momentum flux
-      vpwp_sfc   = cam_in%wsy(i)/rho_ds_zm(1)               ! Surface zonal momentum flux
+      wpthlp_sfc = cam_in%shf (i)   / (cpair * rho_ds_zm(1)) ! Sensible heat flux
+      wprtp_sfc  = cam_in%cflx(i,1) / rho_ds_zm(1)           ! Moisture flux  (check rho)
+      upwp_sfc   = cam_in%wsx (i)   / rho_ds_zm(1)           ! Surface meridional momentum flux
+      vpwp_sfc   = cam_in%wsy (i)   / rho_ds_zm(1)           ! Surface zonal momentum flux
 
       ! Need to flip arrays around for CLUBB core
       do k = 1, nlev + 1
-        um_in(k)      = um(i,pverp-k+1)
-        vm_in(k)      = vm(i,pverp-k+1)
-        upwp_in(k)    = upwp(i,pverp-k+1)
-        vpwp_in(k)    = vpwp(i,pverp-k+1)
-        wpthvp_in(k)  = wpthvp(i,pverp-k+1)
-        wp2thvp_in(k) = wp2thvp(i,pverp-k+1)
-        rtpthvp_in(k) = rtpthvp(i,pverp-k+1)
-        thlpthvp_in(k)= thlpthvp(i,pverp-k+1)
-        up2_in(k)     = up2(i,pverp-k+1)
-        vp2_in(k)     = vp2(i,pverp-k+1)
-        up3_in(k)     = up3(i,pverp-k+1)
-        vp3_in(k)     = vp3(i,pverp-k+1)
-        wp2_in(k)     = wp2(i,pverp-k+1)
-        wp3_in(k)     = wp3(i,pverp-k+1)
-        rtp2_in(k)    = rtp2(i,pverp-k+1)
-        thlp2_in(k)   = thlp2(i,pverp-k+1)
-        rtp3_in(k)    = rtp3(i,pverp-k+1)
-        thlp3_in(k)   = thlp3(i,pverp-k+1)
-        thlm_in(k)    = thlm(i,pverp-k+1)
-        rtm_in(k)     = rtm(i,pverp-k+1)
-        rvm_in(k)     = rvm(i,pverp-k+1)
-        wprtp_in(k)   = wprtp(i,pverp-k+1)
-        wpthlp_in(k)  = wpthlp(i,pverp-k+1)
-        rtpthlp_in(k) = rtpthlp(i,pverp-k+1)
-        rcm_inout(k)  = rcm(i,pverp-k+1)
-        cloud_frac_inout(k) = cloud_frac(i,pverp-k+1)
-        sclrpthvp_inout(k,:) = 0
+        um_in           (k)   = um        (i,pverp-k+1)
+        vm_in           (k)   = vm        (i,pverp-k+1)
+        upwp_in         (k)   = upwp      (i,pverp-k+1)
+        vpwp_in         (k)   = vpwp      (i,pverp-k+1)
+        wpthvp_in       (k)   = wpthvp    (i,pverp-k+1)
+        wp2thvp_in      (k)   = wp2thvp   (i,pverp-k+1)
+        rtpthvp_in      (k)   = rtpthvp   (i,pverp-k+1)
+        thlpthvp_in     (k)   = thlpthvp  (i,pverp-k+1)
+        up2_in          (k)   = up2       (i,pverp-k+1)
+        vp2_in          (k)   = vp2       (i,pverp-k+1)
+        up3_in          (k)   = up3       (i,pverp-k+1)
+        vp3_in          (k)   = vp3       (i,pverp-k+1)
+        wp2_in          (k)   = wp2       (i,pverp-k+1)
+        wp3_in          (k)   = wp3       (i,pverp-k+1)
+        rtp2_in         (k)   = rtp2      (i,pverp-k+1)
+        thlp2_in        (k)   = thlp2     (i,pverp-k+1)
+        rtp3_in         (k)   = rtp3      (i,pverp-k+1)
+        thlp3_in        (k)   = thlp3     (i,pverp-k+1)
+        thlm_in         (k)   = thlm      (i,pverp-k+1)
+        rtm_in          (k)   = rtm       (i,pverp-k+1)
+        rvm_in          (k)   = rvm       (i,pverp-k+1)
+        wprtp_in        (k)   = wprtp     (i,pverp-k+1)
+        wpthlp_in       (k)   = wpthlp    (i,pverp-k+1)
+        rtpthlp_in      (k)   = rtpthlp   (i,pverp-k+1)
+        rcm_inout       (k)   = rcm       (i,pverp-k+1)
+        cloud_frac_inout(k)   = cloud_frac(i,pverp-k+1)
+        sclrpthvp_inout (k,:) = 0
 
         if (k /= 1) then
-          pre_in(k)   = prer_evap(i,pverp-k+1)
+          pre_in(k) = prer_evap(i,pverp-k+1)
         end if
 
-        !  Initialize these to prevent crashing behavior
-        wprcp_out(k)        = 0
-        rcm_in_layer_out(k) = 0
-        cloud_cover_out(k)  = 0
-        edsclr_in(k,:)      = 0
-        khzm_out(k)         = 0
-        khzt_out(k)         = 0
+        ! Initialize these to prevent crashing behavior
+        wprcp_out       (k)   = 0
+        rcm_in_layer_out(k)   = 0
+        cloud_cover_out (k)   = 0
+        edsclr_in       (k,:) = 0
+        khzm_out        (k)   = 0
+        khzt_out        (k)   = 0
 
-        !  higher order scalar stuff, put to zero
-        sclrm(k,:)          = 0
-        wpsclrp(k,:)        = 0
-        sclrp2(k,:)         = 0
-        sclrp3(k,:)         = 0
-        sclrprtp(k,:)       = 0
-        sclrpthlp(k,:)      = 0
-        wpsclrp_sfc(:)      = 0
-        hydromet(k,:)       = 0
-        wphydrometp(k,:)    = 0
-        wp2hmp(k,:)         = 0
-        rtphmp_zt(k,:)      = 0
-        thlphmp_zt(k,:)     = 0
+        ! Higher order scalar stuff, put to zero
+        sclrm           (k,:) = 0
+        wpsclrp         (k,:) = 0
+        sclrp2          (k,:) = 0
+        sclrp3          (k,:) = 0
+        sclrprtp        (k,:) = 0
+        sclrpthlp       (k,:) = 0
+        wpsclrp_sfc       (:) = 0
+        hydromet        (k,:) = 0
+        wphydrometp     (k,:) = 0
+        wp2hmp          (k,:) = 0
+        rtphmp_zt       (k,:) = 0
+        thlphmp_zt      (k,:) = 0
       end do
 
       pre_in(1) = pre_in(2)
 
       if (clubb_do_adv) then
         if (macmic_it == 1) then
-          wp2_in=zt2zm_api(wp2_in)
-          wpthlp_in=zt2zm_api(wpthlp_in)
-          wprtp_in=zt2zm_api(wprtp_in)
-          up2_in=zt2zm_api(up2_in)
-          vp2_in=zt2zm_api(vp2_in)
-          thlp2_in=zt2zm_api(thlp2_in)
-          rtp2_in=zt2zm_api(rtp2_in)
-          rtpthlp_in=zt2zm_api(rtpthlp_in)
+          wp2_in     = zt2zm_api(wp2_in    )
+          wpthlp_in  = zt2zm_api(wpthlp_in )
+          wprtp_in   = zt2zm_api(wprtp_in  )
+          up2_in     = zt2zm_api(up2_in    )
+          vp2_in     = zt2zm_api(vp2_in    )
+          thlp2_in   = zt2zm_api(thlp2_in  )
+          rtp2_in    = zt2zm_api(rtp2_in   )
+          rtpthlp_in = zt2zm_api(rtpthlp_in)
 
           do k = 1, nlev + 1
-            thlp2_in(k)=max(thl_tol**2,thlp2_in(k))
-            rtp2_in(k)=max(rt_tol**2,rtp2_in(k))
-            wp2_in(k)=max(w_tol_sqd,wp2_in(k))
-            up2_in(k)=max(w_tol_sqd,up2_in(k))
-            vp2_in(k)=max(w_tol_sqd,vp2_in(k))
+            thlp2_in(k) = max(thl_tol**2, thlp2_in(k))
+            rtp2_in (k) = max(rt_tol**2 , rtp2_in (k))
+            wp2_in  (k) = max(w_tol_sqd , wp2_in  (k))
+            up2_in  (k) = max(w_tol_sqd , up2_in  (k))
+            vp2_in  (k) = max(w_tol_sqd , vp2_in  (k))
           end do
         end if
       end if
@@ -2218,7 +2208,7 @@ contains
       ! Do the same for tracers
       icnt = 0
       do ixind = 1, pcnst
-        if (lq(ixind))  then
+        if (lq(ixind)) then
           icnt = icnt + 1
           do k = 1, nlev
             edsclr_in(k+1,icnt) = state1%q(i,pver-k+1,ixind)
@@ -2248,58 +2238,119 @@ contains
         end if
 
         !  Advance CLUBB CORE one timestep in the future
-        call advance_clubb_core_api &
-          ( l_implemented, dtime, fcor, sfc_elevation, hydromet_dim, &
-          thlm_forcing, rtm_forcing, um_forcing, vm_forcing, &
-          sclrm_forcing, edsclrm_forcing, wprtp_forcing, &
-          wpthlp_forcing, rtp2_forcing, thlp2_forcing, &
-          rtpthlp_forcing, wm_zm, wm_zt, &
-          wpthlp_sfc, wprtp_sfc, upwp_sfc, vpwp_sfc, &
-          wpsclrp_sfc, wpedsclrp_sfc, &
-          p_in_Pa, rho_zm, rho_in, exner, &
-          rho_ds_zm, rho_ds_zt, invrs_rho_ds_zm, &
-          invrs_rho_ds_zt, thv_ds_zm, thv_ds_zt, hydromet, &
-          rfrzm, radf, &
-          wphydrometp, wp2hmp, rtphmp_zt, thlphmp_zt, &
-          host_dx, host_dy, &
-          clubb_config_flags, &
-          um_in, vm_in, upwp_in, vpwp_in, up2_in, vp2_in, up3_in, vp3_in, &
-          thlm_in, rtm_in, wprtp_in, wpthlp_in, &
-          wp2_in, wp3_in, rtp2_in, rtp3_in, thlp2_in, thlp3_in, rtpthlp_in, &
-          sclrm, &
-          sclrp2, sclrp3, sclrprtp, sclrpthlp, &
-          wpsclrp, edsclr_in, err_code, &
-          rcm_inout, cloud_frac_inout, &
-          wpthvp_in, wp2thvp_in, rtpthvp_in, thlpthvp_in, &
-          sclrpthvp_inout, &
-          pdf_params_chnk(i,lchnk), pdf_params_zm_chnk(i,lchnk), &
-          pdf_implicit_coefs_terms_chnk(i,lchnk), &
-          khzm_out, khzt_out, &
-          qclvar_out, thlprcp_out, &
-          wprcp_out, ice_supersat_frac_out, &
-          rcm_in_layer_out, cloud_cover_out)
+        call advance_clubb_core_api(                                       &
+          l_implemented           =l_implemented                         , &
+          dt                      =dtime                                 , &
+          fcor                    =fcor                                  , &
+          sfc_elevation           =sfc_elevation                         , &
+          hydromet_dim            =hydromet_dim                          , &
+          thlm_forcing            =thlm_forcing                          , &
+          rtm_forcing             =rtm_forcing                           , &
+          um_forcing              =um_forcing                            , &
+          vm_forcing              =vm_forcing                            , &
+          sclrm_forcing           =sclrm_forcing                         , &
+          edsclrm_forcing         =edsclrm_forcing                       , &
+          wprtp_forcing           =wprtp_forcing                         , &
+          wpthlp_forcing          =wpthlp_forcing                        , &
+          rtp2_forcing            =rtp2_forcing                          , &
+          thlp2_forcing           =thlp2_forcing                         , &
+          rtpthlp_forcing         =rtpthlp_forcing                       , &
+          wm_zm                   =wm_zm                                 , &
+          wm_zt                   =wm_zt                                 , &
+          wpthlp_sfc              =wpthlp_sfc                            , &
+          wprtp_sfc               =wprtp_sfc                             , &
+          upwp_sfc                =upwp_sfc                              , &
+          vpwp_sfc                =vpwp_sfc                              , &
+          wpsclrp_sfc             =wpsclrp_sfc                           , &
+          wpedsclrp_sfc           =wpedsclrp_sfc                         , &
+          p_in_Pa                 =p_in_Pa                               , &
+          rho_zm                  =rho_zm                                , &
+          rho                     =rho_in                                , &
+          exner                   =exner                                 , &
+          rho_ds_zm               =rho_ds_zm                             , &
+          rho_ds_zt               =rho_ds_zt                             , &
+          invrs_rho_ds_zm         =invrs_rho_ds_zm                       , &
+          invrs_rho_ds_zt         =invrs_rho_ds_zt                       , &
+          thv_ds_zm               =thv_ds_zm                             , &
+          thv_ds_zt               =thv_ds_zt                             , &
+          hydromet                =hydromet                              , &
+          rfrzm                   =rfrzm                                 , &
+          radf                    =radf                                  , &
+          wphydrometp             =wphydrometp                           , &
+          wp2hmp                  =wp2hmp                                , &
+          rtphmp                  =rtphmp_zt                             , &
+          thlphmp                 =thlphmp_zt                            , &
+          host_dx                 =host_dx                               , &
+          host_dy                 =host_dy                               , &
+          clubb_config_flags      =clubb_config_flags                    , &
+          um                      =um_in                                 , &
+          vm                      =vm_in                                 , &
+          upwp                    =upwp_in                               , &
+          vpwp                    =vpwp_in                               , &
+          up2                     =up2_in                                , &
+          vp2                     =vp2_in                                , &
+          up3                     =up3_in                                , &
+          vp3                     =vp3_in                                , &
+          thlm                    =thlm_in                               , &
+          rtm                     =rtm_in                                , &
+          wprtp                   =wprtp_in                              , &
+          wpthlp                  =wpthlp_in                             , &
+          wp2                     =wp2_in                                , &
+          wp3                     =wp3_in                                , &
+          rtp2                    =rtp2_in                               , &
+          rtp3                    =rtp3_in                               , &
+          thlp2                   =thlp2_in                              , &
+          thlp3                   =thlp3_in                              , &
+          rtpthlp                 =rtpthlp_in                            , &
+          sclrm                   =sclrm                                 , &
+          sclrp2                  =sclrp2                                , &
+          sclrp3                  =sclrp3                                , &
+          sclrprtp                =sclrprtp                              , &
+          sclrpthlp               =sclrpthlp                             , &
+          wpsclrp                 =wpsclrp                               , &
+          edsclrm                 =edsclr_in                             , &
+          err_code_api            =err_code                              , &
+          rcm                     =rcm_inout                             , &
+          cloud_frac              =cloud_frac_inout                      , &
+          wpthvp                  =wpthvp_in                             , &
+          wp2thvp                 =wp2thvp_in                            , &
+          rtpthvp                 =rtpthvp_in                            , &
+          thlpthvp                =thlpthvp_in                           , &
+          sclrpthvp               =sclrpthvp_inout                       , &
+          pdf_params              =pdf_params_chnk              (i,lchnk), &
+          pdf_params_zm           =pdf_params_zm_chnk           (i,lchnk), &
+          pdf_implicit_coefs_terms=pdf_implicit_coefs_terms_chnk(i,lchnk), &
+          khzm                    =khzm_out                              , &
+          khzt                    =khzt_out                              , &
+          qclvar                  =qclvar_out                            , &
+          thlprcp_out             =thlprcp_out                           , &
+          wprcp                   =wprcp_out                             , &
+          ice_supersat_frac       =ice_supersat_frac_out                 , &
+          rcm_in_layer            =rcm_in_layer_out                      , &
+          cloud_cover             =cloud_cover_out                       )
 
-        if ( err_code == clubb_fatal_error ) then
-          write(fstderr,*) "Fatal error in CLUBB: at timestep ", get_nstep(), "LAT: ", state1%lat(i), " LON: ", state1%lon(i)
+        if (err_code == clubb_fatal_error) then
+          write(fstderr, *) 'Fatal error in CLUBB: at timestep ', get_nstep(), &
+                            'LAT: ', state1%lat(i), ' LON: ', state1%lon(i)
           call endrun(subr // ':  Fatal error in CLUBB library')
         end if
 
 
         if (do_rainturb) then
-           rvm_in = rtm_in - rcm_inout
-           call update_xp2_mc_api(nlev+1, dtime, cloud_frac_inout, &
-           rcm_inout, rvm_in, thlm_in, wm_zt, exner, pre_in, pdf_params_chnk(i,lchnk), &
-           rtp2_mc_out, thlp2_mc_out, &
-           wprtp_mc_out, wpthlp_mc_out, &
-           rtpthlp_mc_out)
+          rvm_in = rtm_in - rcm_inout
+          call update_xp2_mc_api(nlev+1, dtime, cloud_frac_inout, &
+          rcm_inout, rvm_in, thlm_in, wm_zt, exner, pre_in, pdf_params_chnk(i,lchnk), &
+          rtp2_mc_out, thlp2_mc_out, &
+          wprtp_mc_out, wpthlp_mc_out, &
+          rtpthlp_mc_out)
 
-           dum1 = (1._r8 - cam_in%landfrac(i))
+          dum1 = 1 - cam_in%landfrac(i)
 
-           ! update turbulent moments based on rain evaporation
-           rtp2_in  = rtp2_in + clubb_rnevap_effic * dum1 * rtp2_mc_out * dtime
-           thlp2_in = thlp2_in + clubb_rnevap_effic * dum1 * thlp2_mc_out * dtime
-           wprtp_in = wprtp_in + clubb_rnevap_effic * dum1 * wprtp_mc_out * dtime
-           wpthlp_in = wpthlp_in + clubb_rnevap_effic * dum1 * wpthlp_mc_out * dtime
+          ! update turbulent moments based on rain evaporation
+          rtp2_in   = rtp2_in   + clubb_rnevap_effic * dum1 * rtp2_mc_out   * dtime
+          thlp2_in  = thlp2_in  + clubb_rnevap_effic * dum1 * thlp2_mc_out  * dtime
+          wprtp_in  = wprtp_in  + clubb_rnevap_effic * dum1 * wprtp_mc_out  * dtime
+          wpthlp_in = wpthlp_in + clubb_rnevap_effic * dum1 * wpthlp_mc_out * dtime
         end if
 
         if (do_cldcool) then
@@ -2308,13 +2359,13 @@ contains
           thlp2_rad_out(:) = 0._r8
           call calculate_thlp2_rad_api(nlev+1, rcm_out_zm, thlprcp_out, qrl_zm, thlp2_rad_out)
           thlp2_in = thlp2_in + thlp2_rad_out * dtime
-          thlp2_in = max(thl_tol**2,thlp2_in)
+          thlp2_in = max(thl_tol**2, thlp2_in)
         end if
 
         ! Check to see if stats should be output, here stats are read into
         ! output arrays to make them conformable to CAM output
-        if (l_stats) call stats_end_timestep_clubb(i,out_zt,out_zm,&
-                                                   out_radzt,out_radzm,out_sfc)
+        if (l_stats) call stats_end_timestep_clubb(i, out_zt, out_zm, &
+                                                   out_radzt, out_radzm, out_sfc)
       end do
 
       if (clubb_do_adv) then
@@ -2329,11 +2380,11 @@ contains
           rtpthlp_in = zm2zt_api(rtpthlp_in)
 
           do k = 1, nlev + 1
-            thlp2_in(k) = max(thl_tol**2,thlp2_in(k))
-            rtp2_in(k)  = max(rt_tol**2,rtp2_in(k))
-            wp2_in(k)   = max(w_tol_sqd,wp2_in(k))
-            up2_in(k)   = max(w_tol_sqd,up2_in(k))
-            vp2_in(k)   = max(w_tol_sqd,vp2_in(k))
+            thlp2_in(k) = max(thl_tol**2, thlp2_in(k))
+            rtp2_in (k) = max(rt_tol**2 , rtp2_in (k))
+            wp2_in  (k) = max(w_tol_sqd , wp2_in  (k))
+            up2_in  (k) = max(w_tol_sqd , up2_in  (k))
+            vp2_in  (k) = max(w_tol_sqd , vp2_in  (k))
           end do
         end if
       end if
@@ -2345,58 +2396,56 @@ contains
 
       ! Arrays need to be "flipped" to CAM grid
       do k = 1, nlev + 1
-        um(i,pverp-k+1)           = um_in(k)
-        vm(i,pverp-k+1)           = vm_in(k)
-        upwp(i,pverp-k+1)         = upwp_in(k)
-        vpwp(i,pverp-k+1)         = vpwp_in(k)
-        wpthvp(i,pverp-k+1)       = wpthvp_in(k)
-        wp2thvp(i,pverp-k+1)      = wp2thvp_in(k)
-        rtpthvp(i,pverp-k+1)      = rtpthvp_in(k)
-        thlpthvp(i,pverp-k+1)     = thlpthvp_in(k)
-        up2(i,pverp-k+1)          = up2_in(k)
-        vp2(i,pverp-k+1)          = vp2_in(k)
-        up3(i,pverp-k+1)          = up3_in(k)
-        vp3(i,pverp-k+1)          = vp3_in(k)
-        thlm(i,pverp-k+1)         = thlm_in(k)
-        rtm(i,pverp-k+1)          = rtm_in(k)
-        wprtp(i,pverp-k+1)        = wprtp_in(k)
-        wpthlp(i,pverp-k+1)       = wpthlp_in(k)
-        wp2(i,pverp-k+1)          = wp2_in(k)
-        wp3(i,pverp-k+1)          = wp3_in(k)
-        rtp2(i,pverp-k+1)         = rtp2_in(k)
-        thlp2(i,pverp-k+1)        = thlp2_in(k)
-        rtp3(i,pverp-k+1)         = rtp3_in(k)
-        thlp3(i,pverp-k+1)        = thlp3_in(k)
-        rtpthlp(i,pverp-k+1)      = rtpthlp_in(k)
-        rcm(i,pverp-k+1)          = rcm_inout(k)
+        um               (i,pverp-k+1) = um_in                (k)
+        vm               (i,pverp-k+1) = vm_in                (k)
+        upwp             (i,pverp-k+1) = upwp_in              (k)
+        vpwp             (i,pverp-k+1) = vpwp_in              (k)
+        wpthvp           (i,pverp-k+1) = wpthvp_in            (k)
+        wp2thvp          (i,pverp-k+1) = wp2thvp_in           (k)
+        rtpthvp          (i,pverp-k+1) = rtpthvp_in           (k)
+        thlpthvp         (i,pverp-k+1) = thlpthvp_in          (k)
+        up2              (i,pverp-k+1) = up2_in               (k)
+        vp2              (i,pverp-k+1) = vp2_in               (k)
+        up3              (i,pverp-k+1) = up3_in               (k)
+        vp3              (i,pverp-k+1) = vp3_in               (k)
+        thlm             (i,pverp-k+1) = thlm_in              (k)
+        rtm              (i,pverp-k+1) = rtm_in               (k)
+        wprtp            (i,pverp-k+1) = wprtp_in             (k)
+        wpthlp           (i,pverp-k+1) = wpthlp_in            (k)
+        wp2              (i,pverp-k+1) = wp2_in               (k)
+        wp3              (i,pverp-k+1) = wp3_in               (k)
+        rtp2             (i,pverp-k+1) = rtp2_in              (k)
+        thlp2            (i,pverp-k+1) = thlp2_in             (k)
+        rtp3             (i,pverp-k+1) = rtp3_in              (k)
+        thlp3            (i,pverp-k+1) = thlp3_in             (k)
+        rtpthlp          (i,pverp-k+1) = rtpthlp_in           (k)
+        rcm              (i,pverp-k+1) = rcm_inout            (k)
         ice_supersat_frac(i,pverp-k+1) = ice_supersat_frac_out(k)
-        wprcp(i,pverp-k+1)        = wprcp_out(k)
-        cloud_frac(i,pverp-k+1)   = min(cloud_frac_inout(k),1._r8)
-        rcm_in_layer(i,pverp-k+1) = rcm_in_layer_out(k)
-        cloud_cover(i,pverp-k+1)  = min(cloud_cover_out(k),1._r8)
-        zt_out(i,pverp-k+1)       = zt_g(k)
-        zi_out(i,pverp-k+1)       = zi_g(k)
-        khzm(i,pverp-k+1)         = khzm_out(k)
-        qclvar(i,pverp-k+1)       = min(1._r8,qclvar_out(k))
-        wm_zt_out(i,pverp-k+1)    = wm_zt(k)
+        wprcp            (i,pverp-k+1) = wprcp_out            (k)
+        cloud_frac       (i,pverp-k+1) = min(cloud_frac_inout (k), 1.0_r8)
+        rcm_in_layer     (i,pverp-k+1) = rcm_in_layer_out     (k)
+        cloud_cover      (i,pverp-k+1) = min(cloud_cover_out  (k), 1.0_r8)
+        zt_out           (i,pverp-k+1) = zt_g                 (k)
+        zi_out           (i,pverp-k+1) = zi_g                 (k)
+        khzm             (i,pverp-k+1) = khzm_out             (k)
+        qclvar           (i,pverp-k+1) = min(qclvar_out       (k), 1.0_r8)
+        wm_zt_out        (i,pverp-k+1) = wm_zt                (k)
 
-        rtp2_zt_out(i,pverp-k+1)  = rtp2_zt(k)
-        thl2_zt_out(i,pverp-k+1)  = thl2_zt(k)
-        wp2_zt_out(i,pverp-k+1)   = wp2_zt(k)
+        rtp2_zt_out      (i,pverp-k+1) = rtp2_zt              (k)
+        thl2_zt_out      (i,pverp-k+1) = thl2_zt              (k)
+        wp2_zt_out       (i,pverp-k+1) = wp2_zt               (k)
 
-        mean_rt &
-        = pdf_params_chnk(i,lchnk)%mixt_frac(k) &
-          * pdf_params_chnk(i,lchnk)%rt_1(k) &
-          + ( 1.0_r8 - pdf_params_chnk(i,lchnk)%mixt_frac(k) ) &
-            * pdf_params_chnk(i,lchnk)%rt_2(k)
+        mean_rt = pdf_params_chnk(i,lchnk)%mixt_frac(k) &
+                * pdf_params_chnk(i,lchnk)%rt_1(k) &
+                + (1 - pdf_params_chnk(i,lchnk)%mixt_frac(k)) &
+                * pdf_params_chnk(i,lchnk)%rt_2(k)
 
-        pdfp_rtp2(i,pverp-k+1) &
-        = pdf_params_chnk(i,lchnk)%mixt_frac(k) &
-          * ( ( pdf_params_chnk(i,lchnk)%rt_1(k) - mean_rt )**2 &
-              + pdf_params_chnk(i,lchnk)%varnce_rt_1(k) ) &
-          + ( 1.0_r8 - pdf_params_chnk(i,lchnk)%mixt_frac(k) ) &
-            * ( ( pdf_params_chnk(i,lchnk)%rt_2(k) - mean_rt )**2 &
-                + pdf_params_chnk(i,lchnk)%varnce_rt_2(k) )
+        pdfp_rtp2(i,pverp-k+1) = pdf_params_chnk(i,lchnk)%mixt_frac(k) &
+                               * ((pdf_params_chnk(i,lchnk)%rt_1(k) - mean_rt)**2 &
+                               + pdf_params_chnk(i,lchnk)%varnce_rt_1(k)) &
+                               + (1 - pdf_params_chnk(i,lchnk)%mixt_frac(k)) &
+                               * ((pdf_params_chnk(i,lchnk)%rt_2(k) - mean_rt)**2 &
+                               + pdf_params_chnk(i,lchnk)%varnce_rt_2(k))
 
         do ixind = 1, edsclr_dim
           edsclr_out(pverp-k+1,ixind) = edsclr_in(k,ixind)
@@ -2406,16 +2455,16 @@ contains
       ! Values to use above top_lev, for variables that have not already been
       ! set up there. These are mostly fill values that should not actually be
       ! used in the run, but may end up in diagnostic output.
-      upwp(i,:top_lev-1)         = 0
-      vpwp(i,:top_lev-1)         = 0
-      rcm(i,:top_lev-1)          = 0
-      wprcp(i,:top_lev-1)        = 0
-      cloud_frac(i,:top_lev-1)   = 0
+      upwp        (i,:top_lev-1) = 0
+      vpwp        (i,:top_lev-1) = 0
+      rcm         (i,:top_lev-1) = 0
+      wprcp       (i,:top_lev-1) = 0
+      cloud_frac  (i,:top_lev-1) = 0
       rcm_in_layer(i,:top_lev-1) = 0
-      zt_out(i,:top_lev-1)       = 0
-      zi_out(i,:top_lev-1)       = 0
-      khzm(i,:top_lev-1)         = 0
-      qclvar(i,:top_lev-1)       = 2
+      zt_out      (i,:top_lev-1) = 0
+      zi_out      (i,:top_lev-1) = 0
+      khzm        (i,:top_lev-1) = 0
+      qclvar      (i,:top_lev-1) = 2
 
       ! enforce zero tracer tendencies above the top_lev level -- no change
       icnt = 0
@@ -2439,8 +2488,8 @@ contains
       ! Initialize clubbtop with the chemistry topopause top, to prevent CLUBB from
       ! firing up in the stratosphere
       clubbtop = troplev(i)
-      do while ((rtp2(i,clubbtop) <= 1.e-15_r8 .and. rcm(i,clubbtop) == 0._r8) .and. clubbtop < pver-1)
-         clubbtop = clubbtop + 1
+      do while ((rtp2(i,clubbtop) <= 1.0e-15_r8 .and. rcm(i,clubbtop) == 0.0_r8) .and. clubbtop < pver - 1)
+        clubbtop = clubbtop + 1
       end do
 
       ! Compute static energy using CLUBB's variables
@@ -2467,15 +2516,15 @@ contains
       ! Compute the disbalance of total energy and water in upper levels,
       !   divide by the thickness in the lower atmosphere where we will
       !   evenly distribute this disbalance
-      se_upper_diss = (se_upper_a - se_upper_b)/(state1%pint(i,pverp)-state1%pint(i,clubbtop+1))
-      tw_upper_diss = (tw_upper_a - tw_upper_b)/(state1%pint(i,pverp)-state1%pint(i,clubbtop+1))
+      se_upper_diss = (se_upper_a - se_upper_b) / (state1%pint(i,pverp) - state1%pint(i,clubbtop+1))
+      tw_upper_diss = (tw_upper_a - tw_upper_b) / (state1%pint(i,pverp) - state1%pint(i,clubbtop+1))
 
       ! Perform a test to see if there will be any negative RTM errors
       !  in the column.  If so, apply the disbalance to the surface
       apply_to_surface = .false.
       if (tw_upper_diss < 0) then
         do k = clubbtop + 1, pver
-          rtm_test = (rtm(i,k) + tw_upper_diss*gravit) - rcm(i,k)
+          rtm_test = (rtm(i,k) + tw_upper_diss * gravit) - rcm(i,k)
           if (rtm_test < 0) then
             apply_to_surface = .true.
           end if
@@ -2483,15 +2532,15 @@ contains
       end if
 
       if (apply_to_surface) then
-        tw_upper_diss = (tw_upper_a - tw_upper_b)/(state1%pint(i,pverp)-state1%pint(i,pver))
-        se_upper_diss = (se_upper_a - se_upper_b)/(state1%pint(i,pverp)-state1%pint(i,pver))
+        tw_upper_diss = (tw_upper_a - tw_upper_b) / (state1%pint(i,pverp)-state1%pint(i,pver))
+        se_upper_diss = (se_upper_a - se_upper_b) / (state1%pint(i,pverp)-state1%pint(i,pver))
         rtm(i,pver) = rtm(i,pver) + tw_upper_diss*gravit
         if (apply_to_heat) clubb_s(pver) = clubb_s(pver) + se_upper_diss*gravit
       else
         ! Apply the disbalances above to layers where CLUBB is active
-        do k=clubbtop+1,pver
+        do k = clubbtop + 1, pver
           rtm(i,k) = rtm(i,k) + tw_upper_diss*gravit
-          if (apply_to_heat) clubb_s(k) = clubb_s(k) + se_upper_diss*gravit
+          if (apply_to_heat) clubb_s(k) = clubb_s(k) + se_upper_diss * gravit
         end do
       end if
 
@@ -2555,44 +2604,44 @@ contains
       rtm_integral_vtend = 0._r8
       rtm_integral_ltend = 0._r8
       do k = 1, pver
-        ptend_loc%u(i,k)   = (um(i,k)-state1%u(i,k))/hdtime             ! east-west wind
-        ptend_loc%v(i,k)   = (vm(i,k)-state1%v(i,k))/hdtime             ! north-south wind
-        ptend_loc%q(i,k,ixq) = (rtm(i,k)-rcm(i,k)-state1%q(i,k,ixq))/hdtime ! water vapor
-        ptend_loc%q(i,k,ixcldliq) = (rcm(i,k)-state1%q(i,k,ixcldliq))/hdtime   ! Tendency of liquid water
-        ptend_loc%s(i,k)   = (clubb_s(k)-state1%s(i,k))/hdtime          ! Tendency of static energy
+        ptend_loc%u(i,k)          = (um   (i,k) - state1%u(i,k)) / hdtime
+        ptend_loc%v(i,k)          = (vm   (i,k) - state1%v(i,k)) / hdtime
+        ptend_loc%q(i,k,ixq)      = (rtm  (i,k) - state1%q(i,k,ixq) - rcm(i,k)) / hdtime
+        ptend_loc%q(i,k,ixcldliq) = (rcm  (i,k) - state1%q(i,k,ixcldliq)) / hdtime
+        ptend_loc%s(i,k)          = (clubb_s(k) - state1%s(i,k)) / hdtime
 
-        rtm_integral_ltend = rtm_integral_ltend + ptend_loc%q(i,k,ixcldliq)*state1%pdel(i,k)/gravit
-        rtm_integral_vtend = rtm_integral_vtend + ptend_loc%q(i,k,ixq)*state1%pdel(i,k)/gravit
+        rtm_integral_ltend = rtm_integral_ltend + ptend_loc%q(i,k,ixcldliq) * state1%pdel(i,k) / gravit
+        rtm_integral_vtend = rtm_integral_vtend + ptend_loc%q(i,k,ixq) * state1%pdel(i,k) / gravit
 
         if (clubb_do_adv) then
           if (macmic_it == cld_macmic_num_steps) then
             ! Here add a constant to moments which can be either positive or
             !  negative.  This is to prevent clipping when dynamics tries to
             !  make all constituents positive
-            wp3(i,k) = wp3(i,k) + wp3_const
+            wp3    (i,k) = wp3    (i,k) + wp3_const
             rtpthlp(i,k) = rtpthlp(i,k) + rtpthlp_const
-            wpthlp(i,k) = wpthlp(i,k) + wpthlp_const
-            wprtp(i,k) = wprtp(i,k) + wprtp_const
+            wpthlp (i,k) = wpthlp (i,k) + wpthlp_const
+            wprtp  (i,k) = wprtp  (i,k) + wprtp_const
 
-            ptend_loc%q(i,k,ixthlp2)=(thlp2(i,k)-state1%q(i,k,ixthlp2))/hdtime ! THLP Variance
-            ptend_loc%q(i,k,ixrtp2)=(rtp2(i,k)-state1%q(i,k,ixrtp2))/hdtime ! RTP Variance
-            ptend_loc%q(i,k,ixrtpthlp)=(rtpthlp(i,k)-state1%q(i,k,ixrtpthlp))/hdtime ! RTP THLP covariance
-            ptend_loc%q(i,k,ixwpthlp)=(wpthlp(i,k)-state1%q(i,k,ixwpthlp))/hdtime ! WPTHLP
-            ptend_loc%q(i,k,ixwprtp)=(wprtp(i,k)-state1%q(i,k,ixwprtp))/hdtime ! WPRTP
-            ptend_loc%q(i,k,ixwp2)=(wp2(i,k)-state1%q(i,k,ixwp2))/hdtime ! WP2
-            ptend_loc%q(i,k,ixwp3)=(wp3(i,k)-state1%q(i,k,ixwp3))/hdtime ! WP3
-            ptend_loc%q(i,k,ixup2)=(up2(i,k)-state1%q(i,k,ixup2))/hdtime ! UP2
-            ptend_loc%q(i,k,ixvp2)=(vp2(i,k)-state1%q(i,k,ixvp2))/hdtime ! VP2
+            ptend_loc%q(i,k,ixthlp2  ) = (thlp2  (i,k) - state1%q(i,k,ixthlp2  )) / hdtime ! THLP Variance
+            ptend_loc%q(i,k,ixrtp2   ) = (rtp2   (i,k) - state1%q(i,k,ixrtp2   )) / hdtime ! RTP Variance
+            ptend_loc%q(i,k,ixrtpthlp) = (rtpthlp(i,k) - state1%q(i,k,ixrtpthlp)) / hdtime ! RTP THLP covariance
+            ptend_loc%q(i,k,ixwpthlp ) = (wpthlp (i,k) - state1%q(i,k,ixwpthlp )) / hdtime ! WPTHLP
+            ptend_loc%q(i,k,ixwprtp  ) = (wprtp  (i,k) - state1%q(i,k,ixwprtp  )) / hdtime ! WPRTP
+            ptend_loc%q(i,k,ixwp2    ) = (wp2    (i,k) - state1%q(i,k,ixwp2    )) / hdtime ! WP2
+            ptend_loc%q(i,k,ixwp3    ) = (wp3    (i,k) - state1%q(i,k,ixwp3    )) / hdtime ! WP3
+            ptend_loc%q(i,k,ixup2    ) = (up2    (i,k) - state1%q(i,k,ixup2    )) / hdtime ! UP2
+            ptend_loc%q(i,k,ixvp2    ) = (vp2    (i,k) - state1%q(i,k,ixvp2    )) / hdtime ! VP2
           else
-            ptend_loc%q(i,k,ixthlp2)=0._r8
-            ptend_loc%q(i,k,ixrtp2)=0._r8
-            ptend_loc%q(i,k,ixrtpthlp)=0._r8
-            ptend_loc%q(i,k,ixwpthlp)=0._r8
-            ptend_loc%q(i,k,ixwprtp)=0._r8
-            ptend_loc%q(i,k,ixwp2)=0._r8
-            ptend_loc%q(i,k,ixwp3)=0._r8
-            ptend_loc%q(i,k,ixup2)=0._r8
-            ptend_loc%q(i,k,ixvp2)=0._r8
+            ptend_loc%q(i,k,ixthlp2  ) = 0
+            ptend_loc%q(i,k,ixrtp2   ) = 0
+            ptend_loc%q(i,k,ixrtpthlp) = 0
+            ptend_loc%q(i,k,ixwpthlp ) = 0
+            ptend_loc%q(i,k,ixwprtp  ) = 0
+            ptend_loc%q(i,k,ixwp2    ) = 0
+            ptend_loc%q(i,k,ixwp3    ) = 0
+            ptend_loc%q(i,k,ixup2    ) = 0
+            ptend_loc%q(i,k,ixvp2    ) = 0
           end if
         end if
 
@@ -2608,7 +2657,7 @@ contains
                 (ixind /= ixrtpthlp) .and. (ixind /= ixwpthlp) .and.&
                 (ixind /= ixwprtp)   .and. (ixind /= ixwp2)    .and.&
                 (ixind /= ixwp3)     .and. (ixind /= ixup2)    .and. (ixind /= ixvp2) ) then
-              ptend_loc%q(i,k,ixind) = (edsclr_out(k,icnt)-state1%q(i,k,ixind))/hdtime ! transported constituents
+              ptend_loc%q(i,k,ixind) = (edsclr_out(k,icnt) - state1%q(i,k,ixind)) / hdtime ! Transported constituents
             end if
           end if
         end do
@@ -2620,10 +2669,10 @@ contains
     ! Add constant to ghost point so that output is not corrupted
     if (clubb_do_adv) then
       if (macmic_it == cld_macmic_num_steps) then
-        wp3(:,pverp)      = wp3(:,pverp) + wp3_const
-        rtpthlp(:,pverp)  = rtpthlp(:,pverp) + rtpthlp_const
-        wpthlp(:,pverp)   = wpthlp(:,pverp) + wpthlp_const
-        wprtp(:,pverp)    = wprtp(:,pverp) + wprtp_const
+        wp3    (:,pverp) = wp3    (:,pverp) + wp3_const
+        rtpthlp(:,pverp) = rtpthlp(:,pverp) + rtpthlp_const
+        wpthlp (:,pverp) = wpthlp (:,pverp) + wpthlp_const
+        wprtp  (:,pverp) = wprtp  (:,pverp) + wprtp_const
       end if
     end if
 
@@ -2635,16 +2684,16 @@ contains
     ! ------------------------------------------------- !
 
     ! Output CLUBB tendencies
-    call outfld('RVMTEND_CLUBB', ptend_loc%q(:,:,ixq), pcols, lchnk)
+    call outfld('RVMTEND_CLUBB', ptend_loc%q(:,:,ixq)     , pcols, lchnk)
     call outfld('RCMTEND_CLUBB', ptend_loc%q(:,:,ixcldliq), pcols, lchnk)
     call outfld('RIMTEND_CLUBB', ptend_loc%q(:,:,ixcldice), pcols, lchnk)
-    call outfld('STEND_CLUBB',   ptend_loc%s,pcols, lchnk)
-    call outfld('UTEND_CLUBB',   ptend_loc%u,pcols, lchnk)
-    call outfld('VTEND_CLUBB',   ptend_loc%v,pcols, lchnk)
-    call outfld('CMELIQ',        cmeliq, pcols, lchnk)
+    call outfld('STEND_CLUBB'  , ptend_loc%s              , pcols, lchnk)
+    call outfld('UTEND_CLUBB'  , ptend_loc%u              , pcols, lchnk)
+    call outfld('VTEND_CLUBB'  , ptend_loc%v              , pcols, lchnk)
+    call outfld('CMELIQ'       , cmeliq                   , pcols, lchnk)
 
-    call physics_ptend_sum(ptend_loc,ptend_all,ncol)
-    call physics_update(state1,ptend_loc,hdtime)
+    call physics_ptend_sum(ptend_loc, ptend_all, ncol)
+    call physics_update(state1, ptend_loc, hdtime)
 
     ! Due to the order of operation of CLUBB, which closes on liquid first,
     ! then advances it's predictive equations second, this can lead to
@@ -2666,22 +2715,30 @@ contains
 
       call physics_ptend_init(ptend_loc, state%psetcols, 'iceadj', ls=.true., lq=lq2 )
 
-      stend(:ncol,:)   = 0
-      qvtend(:ncol,:)  = 0
-      qctend(:ncol,:)  = 0
+      stend  (:ncol,:) = 0
+      qvtend (:ncol,:) = 0
+      qctend (:ncol,:) = 0
       inctend(:ncol,:) = 0
 
-      call liquid_macro_tend(npccn(:ncol,top_lev:pver),state1%t(:ncol,top_lev:pver), &
-         state1%pmid(:ncol,top_lev:pver),state1%q(:ncol,top_lev:pver,ixq),state1%q(:ncol,top_lev:pver,ixcldliq),&
-         state1%q(:ncol,top_lev:pver,ixnumliq),latvap,hdtime,&
-         stend(:ncol,top_lev:pver),qvtend(:ncol,top_lev:pver),qctend(:ncol,top_lev:pver),&
-         inctend(:ncol,top_lev:pver))
+      call liquid_macro_tend(                            &
+        npccn =npccn      (:ncol,top_lev:pver)         , &
+        t     =state1%t   (:ncol,top_lev:pver)         , &
+        p     =state1%pmid(:ncol,top_lev:pver)         , &
+        qv    =state1%q   (:ncol,top_lev:pver,ixq)     , &
+        qc    =state1%q   (:ncol,top_lev:pver,ixcldliq), &
+        nc    =state1%q   (:ncol,top_lev:pver,ixnumliq), &
+        xxlv  =latvap                                  , &
+        deltat=hdtime                                  , &
+        stend =stend      (:ncol,top_lev:pver)         , &
+        qvtend=qvtend     (:ncol,top_lev:pver)         , &
+        qctend=qctend     (:ncol,top_lev:pver)         , &
+        nctend=inctend    (:ncol,top_lev:pver)         )
 
       ! update local copy of state with the tendencies
-      ptend_loc%q(:ncol,top_lev:pver,ixq)=qvtend(:ncol,top_lev:pver)
-      ptend_loc%q(:ncol,top_lev:pver,ixcldliq)=qctend(:ncol,top_lev:pver)
-      ptend_loc%q(:ncol,top_lev:pver,ixnumliq)=inctend(:ncol,top_lev:pver)
-      ptend_loc%s(:ncol,top_lev:pver)=stend(:ncol,top_lev:pver)
+      ptend_loc%q(:ncol,top_lev:pver,ixq)      = qvtend (:ncol,top_lev:pver)
+      ptend_loc%q(:ncol,top_lev:pver,ixcldliq) = qctend (:ncol,top_lev:pver)
+      ptend_loc%q(:ncol,top_lev:pver,ixnumliq) = inctend(:ncol,top_lev:pver)
+      ptend_loc%s(:ncol,top_lev:pver)          = stend  (:ncol,top_lev:pver)
 
       ! Add the ice tendency to the output tendency
       call physics_ptend_sum(ptend_loc, ptend_all, ncol)
@@ -2691,18 +2748,18 @@ contains
 
       ! Write output for tendencies:
       !        oufld: QVTENDICE,QCTENDICE,NCTENDICE,FQTENDICE
-      temp2d(:ncol,:pver) =  stend(:ncol,:pver)/cpairv(:ncol,:pver,lchnk)
-      call outfld( 'TTENDICE', temp2d, pcols, lchnk )
-      call outfld( 'QVTENDICE', qvtend, pcols, lchnk )
-      call outfld( 'QCTENDICE', qctend, pcols, lchnk )
-      call outfld( 'NCTENDICE', inctend, pcols, lchnk )
+      temp2d(:ncol,:pver) =  stend(:ncol,:pver) / cpairv(:ncol,:pver,lchnk)
+      call outfld('TTENDICE' , temp2d , pcols, lchnk)
+      call outfld('QVTENDICE', qvtend , pcols, lchnk)
+      call outfld('QCTENDICE', qctend , pcols, lchnk)
+      call outfld('NCTENDICE', inctend, pcols, lchnk)
 
-      where(qctend /= 0._r8)
+      where(qctend /= 0)
         fqtend = 1
       else where
         fqtend = 0
       end where
-      call outfld( 'FQTENDICE', fqtend, pcols, lchnk )
+      call outfld('FQTENDICE', fqtend, pcols, lchnk)
     end if
 
     ! ------------------------------------------------------------ !
@@ -2720,7 +2777,7 @@ contains
     ! --------------------------------------------------------------------------------- !
 
     !  Initialize the shallow convective detrainment rate, will always be zero
-    dlf2(:,:) = 0
+    dlf2       (:,:) = 0
     dlf_liq_out(:,:) = 0
     dlf_ice_out(:,:) = 0
 
@@ -2733,8 +2790,8 @@ contains
     call physics_ptend_init(ptend_loc,state%psetcols, 'clubb', ls=.true., lq=lqice)
 
     if (zmconv_microp) then
-      call pbuf_get_field(pbuf, dlfzm_idx, dlfzm)
-      call pbuf_get_field(pbuf, difzm_idx, difzm)
+      call pbuf_get_field(pbuf, dlfzm_idx , dlfzm)
+      call pbuf_get_field(pbuf, difzm_idx , difzm)
       call pbuf_get_field(pbuf, dnlfzm_idx, dnlfzm)
       call pbuf_get_field(pbuf, dnifzm_idx, dnifzm)
     end if
@@ -2746,11 +2803,11 @@ contains
         else if (state1%t(i,k) < 238.15_r8) then
           dum1 = 1
         else
-          dum1 = (268.15_r8 - state1%t(i,k)) / 30._r8
+          dum1 = (268.15_r8 - state1%t(i,k)) / 30.0_r8
         endif
 
         if (zmconv_microp) then
-          ptend_loc%q(i,k,ixcldliq) = dlfzm(i,k) + dlf2(i,k) * ( 1._r8 - dum1 )
+          ptend_loc%q(i,k,ixcldliq) = dlfzm(i,k) + dlf2(i,k) * (1 - dum1)
           ptend_loc%q(i,k,ixcldice) = difzm(i,k) + dlf2(i,k) * dum1
 
           ptend_loc%q(i,k,ixnumliq) = dnlfzm(i,k) + 3._r8 * ( dlf2(i,k) * ( 1._r8 - dum1 ) )   &
@@ -2759,42 +2816,42 @@ contains
                                     / (4._r8*3.14_r8*50.e-6_r8**3*500._r8)      ! Shallow Convection
           ptend_loc%s(i,k)          = dlf2(i,k) * dum1 * latice
         else
-          ptend_loc%q(i,k,ixcldliq) = dlf(i,k) * ( 1._r8 - dum1 )
+          ptend_loc%q(i,k,ixcldliq) = dlf(i,k) * (1 - dum1)
           ptend_loc%q(i,k,ixcldice) = dlf(i,k) * dum1
-          ptend_loc%q(i,k,ixnumliq) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) * ( 1._r8 - dum1 ) ) &
-                                   / (4._r8*3.14_r8* 8.e-6_r8**3*997._r8) + & ! Deep    Convection
-                                   3._r8 * (                         dlf2(i,k)    * ( 1._r8 - dum1 ) ) &
-                                   / (4._r8*3.14_r8*10.e-6_r8**3*997._r8)     ! Shallow Convection
-          ptend_loc%q(i,k,ixnumice) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) *  dum1 ) &
-                                   / (4._r8*3.14_r8*25.e-6_r8**3*500._r8) + & ! Deep    Convection
-                                   3._r8 * (                         dlf2(i,k)    *  dum1 ) &
-                                   / (4._r8*3.14_r8*50.e-6_r8**3*500._r8)     ! Shallow Convection
+          ptend_loc%q(i,k,ixnumliq) = 3 * (max(0.0_r8, (dlf(i,k) - dlf2(i,k))) * (1 - dum1)) &
+                                    / (4 * 3.14_r8 *  8.0e-6_r8**3 * 997._r8) + & ! Deep    Convection
+                                      3 * (                        dlf2(i,k)   * (1 - dum1)) &
+                                    / (4 * 3.14_r8 * 10.0e-6_r8**3 * 997._r8)     ! Shallow Convection
+          ptend_loc%q(i,k,ixnumice) = 3 * (max(0.0_r8, (dlf(i,k) - dlf2(i,k))) * dum1) &
+                                    / (4 * 3.14_r8 * 25.0e-6_r8**3 * 500._r8) + & ! Deep    Convection
+                                      3 * (                        dlf2(i,k)   * dum1) &
+                                    / (4 * 3.14_r8 * 50.0e-6_r8**3 * 500._r8)     ! Shallow Convection
           ptend_loc%s(i,k)          = dlf(i,k) * dum1 * latice
 
-          dlf_liq_out(i,k) = dlf(i,k) * ( 1._r8 - dum1 )
+          dlf_liq_out(i,k) = dlf(i,k) * (1 - dum1)
           dlf_ice_out(i,k) = dlf(i,k) * dum1
         end if
 
         ! Only rliq is saved from deep convection, which is the reserved liquid.  We need to keep
         !   track of the integrals of ice and static energy that is effected from conversion to ice
         !   so that the energy checker doesn't complain.
-        det_s(i)   = det_s(i) + ptend_loc%s(i,k)*state1%pdel(i,k)/gravit
-        det_ice(i) = det_ice(i) - ptend_loc%q(i,k,ixcldice)*state1%pdel(i,k)/gravit
+        det_s  (i) = det_s  (i) + ptend_loc%s(i,k) * state1%pdel(i,k) / gravit
+        det_ice(i) = det_ice(i) - ptend_loc%q(i,k,ixcldice)*state1%pdel(i,k) / gravit
       end do
     end do
 
     det_ice(:ncol) = det_ice(:ncol) / 1000.0_r8  ! divide by density of water
 
-    call outfld( 'DPDLFLIQ', ptend_loc%q(:,:,ixcldliq), pcols, lchnk)
-    call outfld( 'DPDLFICE', ptend_loc%q(:,:,ixcldice), pcols, lchnk)
+    call outfld('DPDLFLIQ', ptend_loc%q(:,:,ixcldliq), pcols, lchnk)
+    call outfld('DPDLFICE', ptend_loc%q(:,:,ixcldice), pcols, lchnk)
 
-    temp2d(:ncol,:pver) =  ptend_loc%s(:ncol,:pver)/cpairv(:ncol,:pver, lchnk)
-    call outfld( 'DPDLFT',   temp2d, pcols, lchnk)
+    temp2d(:ncol,:pver) = ptend_loc%s(:ncol,:pver) / cpairv(:ncol,:pver, lchnk)
+    call outfld('DPDLFT'    , temp2d, pcols, lchnk)
 
-    call outfld( 'DETNLIQTND', ptend_loc%q(:,:,ixnumliq),pcols, lchnk )
+    call outfld('DETNLIQTND', ptend_loc%q(:,:,ixnumliq), pcols, lchnk)
 
-    call physics_ptend_sum(ptend_loc,ptend_all,ncol)
-    call physics_update(state1,ptend_loc,hdtime)
+    call physics_ptend_sum(ptend_loc, ptend_all, ncol)
+    call physics_update(state1, ptend_loc, hdtime)
 
     ! ptend_all now has all accumulated tendencies.  Convert the tendencies for the
     ! dry constituents to dry air basis.
@@ -2802,7 +2859,7 @@ contains
       if (lq(ixind) .and. cnst_type(ixind) == 'dry') then
         do k = 1, pver
           do i = 1, ncol
-            ptend_all%q(i,k,ixind) = ptend_all%q(i,k,ixind)*state1%pdel(i,k)/state1%pdeldry(i,k)
+            ptend_all%q(i,k,ixind) = ptend_all%q(i,k,ixind) * state1%pdel(i,k) / state1%pdeldry(i,k)
           end do
         end do
       end if
@@ -2813,36 +2870,36 @@ contains
     ! ------------------------------------------------- !
 
     if (deep_scheme == 'CLUBB_SGS') then
-      relvarmax = 2.0_r8
+      relvarmax = 2
     else
-      relvarmax = 10.0_r8
+      relvarmax = 10
     end if
 
-    relvar(:,:) = relvarmax  ! default
+    relvar(:,:) = relvarmax
 
     if (deep_scheme /= 'CLUBB_SGS') then
       where (rcm(:ncol,:pver) /= 0 .and. qclvar(:ncol,:pver) /= 0) &
-        relvar(:ncol,:pver) = min(relvarmax,max(0.001_r8,rcm(:ncol,:pver)**2/qclvar(:ncol,:pver)))
+        relvar(:ncol,:pver) = min(relvarmax, max(0.001_r8, rcm(:ncol,:pver)**2 / qclvar(:ncol,:pver)))
     end if
 
     ! ------------------------------------------------- !
     ! Optional Accretion enhancement factor             !
     ! ------------------------------------------------- !
 
-    accre_enhan(:ncol,:pver) = 1._r8
+    accre_enhan(:ncol,:pver) = 1
 
     ! ------------------------------------------------- !
     ! Diagnose some output variables                    !
     ! ------------------------------------------------- !
 
     ! density
-    rho(:ncol,1:pver) = state1%pmid(:ncol,1:pver)/(rairv(:ncol,1:pver,lchnk)*state1%t(:ncol,1:pver))
-    rho(:ncol,pverp)  = state1%ps(:ncol)/(rairv(:ncol,pver,lchnk)*state1%t(:ncol,pver))
+    rho(:ncol,1:pver) = state1%pmid(:ncol,1:pver) / (rairv(:ncol,1:pver,lchnk) * state1%t(:ncol,1:pver))
+    rho(:ncol,pverp)  = state1%ps  (:ncol)        / (rairv(:ncol,  pver,lchnk) * state1%t(:ncol,  pver))
 
-    wpthvp_diag(:,:) = 0.0_r8
+    wpthvp_diag(:,:) = 0
     do k = 1, pver
       do i = 1, ncol
-        eps = rairv(i,k,lchnk)/rh2o
+        eps = rairv(i,k,lchnk) / rh2o
         ! buoyancy flux
         wpthvp_diag(i,k) = (wpthlp(i,k)-(apply_const*wpthlp_const))+((1._r8-eps)/eps)*theta0* &
                            (wprtp(i,k)-(apply_const*wprtp_const))+((latvap/cpairv(i,k,lchnk))* &
@@ -2858,11 +2915,11 @@ contains
 
     do k = 1, pverp
       do i = 1, ncol
-        wpthlp_output(i,k)  = (wpthlp(i,k)-(apply_const*wpthlp_const))*rho(i,k)*cpair !  liquid water potential temperature flux
-        wprtp_output(i,k)   = (wprtp(i,k)-(apply_const*wprtp_const))*rho(i,k)*latvap  !  total water mixig ratio flux
+        wpthlp_output (i,k) = (wpthlp(i,k)-(apply_const*wpthlp_const))*rho(i,k)*cpair !  liquid water potential temperature flux
+        wprtp_output  (i,k) = (wprtp(i,k)-(apply_const*wprtp_const))*rho(i,k)*latvap  !  total water mixig ratio flux
         rtpthlp_output(i,k) = rtpthlp(i,k)-(apply_const*rtpthlp_const)                !  rtpthlp output
-        wp3_output(i,k)     = wp3(i,k) - (apply_const*wp3_const)                      !  wp3 output
-        tke(i,k)            = 0.5_r8*(up2(i,k)+vp2(i,k)+wp2(i,k))                     !  turbulent kinetic energy
+        wp3_output    (i,k) = wp3(i,k) - (apply_const*wp3_const)                      !  wp3 output
+        tke           (i,k) = 0.5_r8*(up2(i,k)+vp2(i,k)+wp2(i,k))                     !  turbulent kinetic energy
       end do
     end do
 
@@ -2880,7 +2937,7 @@ contains
     do k = 1, pver
       do i = 1, ncol
         alst(i,k) = cloud_frac(i,k)
-        qlst(i,k) = rcm(i,k)/max(0.01_r8,alst(i,k))  ! Incloud stratus condensate mixing ratio
+        qlst(i,k) = rcm(i,k) / max(0.01_r8, alst(i,k))  ! Incloud stratus condensate mixing ratio
       end do
     end do
 
@@ -2901,14 +2958,14 @@ contains
         shalcu(i,k) = 0._r8
 
         if (deepcu(i,k) <= frac_limit .or. dp_icwmr(i,k) < ic_limit) then
-          deepcu(i,k) = 0._r8
+          deepcu(i,k) = 0
         end if
 
         !  using the deep convective cloud fraction, and CLUBB cloud fraction (variable
         !  "cloud_frac"), compute the convective cloud fraction.  This follows the formulation
         !  found in macrophysics code.  Assumes that convective cloud is all nonstratiform cloud
         !  from CLUBB plus the deep convective cloud fraction
-        concld(i,k) = min(cloud_frac(i,k)-alst(i,k)+deepcu(i,k),0.80_r8)
+        concld(i,k) = min(cloud_frac(i,k)-alst(i,k)+deepcu(i,k), 0.80_r8)
       end do
     end do
 
@@ -2917,8 +2974,8 @@ contains
     !  use the aist_vector function to compute the ice cloud fraction                   !
     ! --------------------------------------------------------------------------------- !
 
-    aist(:,:top_lev-1) = 0._r8
-    qsatfac(:, :) = 0._r8 ! Zero out entire profile in case qsatfac is left undefined in aist_vector below
+    aist(:,:top_lev-1) = 0
+    qsatfac(:,:)       = 0 ! Zero out entire profile in case qsatfac is left undefined in aist_vector below
 
     do k = top_lev, pver
 
@@ -3410,23 +3467,23 @@ contains
       i = i + 1
     end do
     ntot = i - 1
-    if ( ntot == nvarmax_zt ) then
-      write(fstderr,*) "There are more statistical variables listed in ",  &
-                       "clubb_vars_zt than allowed for by nvarmax_zt."
-      write(fstderr,*) "Check the number of variables listed for clubb_vars_zt ",  &
-                       "in the stats namelist, or change nvarmax_zt."
-      write(fstderr,*) "nvarmax_zt = ", nvarmax_zt
-      call endrun ("stats_init_clubb:  number of zt statistical variables exceeds limit")
+    if (ntot == nvarmax_zt) then
+      write(fstderr, *) 'There are more statistical variables listed in ',  &
+                        'clubb_vars_zt than allowed for by nvarmax_zt.'
+      write(fstderr, *) 'Check the number of variables listed for clubb_vars_zt ',  &
+                        'in the stats namelist, or change nvarmax_zt.'
+      write(fstderr, *) 'nvarmax_zt = ', nvarmax_zt
+      call endrun('stats_init_clubb:  number of zt statistical variables exceeds limit')
     end if
 
     stats_zt%num_output_fields = ntot
     stats_zt%kk = nnzp
 
-    allocate(stats_zt%z( stats_zt%kk))
+    allocate(stats_zt%z(stats_zt%kk))
 
-    allocate(stats_zt%accum_field_values(1, 1, stats_zt%kk, stats_zt%num_output_fields))
-    allocate(stats_zt%accum_num_samples(1, 1, stats_zt%kk, stats_zt%num_output_fields))
-    allocate(stats_zt%l_in_update(1, 1, stats_zt%kk, stats_zt%num_output_fields))
+    allocate(stats_zt%accum_field_values(1,1,stats_zt%kk,stats_zt%num_output_fields))
+    allocate(stats_zt%accum_num_samples (1,1,stats_zt%kk,stats_zt%num_output_fields))
+    allocate(stats_zt%l_in_update       (1,1,stats_zt%kk,stats_zt%num_output_fields))
     call stats_zero(stats_zt%kk, stats_zt%num_output_fields, stats_zt%accum_field_values, &
                     stats_zt%accum_num_samples, stats_zt%l_in_update)
 
@@ -3486,27 +3543,27 @@ contains
     i = 1
     do while (ichar(clubb_vars_zm(i)(1:1)) /= 0  .and. &
               len_trim(clubb_vars_zm(i)) /= 0    .and. &
-              i <= nvarmax_zm )
+              i <= nvarmax_zm)
       i = i + 1
     end do
     ntot = i - 1
     if (ntot == nvarmax_zm) then
-      write(fstderr,*) "There are more statistical variables listed in ",  &
-                       "clubb_vars_zm than allowed for by nvarmax_zm."
-      write(fstderr,*) "Check the number of variables listed for clubb_vars_zm ",  &
-                       "in the stats namelist, or change nvarmax_zm."
-      write(fstderr,*) "nvarmax_zm = ", nvarmax_zm
-      call endrun ("stats_init_clubb:  number of zm statistical variables exceeds limit")
+      write(fstderr, *) 'There are more statistical variables listed in ',  &
+                        'clubb_vars_zm than allowed for by nvarmax_zm.'
+      write(fstderr, *) 'Check the number of variables listed for clubb_vars_zm ',  &
+                        'in the stats namelist, or change nvarmax_zm.'
+      write(fstderr, *) 'nvarmax_zm = ', nvarmax_zm
+      call endrun('stats_init_clubb:  number of zm statistical variables exceeds limit')
     end if
 
     stats_zm%num_output_fields = ntot
     stats_zm%kk = nnzp
 
-    allocate(stats_zm%z( stats_zm%kk))
+    allocate(stats_zm%z(stats_zm%kk))
 
-    allocate(stats_zm%accum_field_values(1, 1, stats_zm%kk, stats_zm%num_output_fields))
-    allocate(stats_zm%accum_num_samples(1, 1, stats_zm%kk, stats_zm%num_output_fields))
-    allocate(stats_zm%l_in_update(1, 1, stats_zm%kk, stats_zm%num_output_fields))
+    allocate(stats_zm%accum_field_values(1,1,stats_zm%kk,stats_zm%num_output_fields))
+    allocate(stats_zm%accum_num_samples (1,1,stats_zm%kk,stats_zm%num_output_fields))
+    allocate(stats_zm%l_in_update       (1,1,stats_zm%kk,stats_zm%num_output_fields))
     call stats_zero(stats_zm%kk, stats_zm%num_output_fields, stats_zm%accum_field_values, &
                     stats_zm%accum_num_samples, stats_zm%l_in_update)
 
@@ -3564,20 +3621,20 @@ contains
       end do
       ntot = i - 1
       if (ntot == nvarmax_rad_zt) then
-        write(fstderr,*) "There are more statistical variables listed in ",  &
-                         "clubb_vars_rad_zt than allowed for by nvarmax_rad_zt."
-        write(fstderr,*) "Check the number of variables listed for clubb_vars_rad_zt ",  &
-                         "in the stats namelist, or change nvarmax_rad_zt."
-        write(fstderr,*) "nvarmax_rad_zt = ", nvarmax_rad_zt
-        call endrun ("stats_init_clubb:  number of rad_zt statistical variables exceeds limit")
+        write(fstderr, *) 'There are more statistical variables listed in ',  &
+                          'clubb_vars_rad_zt than allowed for by nvarmax_rad_zt.'
+        write(fstderr, *) 'Check the number of variables listed for clubb_vars_rad_zt ',  &
+                          'in the stats namelist, or change nvarmax_rad_zt.'
+        write(fstderr, *) 'nvarmax_rad_zt = ', nvarmax_rad_zt
+        call endrun('stats_init_clubb:  number of rad_zt statistical variables exceeds limit')
       end if
       stats_rad_zt%num_output_fields = ntot
       stats_rad_zt%kk = nnrad_zt
 
       allocate(stats_rad_zt%z(stats_rad_zt%kk))
-      allocate(stats_rad_zt%accum_field_values(1, 1, stats_rad_zt%kk, stats_rad_zt%num_output_fields))
-      allocate(stats_rad_zt%accum_num_samples(1, 1, stats_rad_zt%kk, stats_rad_zt%num_output_fields))
-      allocate(stats_rad_zt%l_in_update(1, 1, stats_rad_zt%kk, stats_rad_zt%num_output_fields))
+      allocate(stats_rad_zt%accum_field_values(1,1,stats_rad_zt%kk,stats_rad_zt%num_output_fields))
+      allocate(stats_rad_zt%accum_num_samples (1,1,stats_rad_zt%kk,stats_rad_zt%num_output_fields))
+      allocate(stats_rad_zt%l_in_update       (1,1,stats_rad_zt%kk,stats_rad_zt%num_output_fields))
 
       call stats_zero(stats_rad_zt%kk, stats_rad_zt%num_output_fields, stats_rad_zt%accum_field_values, &
                       stats_rad_zt%accum_num_samples, stats_rad_zt%l_in_update)
@@ -3597,27 +3654,27 @@ contains
       end do
       ntot = i - 1
       if (ntot == nvarmax_rad_zm) then
-        write(fstderr,*) "There are more statistical variables listed in ",  &
-                         "clubb_vars_rad_zm than allowed for by nvarmax_rad_zm."
-        write(fstderr,*) "Check the number of variables listed for clubb_vars_rad_zm ",  &
-                         "in the stats namelist, or change nvarmax_rad_zm."
-        write(fstderr,*) "nvarmax_rad_zm = ", nvarmax_rad_zm
-        call endrun ("stats_init_clubb:  number of rad_zm statistical variables exceeds limit")
+        write(fstderr, *) 'There are more statistical variables listed in ',  &
+                          'clubb_vars_rad_zm than allowed for by nvarmax_rad_zm.'
+        write(fstderr, *) 'Check the number of variables listed for clubb_vars_rad_zm ',  &
+                          'in the stats namelist, or change nvarmax_rad_zm.'
+        write(fstderr, *) 'nvarmax_rad_zm = ', nvarmax_rad_zm
+        call endrun('stats_init_clubb:  number of rad_zm statistical variables exceeds limit')
       end if
 
       stats_rad_zm%num_output_fields = ntot
       stats_rad_zm%kk = nnrad_zm
 
-      allocate(stats_rad_zm%z( stats_rad_zm%kk))
-      allocate(stats_rad_zm%accum_field_values(1, 1, stats_rad_zm%kk, stats_rad_zm%num_output_fields))
-      allocate(stats_rad_zm%accum_num_samples(1, 1, stats_rad_zm%kk, stats_rad_zm%num_output_fields))
-      allocate(stats_rad_zm%l_in_update(1, 1, stats_rad_zm%kk, stats_rad_zm%num_output_fields))
+      allocate(stats_rad_zm%z(stats_rad_zm%kk))
+      allocate(stats_rad_zm%accum_field_values(1,1,stats_rad_zm%kk,stats_rad_zm%num_output_fields))
+      allocate(stats_rad_zm%accum_num_samples (1,1,stats_rad_zm%kk,stats_rad_zm%num_output_fields))
+      allocate(stats_rad_zm%l_in_update       (1,1,stats_rad_zm%kk,stats_rad_zm%num_output_fields))
 
       call stats_zero(stats_rad_zm%kk, stats_rad_zm%num_output_fields, stats_rad_zm%accum_field_values, &
                       stats_rad_zm%accum_num_samples, stats_rad_zm%l_in_update)
 
-      allocate(stats_rad_zm%file%var( stats_rad_zm%num_output_fields))
-      allocate(stats_rad_zm%file%z( stats_rad_zm%kk))
+      allocate(stats_rad_zm%file%var(stats_rad_zm%num_output_fields))
+      allocate(stats_rad_zm%file%z(stats_rad_zm%kk))
 
       call stats_init_rad_zm_api(clubb_vars_rad_zm, l_error)
     end if ! l_output_rad_files
@@ -3632,27 +3689,27 @@ contains
     end do
     ntot = i - 1
     if (ntot == nvarmax_sfc) then
-      write(fstderr,*) "There are more statistical variables listed in ",  &
-                       "clubb_vars_sfc than allowed for by nvarmax_sfc."
-      write(fstderr,*) "Check the number of variables listed for clubb_vars_sfc ",  &
-                       "in the stats namelist, or change nvarmax_sfc."
-      write(fstderr,*) "nvarmax_sfc = ", nvarmax_sfc
-      call endrun ("stats_init_clubb:  number of sfc statistical variables exceeds limit")
+      write(fstderr, *) 'There are more statistical variables listed in ',  &
+                        'clubb_vars_sfc than allowed for by nvarmax_sfc.'
+      write(fstderr, *) 'Check the number of variables listed for clubb_vars_sfc ',  &
+                        'in the stats namelist, or change nvarmax_sfc.'
+      write(fstderr, *) 'nvarmax_sfc = ', nvarmax_sfc
+      call endrun('stats_init_clubb:  number of sfc statistical variables exceeds limit')
     end if
 
     stats_sfc%num_output_fields = ntot
     stats_sfc%kk = 1
 
-    allocate(stats_sfc%z( stats_sfc%kk))
-    allocate(stats_sfc%accum_field_values(1, 1, stats_sfc%kk, stats_sfc%num_output_fields))
-    allocate(stats_sfc%accum_num_samples(1, 1, stats_sfc%kk, stats_sfc%num_output_fields))
-    allocate(stats_sfc%l_in_update(1, 1, stats_sfc%kk, stats_sfc%num_output_fields))
+    allocate(stats_sfc%z(stats_sfc%kk))
+    allocate(stats_sfc%accum_field_values(1,1,stats_sfc%kk,stats_sfc%num_output_fields))
+    allocate(stats_sfc%accum_num_samples (1,1,stats_sfc%kk,stats_sfc%num_output_fields))
+    allocate(stats_sfc%l_in_update       (1,1,stats_sfc%kk,stats_sfc%num_output_fields))
 
     call stats_zero(stats_sfc%kk, stats_sfc%num_output_fields, stats_sfc%accum_field_values, &
                     stats_sfc%accum_num_samples, stats_sfc%l_in_update)
 
-    allocate(stats_sfc%file%var( stats_sfc%num_output_fields))
-    allocate(stats_sfc%file%z( stats_sfc%kk ) )
+    allocate(stats_sfc%file%var(stats_sfc%num_output_fields))
+    allocate(stats_sfc%file%z(stats_sfc%kk))
 
     call stats_init_sfc_api(clubb_vars_sfc, l_error)
 
@@ -3667,8 +3724,8 @@ contains
       sub   = temp1
       if (len(temp1) > 16) sub = temp1(1:16)
       !!XXgoldyXX: Probably need a hist coord for nnzp for the vertical
-      call addfld(trim(sub),(/ 'ilev' /),&
-        'A',trim(stats_zt%file%var(i)%units),trim(stats_zt%file%var(i)%description))
+      call addfld(trim(sub), ['ilev'], &
+        'A', trim(stats_zt%file%var(i)%units), trim(stats_zt%file%var(i)%description))
     end do
 
     do i = 1, stats_zm%num_output_fields
@@ -3676,66 +3733,61 @@ contains
       sub   = temp1
       if (len(temp1) > 16) sub = temp1(1:16)
       !!XXgoldyXX: Probably need a hist coord for nnzp for the vertical
-      call addfld(trim(sub),(/ 'ilev' /), &
-        'A',trim(stats_zm%file%var(i)%units),trim(stats_zm%file%var(i)%description))
+      call addfld(trim(sub), ['ilev'], &
+        'A', trim(stats_zm%file%var(i)%units), trim(stats_zm%file%var(i)%description))
     end do
 
     if (l_output_rad_files) then
       !!XXgoldyXX: Probably need a hist coord for nnzp for the vertical
       do i = 1, stats_rad_zt%num_output_fields
-        call addfld(trim(stats_rad_zt%file%var(i)%name),(/ 'ilev' /), &
-          'A',trim(stats_rad_zt%file%var(i)%units),trim(stats_rad_zt%file%var(i)%description))
+        call addfld(trim(stats_rad_zt%file%var(i)%name), ['ilev'], &
+          'A', trim(stats_rad_zt%file%var(i)%units), trim(stats_rad_zt%file%var(i)%description))
       end do
 
       do i = 1, stats_rad_zm%num_output_fields
-        call addfld(trim(stats_rad_zm%file%var(i)%name),(/ 'ilev' /), &
-          'A',trim(stats_rad_zm%file%var(i)%units),trim(stats_rad_zm%file%var(i)%description))
+        call addfld(trim(stats_rad_zm%file%var(i)%name), ['ilev'], &
+          'A', trim(stats_rad_zm%file%var(i)%units), trim(stats_rad_zm%file%var(i)%description))
       end do
     end if
 
     do i = 1, stats_sfc%num_output_fields
-      call addfld(trim(stats_sfc%file%var(i)%name),horiz_only, &
-        'A',trim(stats_sfc%file%var(i)%units),trim(stats_sfc%file%var(i)%description))
+      call addfld(trim(stats_sfc%file%var(i)%name), horiz_only, &
+        'A', trim(stats_sfc%file%var(i)%units), trim(stats_sfc%file%var(i)%description))
     end do
 
   end subroutine stats_init_clubb
 #endif
 
-  subroutine stats_end_timestep_clubb(thecol,out_zt,out_zm,out_radzt,out_radzm,out_sfc)
+  subroutine stats_end_timestep_clubb(thecol, out_zt, out_zm, out_radzt, out_radzm, out_sfc)
 
     ! Description: Called when the stats timestep has ended. This subroutine
     ! is responsible for calling statistics to be written to the output
     ! format.
 
 #ifdef CLUBB_SGS
-    use shr_infnan_mod, only: is_nan => shr_infnan_isnan
-
+    use shr_infnan_mod  , only: is_nan => shr_infnan_isnan
     use clubb_api_module, only: &
-        fstderr, & ! Constant(s)
-        stats_zt,  & ! Variable(s)
-        stats_zm, &
-        stats_rad_zt, &
-        stats_rad_zm, &
-        stats_sfc, &
-        l_stats_last, &
-        stats_tsamp, &
-        stats_tout, &
+        fstderr           , & ! Constant(s)
+        stats_zt          , & ! Variable(s)
+        stats_zm          , &
+        stats_rad_zt      , &
+        stats_rad_zm      , &
+        stats_sfc         , &
+        l_stats_last      , &
+        stats_tsamp       , &
+        stats_tout        , &
         l_output_rad_files, &
-        clubb_at_least_debug_level_api ! Procedure(s)
-
+        clubb_at_least_debug_level_api
     use cam_abortutils,  only: endrun
-
-    implicit none
-
 #endif
 
     integer thecol
 
-    real(r8), intent(inout) :: out_zt(:,:,:)     ! (pcols,pverp,stats_zt%num_output_fields)
-    real(r8), intent(inout) :: out_zm(:,:,:)     ! (pcols,pverp,stats_zt%num_output_fields)
-    real(r8), intent(inout) :: out_radzt(:,:,:)  ! (pcols,pverp,stats_rad_zt%num_output_fields)
-    real(r8), intent(inout) :: out_radzm(:,:,:)  ! (pcols,pverp,rad_zm%num_output_fields)
-    real(r8), intent(inout) :: out_sfc(:,:,:)    ! (pcols,1,sfc%num_output_fields)
+    real(r8), intent(inout) :: out_zt   (:,:,:)
+    real(r8), intent(inout) :: out_zm   (:,:,:)
+    real(r8), intent(inout) :: out_radzt(:,:,:)
+    real(r8), intent(inout) :: out_radzm(:,:,:)
+    real(r8), intent(inout) :: out_sfc  (:,:,:)
 
 #ifdef CLUBB_SGS
     integer i, k
@@ -3765,7 +3817,7 @@ contains
     do i = 1, stats_zt%num_output_fields
       do k = 1, stats_zt%kk
         out_zt(thecol,pverp-k+1,i) = stats_zt%accum_field_values(1,1,k,i)
-        if(is_nan(out_zt(thecol,k,i))) out_zt(thecol,k,i) = 0.0_r8
+        if (is_nan(out_zt(thecol,k,i))) out_zt(thecol,k,i) = 0.0_r8
       end do
     end do
 
@@ -3792,8 +3844,8 @@ contains
       end do
 
       ! Fill in values above the CLUBB top.
-      out_zt(thecol,:top_lev-1,:) = 0.0_r8
-      out_zm(thecol,:top_lev-1,:) = 0.0_r8
+      out_zt   (thecol,:top_lev-1,:) = 0.0_r8
+      out_zm   (thecol,:top_lev-1,:) = 0.0_r8
       out_radzt(thecol,:top_lev-1,:) = 0.0_r8
       out_radzm(thecol,:top_lev-1,:) = 0.0_r8
     end if ! l_output_rad_files
@@ -3824,21 +3876,9 @@ contains
 
   subroutine stats_zero(kk, num_output_fields, x, n, l_in_update)
 
-    !     Description:
-    !     Initialize stats to zero
-    !-----------------------------------------------------------------------
+    use clubb_api_module, only: stat_rknd, stat_nknd
 
-    use clubb_api_module, only: &
-        stat_rknd,   & ! Variable(s)
-        stat_nknd
-
-
-    implicit none
-
-    ! Input
     integer, intent(in) :: kk, num_output_fields
-
-    ! Output
     real(stat_rknd), dimension(1,1,kk,num_output_fields), intent(out)    :: x
     integer(stat_nknd), dimension(1,1,kk,num_output_fields), intent(out) :: n
     logical, dimension(1,1,kk,num_output_fields), intent(out)            :: l_in_update
@@ -3855,34 +3895,22 @@ contains
 #endif
 
 #ifdef CLUBB_SGS
-  subroutine stats_avg( kk, num_output_fields, x, n )
+  subroutine stats_avg(kk, num_output_fields, x, n)
 
-    ! Description:
-    ! Compute the average of stats fields
+    use clubb_api_module, only: stat_rknd, stat_nknd
 
-    use clubb_api_module, only: &
-        stat_rknd,   & ! Variable(s)
-        stat_nknd
-
-    implicit none
-
-    !  Input
     integer, intent(in) :: num_output_fields, kk
     integer(stat_nknd), dimension(1,1,kk,num_output_fields), intent(in) :: n
-
-    !  Output
     real(stat_rknd), dimension(1,1,kk,num_output_fields), intent(inout)  :: x
 
-    !  Internal
-
-    integer k,m
+    integer k, m
 
     ! Compute averages
 
     do m = 1, num_output_fields
       do k = 1, kk
         if (n(1,1,k,m) > 0) then
-          x(1,1,k,m) = x(1,1,k,m) / real( n(1,1,k,m) )
+          x(1,1,k,m) = x(1,1,k,m) / real(n(1,1,k,m))
         end if
       end do
     end do
@@ -3890,18 +3918,17 @@ contains
   end subroutine stats_avg
 
   subroutine grid_size(state, grid_dx, grid_dy)
-    ! Determine the size of the grid for each of the columns in state
 
-    use phys_grid,       only: get_area_p
-    use shr_const_mod,   only: shr_const_pi
-    use physics_types,   only: physics_state
+    use phys_grid    , only: get_area_p
+    use shr_const_mod, only: shr_const_pi
+    use physics_types, only: physics_state
 
     type(physics_state), intent(in) :: state
     real(r8), intent(out)           :: grid_dx(pcols), grid_dy(pcols)   ! CAM grid [m]
 
-    real(r8), parameter :: earth_ellipsoid1 = 111132.92_r8 ! first coefficient, meters per degree longitude at equator
-    real(r8), parameter :: earth_ellipsoid2 = 559.82_r8 ! second expansion coefficient for WGS84 ellipsoid
-    real(r8), parameter :: earth_ellipsoid3 = 1.175_r8 ! third expansion coefficient for WGS84 ellipsoid
+    real(r8), parameter :: earth_ellipsoid1 = 111132.92_r8 ! First coefficient, meters per degree longitude at equator
+    real(r8), parameter :: earth_ellipsoid2 = 559.82_r8    ! Second expansion coefficient for WGS84 ellipsoid
+    real(r8), parameter :: earth_ellipsoid3 = 1.175_r8     ! Third expansion coefficient for WGS84 ellipsoid
 
     real(r8) mpdeglat, column_area, degree
     integer  i
@@ -3909,12 +3936,12 @@ contains
     ! determine the column area in radians
     do i = 1, state%ncol
       column_area = get_area_p(state%lchnk,i)
-      degree = sqrt(column_area)*(180._r8/shr_const_pi)
+      degree = sqrt(column_area) * (180.0_r8 / shr_const_pi)
 
       ! Now find meters per degree latitude
       ! Below equation finds distance between two points on an ellipsoid, derived from expansion
       !  taking into account ellipsoid using World Geodetic System (WGS84) reference
-      mpdeglat = earth_ellipsoid1 - earth_ellipsoid2 * cos(2._r8*state%lat(i)) + earth_ellipsoid3 * cos(4._r8*state%lat(i))
+      mpdeglat = earth_ellipsoid1 - earth_ellipsoid2 * cos(2 * state%lat(i)) + earth_ellipsoid3 * cos(4 * state%lat(i))
       grid_dx(i) = mpdeglat * degree
       grid_dy(i) = grid_dx(i) ! Assume these are the same
     end do
@@ -3936,12 +3963,8 @@ contains
       set_default_clubb_config_flags_api, & ! Procedure(s)
       initialize_clubb_config_flags_type_api
 
-    implicit none
-
-    ! Input/Output Variables
     type(clubb_config_flags_type), intent(inout) :: clubb_config_flags_in
 
-    ! Local Variables
     logical :: &
       l_use_precip_frac,            & ! Flag to use precipitation fraction in KK microphysics. The
                                       ! precipitation fraction is automatically set to 1 when this
@@ -4034,86 +4057,88 @@ contains
     logical, save :: first_call = .true.
 
     if (first_call) then
-      call set_default_clubb_config_flags_api( l_use_precip_frac, & ! Out
-                                               l_predict_upwp_vpwp, & ! Out
-                                               l_min_wp2_from_corr_wx, & ! Out
-                                               l_min_xp2_from_corr_wx, & ! Out
-                                               l_C2_cloud_frac, & ! Out
-                                               l_diffuse_rtm_and_thlm, & ! Out
-                                               l_stability_correct_Kh_N2_zm, & ! Out
-                                               l_calc_thlp2_rad, & ! Out
-                                               l_upwind_wpxp_ta, & ! Out
-                                               l_upwind_xpyp_ta, & ! Out
-                                               l_upwind_xm_ma, & ! Out
-                                               l_uv_nudge, & ! Out
-                                               l_rtm_nudge, & ! Out
-                                               l_tke_aniso, & ! Out
-                                               l_vert_avg_closure, & ! Out
-                                               l_trapezoidal_rule_zt, & ! Out
-                                               l_trapezoidal_rule_zm, & ! Out
-                                               l_call_pdf_closure_twice, & ! Out
-                                               l_standard_term_ta, & ! Out
-                                               l_use_cloud_cover, & ! Out
-                                               l_diagnose_correlations, & ! Out
-                                               l_calc_w_corr, & ! Out
-                                               l_const_Nc_in_cloud, & ! Out
-                                               l_fix_w_chi_eta_correlations, & ! Out
-                                               l_stability_correct_tau_zm, & ! Out
-                                               l_damp_wp2_using_em, & ! Out
-                                               l_do_expldiff_rtm_thlm, & ! Out
-                                               l_Lscale_plume_centered, & ! Out
-                                               l_diag_Lscale_from_tau, & ! Out
-                                               l_use_ice_latent, & ! Out
-                                               l_use_C7_Richardson, & ! Out
-                                               l_use_C11_Richardson, & ! Out
-                                               l_brunt_vaisala_freq_moist, & ! Out
-                                               l_use_thvm_in_bv_freq, & ! Out
-                                               l_rcm_supersat_adj, & ! Out
-                                               l_single_C2_Skw, & ! Out
-                                               l_damp_wp3_Skw_squared, & ! Out
-                                               l_prescribed_avg_deltaz, & ! Out
-                                               l_update_pressure ) ! Out
+      call set_default_clubb_config_flags_api( &
+        l_use_precip_frac                    , & ! Out
+        l_predict_upwp_vpwp                  , & ! Out
+        l_min_wp2_from_corr_wx               , & ! Out
+        l_min_xp2_from_corr_wx               , & ! Out
+        l_C2_cloud_frac                      , & ! Out
+        l_diffuse_rtm_and_thlm               , & ! Out
+        l_stability_correct_Kh_N2_zm         , & ! Out
+        l_calc_thlp2_rad                     , & ! Out
+        l_upwind_wpxp_ta                     , & ! Out
+        l_upwind_xpyp_ta                     , & ! Out
+        l_upwind_xm_ma                       , & ! Out
+        l_uv_nudge                           , & ! Out
+        l_rtm_nudge                          , & ! Out
+        l_tke_aniso                          , & ! Out
+        l_vert_avg_closure                   , & ! Out
+        l_trapezoidal_rule_zt                , & ! Out
+        l_trapezoidal_rule_zm                , & ! Out
+        l_call_pdf_closure_twice             , & ! Out
+        l_standard_term_ta                   , & ! Out
+        l_use_cloud_cover                    , & ! Out
+        l_diagnose_correlations              , & ! Out
+        l_calc_w_corr                        , & ! Out
+        l_const_Nc_in_cloud                  , & ! Out
+        l_fix_w_chi_eta_correlations         , & ! Out
+        l_stability_correct_tau_zm           , & ! Out
+        l_damp_wp2_using_em                  , & ! Out
+        l_do_expldiff_rtm_thlm               , & ! Out
+        l_Lscale_plume_centered              , & ! Out
+        l_diag_Lscale_from_tau               , & ! Out
+        l_use_ice_latent                     , & ! Out
+        l_use_C7_Richardson                  , & ! Out
+        l_use_C11_Richardson                 , & ! Out
+        l_brunt_vaisala_freq_moist           , & ! Out
+        l_use_thvm_in_bv_freq                , & ! Out
+        l_rcm_supersat_adj                   , & ! Out
+        l_single_C2_Skw                      , & ! Out
+        l_damp_wp3_Skw_squared               , & ! Out
+        l_prescribed_avg_deltaz              , & ! Out
+        l_update_pressure                    )   ! Out
 
-      call initialize_clubb_config_flags_type_api( l_use_precip_frac, & ! In
-                                                   l_predict_upwp_vpwp, & ! In
-                                                   l_min_wp2_from_corr_wx, & ! In
-                                                   l_min_xp2_from_corr_wx, & ! In
-                                                   l_C2_cloud_frac, & ! In
-                                                   l_diffuse_rtm_and_thlm, & ! In
-                                                   l_stability_correct_Kh_N2_zm, & ! In
-                                                   l_calc_thlp2_rad, & ! In
-                                                   l_upwind_wpxp_ta, & ! In
-                                                   l_upwind_xpyp_ta, & ! In
-                                                   l_upwind_xm_ma, & ! In
-                                                   l_uv_nudge, & ! In
-                                                   l_rtm_nudge, & ! In
-                                                   l_tke_aniso, & ! In
-                                                   l_vert_avg_closure, & ! In
-                                                   l_trapezoidal_rule_zt, & ! In
-                                                   l_trapezoidal_rule_zm, & ! In
-                                                   l_call_pdf_closure_twice, & ! In
-                                                   l_standard_term_ta, & ! In
-                                                   l_use_cloud_cover, & ! In
-                                                   l_diagnose_correlations, & ! In
-                                                   l_calc_w_corr, & ! In
-                                                   l_const_Nc_in_cloud, & ! In
-                                                   l_fix_w_chi_eta_correlations, & ! In
-                                                   l_stability_correct_tau_zm, & ! In
-                                                   l_damp_wp2_using_em, & ! In
-                                                   l_do_expldiff_rtm_thlm, & ! In
-                                                   l_Lscale_plume_centered, & ! In
-                                                   l_diag_Lscale_from_tau, & ! In
-                                                   l_use_ice_latent, & ! In
-                                                   l_use_C7_Richardson, & ! In
-                                                   l_use_C11_Richardson, & ! In
-                                                   l_brunt_vaisala_freq_moist, & ! In
-                                                   l_use_thvm_in_bv_freq, & ! In
-                                                   l_rcm_supersat_adj, & ! In
-                                                   l_single_C2_Skw, & ! In
-                                                   l_damp_wp3_Skw_squared, & ! In
-                                                   l_prescribed_avg_deltaz, & ! In
-                                                   l_update_pressure, & ! In
-                                                   clubb_config_flags_in ) ! Out
+      call initialize_clubb_config_flags_type_api( &
+        l_use_precip_frac                        , & ! In
+        l_predict_upwp_vpwp                      , & ! In
+        l_min_wp2_from_corr_wx                   , & ! In
+        l_min_xp2_from_corr_wx                   , & ! In
+        l_C2_cloud_frac                          , & ! In
+        l_diffuse_rtm_and_thlm                   , & ! In
+        l_stability_correct_Kh_N2_zm             , & ! In
+        l_calc_thlp2_rad                         , & ! In
+        l_upwind_wpxp_ta                         , & ! In
+        l_upwind_xpyp_ta                         , & ! In
+        l_upwind_xm_ma                           , & ! In
+        l_uv_nudge                               , & ! In
+        l_rtm_nudge                              , & ! In
+        l_tke_aniso                              , & ! In
+        l_vert_avg_closure                       , & ! In
+        l_trapezoidal_rule_zt                    , & ! In
+        l_trapezoidal_rule_zm                    , & ! In
+        l_call_pdf_closure_twice                 , & ! In
+        l_standard_term_ta                       , & ! In
+        l_use_cloud_cover                        , & ! In
+        l_diagnose_correlations                  , & ! In
+        l_calc_w_corr                            , & ! In
+        l_const_Nc_in_cloud                      , & ! In
+        l_fix_w_chi_eta_correlations             , & ! In
+        l_stability_correct_tau_zm               , & ! In
+        l_damp_wp2_using_em                      , & ! In
+        l_do_expldiff_rtm_thlm                   , & ! In
+        l_Lscale_plume_centered                  , & ! In
+        l_diag_Lscale_from_tau                   , & ! In
+        l_use_ice_latent                         , & ! In
+        l_use_C7_Richardson                      , & ! In
+        l_use_C11_Richardson                     , & ! In
+        l_brunt_vaisala_freq_moist               , & ! In
+        l_use_thvm_in_bv_freq                    , & ! In
+        l_rcm_supersat_adj                       , & ! In
+        l_single_C2_Skw                          , & ! In
+        l_damp_wp3_Skw_squared                   , & ! In
+        l_prescribed_avg_deltaz                  , & ! In
+        l_update_pressure                        , & ! In
+        clubb_config_flags_in                    )   ! Out
 
       first_call = .false.
     end if

@@ -150,7 +150,7 @@ contains
 
     call perf_start('physics_run')
 
-    if (proc%is_root()) call log_notice('Run ' // trim(physics_suite) // ' physics.')
+    if (proc%is_root()) call log_notice('Run ' // to_upper(trim(physics_suite)) // ' physics.')
 
     call dp_coupling_d2p(block, itime)
 
