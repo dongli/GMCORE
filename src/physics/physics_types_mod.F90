@@ -115,6 +115,12 @@ module physics_types_mod
     real(r8), allocatable, dimension(:    ) :: fdnl
     ! Topography (m)
     real(r8), allocatable, dimension(:    ) :: zs
+    ! Total precipitation (kg m-2)
+    real(r8), allocatable, dimension(:    ) :: prect
+    ! Convective precipitation (kg m-2)
+    real(r8), allocatable, dimension(:    ) :: precc
+    ! Large-scale precipitation (kg m-2)
+    real(r8), allocatable, dimension(:    ) :: precl
   contains
     procedure physics_state_init
     procedure physics_state_clear
@@ -197,6 +203,9 @@ contains
     allocate(this%fdns      (mesh%ncol                   ))
     allocate(this%fdnl      (mesh%ncol                   ))
     allocate(this%zs        (mesh%ncol                   ))
+    allocate(this%prect     (mesh%ncol                   ))
+    allocate(this%precc     (mesh%ncol                   ))
+    allocate(this%precl     (mesh%ncol                   ))
 
     this%t_bot => this%t(:,mesh%nlev)
 
@@ -251,6 +260,9 @@ contains
     if (allocated(this%fdns     )) deallocate(this%fdns     )
     if (allocated(this%fdnl     )) deallocate(this%fdnl     )
     if (allocated(this%zs       )) deallocate(this%zs       )
+    if (allocated(this%prect    )) deallocate(this%prect    )
+    if (allocated(this%precc    )) deallocate(this%precc    )
+    if (allocated(this%precl    )) deallocate(this%precl    )
 
   end subroutine physics_state_clear
 

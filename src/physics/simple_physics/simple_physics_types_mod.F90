@@ -17,7 +17,6 @@ module simple_physics_types_mod
 
   type, extends(physics_state_type) :: simple_state_type
     real(r8), pointer    , dimension(:,:) :: qv
-    real(r8), allocatable, dimension(:  ) :: precl
   contains
     procedure :: init  => simple_state_init
     procedure :: clear => simple_state_clear
@@ -44,7 +43,6 @@ contains
     call this%physics_state_init(mesh)
 
     this%qv => this%q(:,:,idx_qv)
-    allocate(this%precl(mesh%ncol))
 
   end subroutine simple_state_init
 
@@ -53,8 +51,6 @@ contains
     class(simple_state_type), intent(inout) :: this
 
     call this%physics_state_clear()
-
-    if (allocated(this%precl)) deallocate(this%precl)
 
   end subroutine simple_state_clear
 
