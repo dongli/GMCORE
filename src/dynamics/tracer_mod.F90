@@ -50,6 +50,7 @@ module tracer_mod
   public tracer_units
   public tracer_types
   public tracers_type
+  public is_water_tracer
   public tracers
 
 contains
@@ -67,6 +68,7 @@ contains
     allocate(tracer_long_names(100)); tracer_long_names = 'N/A'
     allocate(tracer_units     (100)); tracer_units      = 'kg kg-1'
     allocate(tracer_types     (100)); tracer_types      = 0
+    allocate(is_water_tracer  (100)); is_water_tracer   = .false.
 
     allocate(tracers(size(blocks)))
     do iblk = 1, size(blocks)
@@ -118,6 +120,7 @@ contains
     if (allocated(tracer_long_names)) deallocate(tracer_long_names)
     if (allocated(tracer_units     )) deallocate(tracer_units     )
     if (allocated(tracer_types     )) deallocate(tracer_types     )
+    if (allocated(is_water_tracer  )) deallocate(is_water_tracer  )
     if (allocated(tracers          )) deallocate(tracers          )
 
   end subroutine tracer_final
@@ -157,19 +160,19 @@ contains
     ! Set tracer indices.
     select case (name)
     case ('qv', 'Q')
-      idx_qv    = ntracers; ntracers_water = ntracers_water + 1
+      idx_qv    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
     case ('qc', 'CLDLIQ')
-      idx_qc    = ntracers; ntracers_water = ntracers_water + 1
+      idx_qc    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
     case ('nc', 'NUMLIQ')
       idx_nc    = ntracers
     case ('qi', 'CLDICE')
-      idx_qi    = ntracers; ntracers_water = ntracers_water + 1
+      idx_qi    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
     case ('ni', 'NUMICE')
       idx_ni    = ntracers
     case ('qr', 'RAINQM')
-      idx_qr    = ntracers; ntracers_water = ntracers_water + 1
+      idx_qr    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
     case ('qs', 'SNOWQM')
-      idx_qs    = ntracers; ntracers_water = ntracers_water + 1
+      idx_qs    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
     case ('qg')
       idx_qg    = ntracers; ntracers_water = ntracers_water + 1
     case ('qh')
@@ -202,7 +205,7 @@ contains
 
     type(block_type), intent(in) :: block
 
-    integer i, j, k, is, ie, js, je
+    integer i, j, k, m, is, ie, js, je
 
     if (.not. allocated(tracers)) return
     if (.not. tracers(block%id)%qm%initialized) return
@@ -215,69 +218,18 @@ contains
     ie = mesh%full_ide + 1
     js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
     je = mesh%full_jde + merge(0, 1, mesh%has_north_pole())
-    if (idx_qv > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = q%d(i,j,k,idx_qv)
+    qm%d = 0
+    do m = 1, ntracers
+      if (is_water_tracer(m)) then
+        do k = mesh%full_kds, mesh%full_kde
+          do j = js, je
+            do i = is, ie
+              qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,m)
+            end do
           end do
         end do
-      end do
-    end if
-    if (idx_qc > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qc)
-          end do
-        end do
-      end do
-    end if
-    if (idx_qi > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qi)
-          end do
-        end do
-      end do
-    end if
-    if (idx_qr > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qr)
-          end do
-        end do
-      end do
-    end if
-    if (idx_qs > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qs)
-          end do
-        end do
-      end do
-    end if
-    if (idx_qg > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qg)
-          end do
-        end do
-      end do
-    end if
-    if (idx_qh > 0) then
-      do k = mesh%full_kds, mesh%full_kde
-        do j = js, je
-          do i = is, ie
-            qm%d(i,j,k) = qm%d(i,j,k) + q%d(i,j,k,idx_qh)
-          end do
-        end do
-      end do
-    end if
+      end if
+    end do
     if (nonhydrostatic) call interp_run(qm, qm_lev)
     end associate
 

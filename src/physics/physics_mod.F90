@@ -19,7 +19,7 @@ module physics_mod
   use physics_types_mod
   use dp_coupling_mod
   use latlon_parallel_mod
-  use simple_physics_driver_mod
+  use simple_physics_driver_mod, simple_objects => objects
 #ifdef HAS_CAM
   use cam_physics_driver_mod, cam_objects => objects
 #endif
@@ -36,7 +36,6 @@ module physics_mod
   public physics_run
   public physics_update
   public physics_update_dynamics
-  public physics_update_tracers
   public physics_final
   public physics_add_output
   public physics_output
@@ -170,6 +169,8 @@ contains
     call dp_coupling_p2d(block, itime)
 
     select case (physics_suite)
+    case ('simple_physics')
+      call physics_set_tracers(block, simple_objects(block%id)%state)
 #ifdef HAS_CAM
     case ('cam')
       call physics_set_tracers(block, cam_objects(block%id)%state)
@@ -187,14 +188,28 @@ contains
 
       integer i, j, k, m, icol
 
-      associate (mesh => block%mesh, q => tracers(block%id)%q)
+      associate (mesh => block%mesh, q => tracers(block%id)%q, qm => tracers(block%id)%qm)
+      qm%d = 0
+      do m = 1, ntracers
+        if (is_water_tracer(m)) then
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                qm%d(i,j,k) = pstate%q(icol,k,m)
+                icol = icol + 1
+              end do
+            end do
+          end do
+        end if
+      end do
       do m = 1, ntracers
         do k = mesh%full_kds, mesh%full_kde
           icol = 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
               if (physics_use_wet_tracers(m)) then
-                q%d(i,j,k,m) = dry_mixing_ratio(pstate%q(icol,k,m), pstate%qm(icol,k))
+                q%d(i,j,k,m) = pstate%q(icol,k,m) / (1 - qm%d(i,j,k))
               else
                 q%d(i,j,k,m) = pstate%q(icol,k,m)
               end if
@@ -325,37 +340,6 @@ contains
     call perf_stop('physics_update_dynamics')
 
   end subroutine physics_update_dynamics
-
-  subroutine physics_update_tracers(block, itime, dt, idx)
-
-    type(block_type), intent(inout) :: block
-    integer, intent(in) :: itime
-    real(r8), intent(in) :: dt
-    integer, intent(in) :: idx
-
-    integer i, j, k
-
-    call perf_start('physics_update_tracers')
-
-    associate (mesh  => block%mesh             , &
-               dqdt  => block%aux%dqdt_phys    , &
-               dmg   => block%dstate(itime)%dmg, &
-               q     => tracers(block%id)%q    )
-    ! Update tracers.
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          q%d(i,j,k,idx) = q%d(i,j,k,idx) + dt * dqdt%d(i,j,k,idx) / dmg%d(i,j,k)
-        end do
-      end do
-    end do
-    call tracer_fill_negative_values(block, itime, q%d(:,:,:,idx), idx, __FILE__, __LINE__)
-    call fill_halo(q, idx)
-    end associate
-
-    call perf_stop('physics_update_tracers')
-
-  end subroutine physics_update_tracers
 
   subroutine physics_final()
 

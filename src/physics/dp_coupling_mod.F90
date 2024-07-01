@@ -83,7 +83,6 @@ contains
             pstate%v     (icol,k) = dstate %v     %d(i,j,k)
             pstate%t     (icol,k) = dstate %t     %d(i,j,k)
             pstate%pt    (icol,k) = dstate %pt    %d(i,j,k)
-            pstate%qm    (icol,k) = tracers%qm    %d(i,j,k)
             pstate%p     (icol,k) = dstate %ph    %d(i,j,k)
             pstate%p_lev (icol,k) = dstate %ph_lev%d(i,j,k)
             pstate%pk    (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
@@ -239,6 +238,7 @@ contains
         end do
       end if
       do m = 1, ntracers
+        ! FIXME: Actually, most physics codes directly update q, so we do not need dqdt.
         if (ptend%updated_q(m)) then
           if (physics_use_wet_tracers(m)) then
             do k = mesh%full_kds, mesh%full_kde

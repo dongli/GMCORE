@@ -40,6 +40,7 @@ module tracer_types_mod
   ! 1 - Prognostic chemical tracer
   ! 2 - Diagnostic chemical tracer
   integer, allocatable :: tracer_types(:)
+  logical, allocatable :: is_water_tracer(:)
 
   type tracers_type
     logical :: initialized = .false.

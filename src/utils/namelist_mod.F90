@@ -35,7 +35,7 @@ module namelist_mod
   ! 2: Update dynamics and tracers after advection (moisture).
   ! 3: Update dynamics and tracers after physics.
   ! 4: Update dynamics at RK sub-steps and tracers after advection.
-  integer         :: pdc_type             = 3
+  integer         :: pdc_type             = 1
 
   character(256)  :: case_desc            = 'N/A'
   character(256)  :: case_name            = 'N/A'

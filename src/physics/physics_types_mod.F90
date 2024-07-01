@@ -40,8 +40,6 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: pt
     ! Tracer mixing ratio (wet)
     real(r8), allocatable, dimension(:,:,:) :: q
-    ! Total water tracer mixing ratio (dry)
-    real(r8), allocatable, dimension(:,:  ) :: qm
     ! Full pressure (hydrostatic) on full level (Pa)
     real(r8), allocatable, dimension(:,:  ) :: p
     ! Full pressure (hydrostatic) on half level (Pa)
@@ -161,7 +159,6 @@ contains
     allocate(this%tg        (mesh%ncol                   ))
     allocate(this%pt        (mesh%ncol,mesh%nlev         ))
     allocate(this%q         (mesh%ncol,mesh%nlev,ntracers))
-    allocate(this%qm        (mesh%ncol,mesh%nlev         ))
     allocate(this%p         (mesh%ncol,mesh%nlev         ))
     allocate(this%p_lev     (mesh%ncol,mesh%nlev+1       ))
     allocate(this%pk        (mesh%ncol,mesh%nlev         ))
@@ -217,7 +214,6 @@ contains
     if (allocated(this%tg       )) deallocate(this%tg       )
     if (allocated(this%pt       )) deallocate(this%pt       )
     if (allocated(this%q        )) deallocate(this%q        )
-    if (allocated(this%qm       )) deallocate(this%qm       )
     if (allocated(this%p        )) deallocate(this%p        )
     if (allocated(this%p_lev    )) deallocate(this%p_lev    )
     if (allocated(this%pk       )) deallocate(this%pk       )
