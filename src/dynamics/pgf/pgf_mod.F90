@@ -22,16 +22,9 @@ module pgf_mod
   public pgf_init
   public pgf_init_after_ic
   public pgf_final
-  public pgf_prepare
   public pgf_run
 
   interface
-    subroutine pgf_prepare_interface(block, dstate)
-      import block_type, dstate_type
-      type(block_type), intent(inout) :: block
-      type(dstate_type), intent(inout) :: dstate
-    end subroutine pgf_prepare_interface
-
     subroutine pgf_run_interface(block, dstate, dtend)
       import block_type, dstate_type, dtend_type
       type(block_type), intent(inout) :: block
@@ -40,7 +33,6 @@ module pgf_mod
     end subroutine pgf_run_interface
   end interface
 
-  procedure(pgf_prepare_interface), pointer :: pgf_prepare
   procedure(pgf_run_interface), pointer :: pgf_run
 
 contains
@@ -50,16 +42,13 @@ contains
     if (baroclinic) then
       select case (pgf_scheme)
       case ('lin97')
-        pgf_prepare => pgf_lin97_prepare
         pgf_run => pgf_lin97_run
       case ('ptb')
-        pgf_prepare => pgf_ptb_prepare
         pgf_run => pgf_ptb_run
       case default
         if (proc%is_root()) call log_error('Unknown PGF scheme ' // trim(pgf_scheme) // '!')
       end select
     else
-      pgf_prepare => pgf_swm_prepare
       pgf_run => pgf_swm_run
     end if
 

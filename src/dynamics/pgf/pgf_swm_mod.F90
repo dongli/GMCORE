@@ -16,13 +16,6 @@ module pgf_swm_mod
 
 contains
 
-  subroutine pgf_swm_prepare(block, dstate)
-
-    type(block_type), intent(inout) :: block
-    type(dstate_type), intent(inout) :: dstate
-
-  end subroutine pgf_swm_prepare
-
   subroutine pgf_swm_run(block, dstate, dtend)
 
     type(block_type), intent(inout) :: block

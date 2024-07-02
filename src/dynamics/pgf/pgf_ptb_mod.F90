@@ -36,7 +36,6 @@ module pgf_ptb_mod
 
   public pgf_ptb_init_after_ic
   public pgf_ptb_final
-  public pgf_ptb_prepare
   public pgf_ptb_run
 
   type ref_profile_type
@@ -121,24 +120,29 @@ contains
 
   end subroutine pgf_ptb_final
 
-  subroutine pgf_ptb_prepare(block, dstate)
+  subroutine pgf_ptb_run(block, dstate, dtend)
 
     type(block_type), intent(inout) :: block
-    type(dstate_type), intent(inout) :: dstate
+    type(dstate_type), intent(in) :: dstate
+    type(dtend_type), intent(inout) :: dtend
 
+    real(r8) L, tmp1, tmp2, tmp3, tmp4, tmp
     integer i, j, k
 
     associate (mesh   => block%mesh            , &
-               p      => dstate%p              , & ! in
-               gz     => dstate%gz             , & ! in
-               rhod   => dstate%rhod           , & ! in
-               p_lev  => dstate%p_lev          , & ! in
-               dmg    => dstate%dmg            , & ! in
                pro    => ref_profiles(block%id), & ! in
-               p_ptb  => block%aux%p_ptb       , & ! out
-               gz_ptb => block%aux%gz_ptb      , & ! out
-               dp_ptb => block%aux%dp_ptb      , & ! out
-               ad_ptb => block%aux%ad_ptb      )   ! out
+               qm     => tracers(block%id)%qm  , & ! in
+               ad_ptb => block%aux%ad_ptb      , & ! in
+               p_ptb  => block%aux%p_ptb       , & ! in
+               gz_ptb => block%aux%gz_ptb      , & ! in
+               dp_ptb => block%aux%dp_ptb      , & ! in
+               dmg    => dstate%dmg            , & ! in
+               p      => dstate%p              , & ! in
+               p_lev  => dstate%p_lev          , & ! in
+               rhod   => dstate%rhod           , & ! in
+               gz     => dstate%gz             , & ! in
+               du     => dtend%du              , & ! out
+               dv     => dtend%dv              )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1
@@ -149,37 +153,11 @@ contains
         end do
       end do
     end do
-    end associate
-
-  end subroutine pgf_ptb_prepare
-
-  subroutine pgf_ptb_run(block, dstate, dtend)
-
-    type(block_type), intent(inout) :: block
-    type(dstate_type), intent(in) :: dstate
-    type(dtend_type), intent(inout) :: dtend
-
-    real(r8) L, tmp1, tmp2, tmp3, tmp4, tmp
-    integer i, j, k
-
-    associate (mesh   => block%mesh                  , &
-               qm     => tracers(block%id)%qm        , & ! in
-               dmgdx  => ref_profiles(block%id)%dmgdx, & ! in
-               dmgdy  => ref_profiles(block%id)%dmgdy, & ! in
-               ad_ptb => block%aux%ad_ptb            , & ! in
-               p_ptb  => block%aux%p_ptb             , & ! in
-               gz_ptb => block%aux%gz_ptb            , & ! in
-               dp_ptb => block%aux%dp_ptb            , & ! in
-               dmg    => dstate%dmg                  , & ! in
-               rhod   => dstate%rhod                 , & ! in
-               gz     => dstate%gz                   , & ! in
-               du     => dtend%du                    , & ! out
-               dv     => dtend%dv                    )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
           L = 1 + 0.5_r8 * (qm%d(i,j,k) + qm%d(i+1,j,k))
-          tmp1 = 0.5_r8 * (ad_ptb%d(i,j,k) + ad_ptb%d(i+1,j,k)) * dmgdx%d(i,j,k)
+          tmp1 = 0.5_r8 * (ad_ptb%d(i,j,k) + ad_ptb%d(i+1,j,k)) * pro%dmgdx%d(i,j,k)
           tmp2 = 0.5_r8 * (1.0_r8 / rhod%d(i,j,k) + 1.0_r8 / rhod%d(i+1,j,k)) * &
                  (p_ptb%d(i+1,j,k) - p_ptb%d(i,j,k)) / mesh%de_lon(j)
           tmp3 = (gz_ptb%d(i+1,j,k) - gz_ptb%d(i,j,k)) / mesh%de_lon(j)
@@ -195,7 +173,7 @@ contains
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
           L = 1 + 0.5_r8 * (qm%d(i,j,k) + qm%d(i,j+1,k))
-          tmp1 = 0.5_r8 * (ad_ptb%d(i,j,k) + ad_ptb%d(i,j+1,k)) * dmgdy%d(i,j,k)
+          tmp1 = 0.5_r8 * (ad_ptb%d(i,j,k) + ad_ptb%d(i,j+1,k)) * pro%dmgdy%d(i,j,k)
           tmp2 = 0.5_r8 * (1.0_r8 / rhod%d(i,j,k) + 1.0_r8 / rhod%d(i,j+1,k)) * &
                  (p_ptb%d(i,j+1,k) - p_ptb%d(i,j,k)) / mesh%de_lat(j)
           tmp3 = (gz_ptb%d(i,j+1,k) - gz_ptb%d(i,j,k)) / mesh%de_lat(j)

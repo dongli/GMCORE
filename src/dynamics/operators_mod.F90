@@ -97,7 +97,6 @@ contains
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
       if (baroclinic    ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
-      call pgf_prepare                    (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
       if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
     end do
@@ -121,7 +120,6 @@ contains
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
       if (hydrostatic   ) call calc_rhod  (block, dstate)
-      call pgf_prepare                    (block, dstate)
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
@@ -131,7 +129,6 @@ contains
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
       if (baroclinic    ) call calc_rhod  (block, dstate)
-      call pgf_prepare                    (block, dstate)
     end select
 
   end subroutine operators_prepare_2
