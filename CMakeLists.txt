@@ -19,6 +19,7 @@ option(USE_BULK_AERO "Use bulk aerosol model" ON)
 option(USE_MODAL_AERO "Use modal aerosol model" OFF)
 option(USE_CHEM "Use chemistry" OFF)
 option(USE_CAM "Use CAM physics" OFF)
+option(USE_CLM "Use CLM land model" OFF)
 option(OUTPUT_H1_DTEND "Output each dynamics tendency in h1 file" OFF)
 
 if (R4)
@@ -458,7 +459,7 @@ target_link_libraries(gmcore_driver.exe gmcore)
 add_executable(gmcore_adv_driver.exe src/drivers/gmcore_adv_driver.F90)
 target_link_libraries(gmcore_adv_driver.exe gmcore)
 
-if (HAS_ESMF AND USE_CAM)
+if (HAS_ESMF AND USE_CLM)
   add_subdirectory(src/components/lnd/clm)
 
   add_executable(gmcore_esmf_driver.exe
