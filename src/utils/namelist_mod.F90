@@ -112,7 +112,7 @@ module namelist_mod
   real(r8)        :: upwind_wgt_pv        = 1
   real(r8)        :: pv_pole_wgt          = 1.0_r8
 
-  character(8)    :: pgf_scheme           = 'lin97'
+  character(8)    :: pgf_scheme           = ''       ! lin97, ptb
   integer         :: coriolis_scheme      = 1
 
   character(30)   :: pt_adv_scheme        = 'upwind:ffsl'
@@ -355,8 +355,12 @@ contains
     end if
 
     ! Set default for nonhydrostatic temporally.
-    if (nonhydrostatic) then
-      pgf_scheme     = 'ptb'
+    if (pgf_scheme == '') then
+      if (nonhydrostatic) then
+        pgf_scheme   = 'ptb'
+      else
+        pgf_scheme   = 'lin97'
+      end if
     end if
 
     if (dt_dyn  == 0) dt_dyn  = dt_adv
