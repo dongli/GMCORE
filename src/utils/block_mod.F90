@@ -32,7 +32,7 @@ module block_mod
     type(mesh_type) mesh
     type(static_type) static
     type(dstate_type), allocatable :: dstate(:)
-    type(dtend_type), allocatable :: dtend(:)
+    type(dtend_type) dtend
     type(aux_array_type) aux
     type(adv_batch_type) adv_batch_pt
     type(adv_batch_type) adv_batch_nh
@@ -144,10 +144,8 @@ contains
       select case (trim(time_scheme))
       case ('euler', 'rk2')
         allocate(this%dstate(2))
-        allocate(this%dtend (2))
       case ('pc2', 'wrfrk3')
         allocate(this%dstate(3))
-        allocate(this%dtend (2))
       case ('N/A')
         allocate(this%dstate(1))
       case default
@@ -158,11 +156,7 @@ contains
           call this%dstate(i)%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
         end do
       end if
-      if (allocated(this%dtend)) then
-        do i = 1, size(this%dtend)
-          call this%dtend(i)%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
-        end do
-      end if
+      call this%dtend%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
       call this%static%init_stage1(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
       call this%aux%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
     end if
@@ -179,6 +173,7 @@ contains
     call this%mesh        %clear()
     call this%big_filter  %clear()
     call this%small_filter%clear()
+    call this%dtend       %clear()
     call this%aux         %clear()
     call this%adv_batch_pt%clear()
     call this%adv_batch_nh%clear()
@@ -188,12 +183,6 @@ contains
         call this%dstate(i)     %clear()
       end do
       deallocate(this%dstate)
-    end if
-    if (allocated(this%dtend      )) then
-      do i = 1, size(this%dtend)
-        call this%dtend(i)      %clear()
-      end do
-      deallocate(this%dtend)
     end if
     if (allocated(this%adv_batches)) then
       do i = 1, size(this%adv_batches)

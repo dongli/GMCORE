@@ -171,7 +171,7 @@ contains
     end if
 
     call add_fields('h0', blocks(1)%dstate(1)%fields)
-    call add_fields('h0', blocks(1)%dtend (1)%fields)
+    call add_fields('h0', blocks(1)%dtend    %fields)
     call add_fields('h0', blocks(1)%static   %fields, static=.true.)
     call add_fields('h0', blocks(1)%aux      %fields)
     call add_fields('h0', blocks(1)%adv_batch_pt%fields)
@@ -225,7 +225,7 @@ contains
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh         , &
                  dstate => blocks(iblk)%dstate(itime), &
-                 dtend  => blocks(iblk)%dtend (itime), &
+                 dtend  => blocks(iblk)%dtend        , &
                  aux    => blocks(iblk)%aux          , &
                  q      => tracers(iblk)%q           )
       if (.not. use_div_damp .and. .not. advection) then
@@ -273,7 +273,7 @@ contains
     call fiona_add_dim('h1', 'ilev' , size=global_mesh%half_nlev)
 
     call add_fields('h1', blocks(1)%dstate(1)%fields)
-    call add_fields('h1', blocks(1)%dtend (1)%fields)
+    call add_fields('h1', blocks(1)%dtend    %fields)
     call add_fields('h1', blocks(1)%static   %fields)
     call add_fields('h1', blocks(1)%aux      %fields)
     if (physics_suite /= 'N/A' .or. physics_suite /= '') then
@@ -314,7 +314,7 @@ contains
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh         , &
                  dstate => blocks(iblk)%dstate(itime), &
-                 dtend  => blocks(iblk)%dtend (itime), &
+                 dtend  => blocks(iblk)%dtend        , &
                  static => blocks(iblk)%static       , &
                  aux    => blocks(iblk)%aux          )
       call write_fields('h1', mesh, dstate%fields)
