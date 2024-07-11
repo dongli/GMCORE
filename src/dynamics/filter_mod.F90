@@ -13,6 +13,7 @@ module filter_mod
   use perf_mod
   use filter_types_mod
   use latlon_field_types_mod
+  use latlon_parallel_mod
 
   implicit none
 
@@ -41,6 +42,8 @@ contains
     integer is, ie, js, je, i, j, n, hn
 
     call perf_start('filter_run_2d')
+
+    call fill_halo(x, south_halo=.false., north_halo=.false.)
 
     is = x%mesh%full_ids
     ie = x%mesh%full_ide
@@ -85,6 +88,8 @@ contains
     integer is, ie, js, je, ks, ke, i, j, k, n, hn
 
     call perf_start('filter_run_3d')
+
+    call fill_halo(x, south_halo=.false., north_halo=.false.)
 
     is = x%mesh%full_ids
     ie = x%mesh%full_ide

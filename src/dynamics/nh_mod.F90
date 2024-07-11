@@ -144,7 +144,6 @@ contains
         end do
       end do
     end do
-    call fill_halo(dqdt_lev, south_halo=.false., north_halo=.false.)
     call filter_run(block%big_filter, dqdt_lev)
     end associate
 

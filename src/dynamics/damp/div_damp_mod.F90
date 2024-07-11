@@ -114,7 +114,6 @@ contains
           end do
         end do
       end do
-      call fill_halo(du, south_halo=.false., north_halo=.false.)
       call filter_run(block%small_filter, du)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
@@ -138,7 +137,6 @@ contains
           end do
         end do
       end do
-      call fill_halo(du, south_halo=.false., north_halo=.false.)
       call filter_run(block%small_filter, du)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole

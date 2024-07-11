@@ -164,7 +164,6 @@ contains
     if (baroclinic) then
       if (dtend%update_mgs) then
         ! ----------------------------------------------------------------------
-        call fill_halo(dmgsdt, south_halo=.false., north_halo=.false.)
         call perf_start('filter_dmgsdt')
         call filter_run(block%big_filter, dmgsdt)
         call perf_stop('filter_dmgsdt')
@@ -183,7 +182,6 @@ contains
       if (dtend%update_pt) then
         if (.not. dtend%update_mgs .and. proc%is_root()) call log_error('Mass is not updated or copied!')
         ! ----------------------------------------------------------------------
-        call fill_halo(dptdt, south_halo=.false., north_halo=.false.)
         call perf_start('filter_dptdt')
         call filter_run(block%big_filter, dptdt)
         call perf_stop('filter_dptdt')
@@ -203,7 +201,6 @@ contains
     else
       if (dtend%update_gz) then
         ! ----------------------------------------------------------------------
-        call fill_halo(dgzdt, south_halo=.false., north_halo=.false.)
         call perf_start('filter_dgzdt')
         call filter_run(block%big_filter, dgzdt)
         call perf_stop('filter_dgzdt')
@@ -222,8 +219,6 @@ contains
 
     if (dtend%update_u .and. dtend%update_v) then
       ! ------------------------------------------------------------------------
-      call fill_halo(dudt, south_halo=.false., north_halo=.false.)
-      call fill_halo(dvdt, south_halo=.false., north_halo=.false.)
       call perf_start('filter_dudt_dvdt')
       call filter_run(block%big_filter, dudt)
       call filter_run(block%big_filter, dvdt)

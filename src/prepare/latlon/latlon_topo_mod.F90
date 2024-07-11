@@ -286,7 +286,6 @@ contains
           end do
         end do
       end if
-      call fill_halo(fx, south_halo=.false., north_halo=.false.)
       call filter_run(filter, fx)
       call fill_halo(fx, east_halo=.false., south_halo=.false., north_halo=.false.)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
