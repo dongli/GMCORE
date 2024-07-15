@@ -36,7 +36,7 @@ contains
     type(latlon_field2d_type), intent(inout) :: x
     type(latlon_field2d_type), intent(inout), optional :: y
 
-    real(r8) tmp(x%mesh%full_ims:x%mesh%full_ime)
+    real(r8) tmp(x%mesh%full_ids:x%mesh%full_ide)
     real(r8), pointer :: wgt(:,:)
     integer, pointer :: ngrid(:)
     integer is, ie, js, je, i, j, n, hn
@@ -63,12 +63,12 @@ contains
           tmp(i) = sum(wgt(:n,j) * x%d(i-hn:i+hn,j))
         end do
         if (present(y)) then
-          y%d(:,j) = tmp
+          y%d(is:ie,j) = tmp(is:ie)
         else
-          x%d(:,j) = tmp
+          x%d(is:ie,j) = tmp(is:ie)
         end if
       else if (present(y)) then
-        y%d(:,j) = x%d(:,j)
+        y%d(is:ie,j) = x%d(is:ie,j)
       end if
     end do
 
@@ -82,7 +82,7 @@ contains
     type(latlon_field3d_type), intent(inout) :: x
     type(latlon_field3d_type), intent(inout), optional :: y
 
-    real(r8) tmp(x%mesh%full_ims:x%mesh%full_ime)
+    real(r8) tmp(x%mesh%full_ids:x%mesh%full_ide)
     real(r8), pointer :: wgt(:,:)
     integer, pointer :: ngrid(:)
     integer is, ie, js, je, ks, ke, i, j, k, n, hn
@@ -126,12 +126,12 @@ contains
             tmp(i) = sum(wgt(:n,j) * x%d(i-hn:i+hn,j,k))
           end do
           if (present(y)) then
-            y%d(:,j,k) = tmp
+            y%d(is:ie,j,k) = tmp(is:ie)
           else
-            x%d(:,j,k) = tmp
+            x%d(is:ie,j,k) = tmp(is:ie)
           end if
         else if (present(y)) then
-          y%d(:,j,k) = x%d(:,j,k)
+          y%d(is:ie,j,k) = x%d(is:ie,j,k)
         end if
       end do
     end do
@@ -147,7 +147,7 @@ contains
     integer, intent(in) :: i4
     type(latlon_field4d_type), intent(inout), optional :: y
 
-    real(r8) tmp(x%mesh%full_ims:x%mesh%full_ime)
+    real(r8) tmp(x%mesh%full_ids:x%mesh%full_ide)
     real(r8), pointer :: wgt(:,:)
     integer, pointer :: ngrid(:)
     integer is, ie, js, je, ks, ke, i, j, k, n, hn
@@ -175,12 +175,12 @@ contains
             tmp(i) = sum(wgt(:n,j) * x%d(i-hn:i+hn,j,k,i4))
           end do
           if (present(y)) then
-            y%d(:,j,k,i4) = tmp
+            y%d(is:ie,j,k,i4) = tmp(is:ie)
           else
-            x%d(:,j,k,i4) = tmp
+            x%d(is:ie,j,k,i4) = tmp(is:ie)
           end if
         else if (present(y)) then
-          y%d(:,j,k,i4) = x%d(:,j,k,i4)
+          y%d(is:ie,j,k,i4) = x%d(is:ie,j,k,i4)
         end if
       end do
     end do
