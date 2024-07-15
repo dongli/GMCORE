@@ -321,8 +321,20 @@ contains
 
   subroutine cam_physics_run_stage2()
 
+    integer c, i
+
     call phys_run2(phys_state, dt_phys, phys_tend, pbuf2d,  cam_out, cam_in)
     call advance_timestep()
+
+    ! Copy into GMCORE physics state.
+    associate (pstate => objects(1)%state)
+    do c = begchunk, endchunk
+      do i = 1, cam_out(c)%ncol
+        pstate%precl(icol_map(i,c)) = cam_out(c)%precl(i)
+        pstate%precc(icol_map(i,c)) = cam_out(c)%precc(i)
+      end do
+    end do
+    end associate
 
   end subroutine cam_physics_run_stage2
 
