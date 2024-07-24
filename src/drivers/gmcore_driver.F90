@@ -77,7 +77,7 @@ program gmcore_driver
     call restart_read()
   else if (initial_file /= 'N/A') then
     call initial_read()
-  else if (topo_file /= 'N/A' .or. bkg_file /= 'N/A') then
+  else if (bkg_file /= 'N/A') then
     call prepare_bkg()
     call prepare_final() ! Release memory for preparation.
   else

@@ -865,21 +865,57 @@ contains
     class(adv_batch_type), intent(inout) :: this
     real(r8), intent(in) :: dt
 
-    integer i, j, k, ks, ke
+    real(r8) deta
+    integer i, j, k, l
 
     associate (mesh => this%u%mesh, &
                mz   => this%mz    , &
                we   => this%we    , &
                cflz => this%cflz  )
-    ks = merge(mesh%half_kds + 1, mesh%full_kds, this%loc == 'cell')
-    ke = merge(mesh%half_kde - 1, mesh%full_kde, this%loc == 'cell')
-    do k = ks, ke
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          cflz%d(i,j,k) = we%d(i,j,k) / mz%d(i,j,k) * dt
+    select case (this%loc)
+    case ('cell')
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            deta = we%d(i,j,k) / mz%d(i,j,k) * mesh%half_dlev(k) * dt
+            if (deta >= 0) then
+              do l = k, mesh%full_kde
+                if (deta < mesh%full_dlev(l)) exit
+                deta = deta - mesh%full_dlev(l)
+              end do
+              cflz%d(i,j,k) = l - k + deta / mesh%half_dlev(l)
+            else
+              do l = k - 1, mesh%full_kds, -1
+                if (deta > -mesh%full_dlev(l)) exit
+                deta = deta + mesh%full_dlev(l)
+              end do
+              cflz%d(i,j,k) = l - (k - 1) + deta / mesh%half_dlev(l)
+            end if
+          end do
         end do
       end do
-    end do
+    case ('lev')
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            deta = we%d(i,j,k) / mz%d(i,j,k) * mesh%full_dlev(k) * dt
+            if (deta >= 0) then
+              do l = k, mesh%half_kde
+                if (deta < mesh%half_dlev(l)) exit
+                deta = deta - mesh%half_dlev(l)
+              end do
+              cflz%d(i,j,k) = l - k + deta / mesh%full_dlev(l)
+            else
+              do l = k, mesh%half_kds, -1
+                if (deta > -mesh%half_dlev(l)) exit
+                deta = deta + mesh%half_dlev(l)
+              end do
+              cflz%d(i,j,k) = l - k + deta / mesh%full_dlev(l)
+            end if
+          end do
+        end do
+      end do
+    end select
     end associate
 
   end subroutine adv_batch_prepare_ffsl_v
