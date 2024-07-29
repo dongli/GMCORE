@@ -53,7 +53,7 @@ contains
 
     regrid_nlev = output_nlev
     allocate(regrid_plev(regrid_nlev))
-    regrid_plev = output_plev_hPa * 100
+    regrid_plev = output_plev_hPa(1:output_nlev) * 100
 
     call regrid_global_mesh%init_global(nlon, nlat, regrid_nlev, lon_hw=0, lat_hw=0, lev_hw=0)
     do i = regrid_global_mesh%full_kds, regrid_global_mesh%full_kde
