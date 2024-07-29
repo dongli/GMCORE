@@ -879,13 +879,13 @@ contains
           do i = mesh%full_ids, mesh%full_ide
             deta = we%d(i,j,k) / mz%d(i,j,k) * mesh%half_dlev(k) * dt
             if (deta >= 0) then
-              do l = k, mesh%full_kde
+              do l = k, mesh%full_kme
                 if (deta < mesh%full_dlev(l)) exit
                 deta = deta - mesh%full_dlev(l)
               end do
               cflz%d(i,j,k) = l - k + deta / mesh%half_dlev(l)
             else
-              do l = k - 1, mesh%full_kds, -1
+              do l = k - 1, mesh%full_kms, -1
                 if (deta > -mesh%full_dlev(l)) exit
                 deta = deta + mesh%full_dlev(l)
               end do
@@ -900,13 +900,13 @@ contains
           do i = mesh%full_ids, mesh%full_ide
             deta = we%d(i,j,k) / mz%d(i,j,k) * mesh%full_dlev(k) * dt
             if (deta >= 0) then
-              do l = k, mesh%half_kde
+              do l = k, mesh%half_kme
                 if (deta < mesh%half_dlev(l)) exit
                 deta = deta - mesh%half_dlev(l)
               end do
               cflz%d(i,j,k) = l - k + deta / mesh%full_dlev(l)
             else
-              do l = k, mesh%half_kds, -1
+              do l = k, mesh%half_kms, -1
                 if (deta > -mesh%half_dlev(l)) exit
                 deta = deta + mesh%half_dlev(l)
               end do
