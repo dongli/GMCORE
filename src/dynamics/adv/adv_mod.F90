@@ -122,7 +122,7 @@ contains
         associate (dmg => blocks(iblk)%dstate(itime)%dmg)
         if (allocated(blocks(iblk)%adv_batches)) then
           do m = 1, size(blocks(iblk)%adv_batches)
-            call blocks(iblk)%adv_batches(m)%copy_old_m(dmg)
+            call blocks(iblk)%adv_batches(m)%copy_m(dmg)
           end do
         end if
         end associate
@@ -193,10 +193,10 @@ contains
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             q_old%d = q_new%d
-            associate (m_old => batch%old_m, & ! inout
-                       qmfx  => batch%qmfx , & ! working array
-                       qmfy  => batch%qmfy , & ! working array
-                       qmfz  => batch%qmfz )   ! working array
+            associate (m_old => batch%m   , & ! inout
+                       qmfx  => batch%qmfx, & ! working array
+                       qmfy  => batch%qmfy, & ! working array
+                       qmfz  => batch%qmfz)   ! working array
             ! Calculate horizontal tracer mass flux.
             call adv_calc_tracer_hflx(batch, q_old, qmfx, qmfy)
             call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)
@@ -225,7 +225,7 @@ contains
             end associate
           end do
           end associate
-          call block%adv_batches(m)%copy_old_m(m_new)
+          call block%adv_batches(m)%copy_m(m_new)
         end if
       end do
       call tracer_calc_qm(block)

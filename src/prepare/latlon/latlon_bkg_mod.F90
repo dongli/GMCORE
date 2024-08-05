@@ -19,8 +19,6 @@ module latlon_bkg_mod
   use latlon_parallel_mod
   use era5_reader_mod
   use cam_reader_mod
-  use mpas_reader_mod
-  use waccm_reader_mod
   use openmars_reader_mod
   use latlon_interp_mod
   use vert_interp_mod

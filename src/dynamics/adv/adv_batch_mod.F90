@@ -63,7 +63,7 @@ module adv_batch_mod
     integer , allocatable :: idx(:) ! Global index of tracers in this batch
     type(latlon_mesh_type), pointer :: mesh => null()
     type(array_type) fields
-    type(latlon_field3d_type) old_m
+    type(latlon_field3d_type) m
     type(latlon_field3d_type) mfx
     type(latlon_field3d_type) mfy
     type(latlon_field3d_type) mz
@@ -100,7 +100,7 @@ module adv_batch_mod
   contains
     procedure :: init       => adv_batch_init
     procedure :: clear      => adv_batch_clear
-    procedure :: copy_old_m => adv_batch_copy_old_m
+    procedure :: copy_m     => adv_batch_copy_m
     procedure :: set_wind   => adv_batch_set_wind
     procedure :: accum_wind => adv_batch_accum_wind
     procedure, private :: prepare_ffsl_h => adv_batch_prepare_ffsl_h
@@ -163,7 +163,7 @@ contains
           mesh            =mesh                                                , &
           halo            =halo                                                , &
           restart         =.true.                                              , &
-          field           =this%old_m                                          )
+          field           =this%m                                              )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_mfx0'                          , &
           long_name       ='Mass flux in x direction'                          , &
@@ -649,14 +649,14 @@ contains
 
   end subroutine adv_batch_clear
 
-  subroutine adv_batch_copy_old_m(this, m)
+  subroutine adv_batch_copy_m(this, m)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: m
 
-    this%old_m%d = m%d
+    this%m%d = m%d
 
-  end subroutine adv_batch_copy_old_m
+  end subroutine adv_batch_copy_m
 
   subroutine adv_batch_set_wind(this, u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev, dt)
 
