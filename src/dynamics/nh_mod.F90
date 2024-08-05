@@ -72,7 +72,6 @@ contains
     associate (u_lon       => dstate%u_lon         , & ! in
                v_lat       => dstate%v_lat         , & ! in
                we_lev      => dstate%we_lev        , & ! in
-               dmg         => dstate%dmg           , & ! in
                dmg_lev     => dstate%dmg_lev       , & ! in
                u_lev_lon   => block%aux%u_lev_lon  , & ! out
                v_lev_lat   => block%aux%v_lev_lat  , & ! out
@@ -91,7 +90,7 @@ contains
     call fill_halo(v_lev_lat)
     call fill_halo(mfx_lev_lon)
     call fill_halo(mfy_lev_lat)
-    call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg, dt)
+    call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg_lev, dt)
     call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)
     end associate
 

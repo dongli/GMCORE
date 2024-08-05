@@ -127,12 +127,6 @@ module namelist_mod
   integer         :: upwind_order         = 3  ! -1, 1, 3
   real(r8)        :: upwind_wgt           = 0.75_r8
 
-  ! IEVA settings
-  logical         :: use_ieva             = .false.
-  real(r8)        :: ieva_cfl_min         = 0.8_r8
-  real(r8)        :: ieva_cfl_max         = 1.1_r8
-  real(r8)        :: ieva_eps             = 0.9_r8
-
   character(30)   :: time_scheme          = 'wrfrk3'
 
   ! Filter settings
@@ -267,10 +261,6 @@ module namelist_mod
     weno_order                , &
     upwind_order              , &
     upwind_wgt                , &
-    use_ieva                  , &
-    ieva_cfl_min              , &
-    ieva_cfl_max              , &
-    ieva_eps                  , &
     time_scheme               , &
     filter_coef_a             , &
     filter_coef_b             , &
@@ -420,12 +410,6 @@ contains
       write(*, *) 'pgf_scheme          = ', trim(pgf_scheme)
       write(*, *) 'pt_adv_scheme       = ', trim(pt_adv_scheme)
       write(*, *) 'nh_adv_scheme       = ', trim(nh_adv_scheme)
-      write(*, *) 'use_ieva            = ', to_str(use_ieva)
-    if (use_ieva) then
-      write(*, *) 'ieva_cfl_min        = ', ieva_cfl_min
-      write(*, *) 'ieva_cfl_max        = ', ieva_cfl_max
-      write(*, *) 'ieva_eps            = ', ieva_eps
-    end if
       write(*, *) 'limiter_type        = ', trim(limiter_type)
     if (pt_adv_scheme == 'ffsl') then
       write(*, *) 'ffsl_flux_type      = ', trim(ffsl_flux_type)

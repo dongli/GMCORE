@@ -193,9 +193,6 @@ contains
             end do
           end do
         end do
-        if (block%adv_batch_pt%use_ieva .and. substep == total_substeps) then
-          call adv_run_ieva(block%adv_batch_pt, new_dstate%dmg, new_dstate%pt, dt)
-        end if
         call fill_halo(new_dstate%pt)
       end if
     else

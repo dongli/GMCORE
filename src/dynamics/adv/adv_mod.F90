@@ -35,7 +35,6 @@ module adv_mod
   public adv_init
   public adv_prepare
   public adv_run
-  public adv_run_ieva
   public adv_final
   public adv_fill_vhalo
   public adv_accum_wind
@@ -66,14 +65,14 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., ieva=use_ieva)
+          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true.)
       end if
       if (nonhydrostatic) then
         call blocks(iblk)%adv_batch_nh%init(                  &
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., ieva=.false.)
+          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true.)
       end if
     end do
 
@@ -96,7 +95,7 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., ieva=.false., idx=idx(1:n))
+          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., idx=idx(1:n))
       end do
     end do
 
@@ -220,7 +219,6 @@ contains
                 end do
               end do
             end do
-            if (batch%use_ieva) call adv_run_ieva(batch, m_new, q_new, dt_adv)
             call fill_halo(q_new)
             end associate
           end do
@@ -316,50 +314,5 @@ contains
   subroutine adv_final()
 
   end subroutine adv_final
-
-  subroutine adv_run_ieva(batch, m, q, dt)
-
-    type(adv_batch_type), intent(inout) :: batch
-    type(latlon_field3d_type), intent(in) :: m
-    type(latlon_field3d_type), intent(inout) :: q
-    real(r8), intent(in) :: dt
-
-    integer ks, ke
-    integer i, j, k
-
-    associate (mesh   => batch%mesh  , &
-               we_imp => batch%we_imp, &
-               a      => batch%ieva_a, &
-               b      => batch%ieva_b, &
-               c      => batch%ieva_c, &
-               r      => batch%ieva_r, &
-               qm     => batch%ieva_qm)
-    ! NOTE: Only consider cell and lev location.
-    ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
-    ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
-    do j = mesh%full_jds, mesh%full_jde
-      do i = mesh%full_ids, mesh%full_ide
-        a(mesh%full_kds) = 0
-        c(mesh%full_kde) = 0
-        do k = ks + 1, ke
-          a(k) = -dt * (we_imp%d(i,j,k  ) + abs(we_imp%d(i,j,k  )))
-        end do
-        do k = ks, ke - 1
-          c(k) =  dt * (we_imp%d(i,j,k+1) - abs(we_imp%d(i,j,k+1)))
-        end do
-        do k = ks, ke
-          b(k) = 2 * (m%d(i,j,k) + dt * (we_imp%d(i,j,k+1) - we_imp%d(i,j,k))) - dt * ( &
-            we_imp%d(i,j,k+1) - abs(we_imp%d(i,j,k+1)) - &
-            we_imp%d(i,j,k  ) + abs(we_imp%d(i,j,k  ))   &
-          )
-          r(k) = 2 * q%d(i,j,k) * m%d(i,j,k)
-        end do
-        call tridiag_thomas(a, b, c, r, qm)
-        q%d(i,j,ks:ke) = qm
-      end do
-    end do
-    end associate
-
-  end subroutine adv_run_ieva
 
 end module adv_mod

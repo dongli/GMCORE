@@ -1100,13 +1100,12 @@ contains
                mfx_lon => block%aux%mfx_lon, & ! in
                mfy_lat => block%aux%mfy_lat, & ! in
                dmg     => dstate%dmg       , & ! in
-               dmg_lev => dstate%dmg_lev   , & ! in
                pt      => dstate%pt        , & ! in
                ptfx    => block%aux%ptfx   , & ! out
                ptfy    => block%aux%ptfy   , & ! out
                ptfz    => block%aux%ptfz   , & ! out
                dpt     => dtend%dpt        )   ! out
-    call block%adv_batch_pt%set_wind(u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg_lev, dt)
+    call block%adv_batch_pt%set_wind(u_lon, v_lat, we_lev, mfx_lon, mfy_lat, dmg, dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
     call fill_halo(ptfx, south_halo=.false., north_halo=.false., east_halo=.false.)
     call fill_halo(ptfy, north_halo=.false.,  west_halo=.false., east_halo=.false.)
