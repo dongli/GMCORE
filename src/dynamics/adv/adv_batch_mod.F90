@@ -46,6 +46,7 @@ module adv_batch_mod
   private
 
   public adv_batch_type
+  public adv_fill_vhalo
 
   ! Different tracers can be combined into one batch, and advected in different
   ! frequencies.
@@ -55,6 +56,7 @@ module adv_batch_mod
     character(10) :: loc  = 'cell'
     character(30) :: name = ''
     logical  :: dynamic   = .false.
+    logical  :: slave     = .true.
     integer  :: ntracers  = 1
     integer  :: nstep     = 0       ! Number of dynamic steps for one adv step
     integer  :: step      = 0       ! Step counter
@@ -62,17 +64,18 @@ module adv_batch_mod
     integer , allocatable :: idx(:) ! Global index of tracers in this batch
     type(latlon_mesh_type), pointer :: mesh => null()
     type(array_type) fields
+    type(latlon_field3d_type) m_old
     type(latlon_field3d_type) m
     type(latlon_field3d_type) mfx
     type(latlon_field3d_type) mfy
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
     type(latlon_field3d_type) we     ! Explicit part of vertical mass flux
+    type(latlon_field3d_type) m0
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
     type(latlon_field3d_type) my0
-    type(latlon_field3d_type) mz0
     type(latlon_field3d_type) dmf
     type(latlon_field2d_type) dmgs
     type(latlon_field3d_type) qmfx
@@ -89,7 +92,7 @@ module adv_batch_mod
   contains
     procedure :: init       => adv_batch_init
     procedure :: clear      => adv_batch_clear
-    procedure :: copy_m     => adv_batch_copy_m
+    procedure :: copy_m_old => adv_batch_copy_m_old
     procedure :: set_wind   => adv_batch_set_wind
     procedure :: accum_wind => adv_batch_accum_wind
     procedure, private :: prepare_ffsl_h => adv_batch_prepare_ffsl_h
@@ -99,7 +102,7 @@ module adv_batch_mod
 
 contains
 
-  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, idx)
+  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, slave, idx)
 
     class(adv_batch_type), intent(inout) :: this
     type(filter_type), intent(in) :: filter
@@ -112,6 +115,7 @@ contains
     character(*), intent(in) :: batch_name
     real(r8), intent(in) :: dt
     logical, intent(in) :: dynamic
+    logical, intent(in) :: slave
     integer, intent(in), optional :: idx(:)
 
     real(r8) min_width
@@ -126,6 +130,7 @@ contains
     this%name     = batch_name
     this%dt       = dt
     this%dynamic  = dynamic
+    this%slave    = slave
     this%nstep    = dt / dt_dyn
     this%step     = 0
 
@@ -141,6 +146,24 @@ contains
     select case (batch_loc)
     case ('cell')
       if (.not. this%dynamic) then
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_m_old'                         , &
+          long_name       ='Dry-air weight'                                    , &
+          units           ='Pa'                                                , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.true.                                              , &
+          field           =this%m_old                                          )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_m0'                            , &
+          long_name       ='Dry-air weight'                                    , &
+          units           ='Pa'                                                , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.true.                                              , &
+          field           =this%m0                                             )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_mfx0'                          , &
           long_name       ='Mass flux in x direction'                          , &
@@ -178,15 +201,6 @@ contains
           restart         =.true.                                              , &
           field           =this%my0                                            )
         call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mz0'                           , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='lev'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%mz0                                            )
-        call append_field(this%fields                                          , &
           name            =trim(this%name) // '_dmf'                           , &
           long_name       ='Mass flux divergence'                              , &
           units           ='Pa m s-1'                                          , &
@@ -210,8 +224,8 @@ contains
         long_name       ='Saved dry-air weight'                                , &
         units           ='Pa'                                                  , &
         loc             ='cell'                                                , &
-        mesh            =mesh                                                  , &
-        halo            =halo                                                  , &
+        mesh            =filter_mesh                                           , &
+        halo            =filter_halo                                           , &
         restart         =.true.                                                , &
         field           =this%m                                                )
       call append_field(this%fields                                            , &
@@ -363,8 +377,8 @@ contains
         long_name       ='Saved dry-air weight'                                , &
         units           ='Pa'                                                  , &
         loc             ='lev'                                                 , &
-        mesh            =mesh                                                  , &
-        halo            =halo                                                  , &
+        mesh            =filter_mesh                                           , &
+        halo            =filter_halo                                           , &
         restart         =.true.                                                , &
         field           =this%m                                                )
       call append_field(this%fields                                            , &
@@ -555,47 +569,14 @@ contains
 
   end subroutine adv_batch_clear
 
-  subroutine adv_batch_copy_m(this, m)
+  subroutine adv_batch_copy_m_old(this, m)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: m
 
-    integer i, j, k, kds, kde, kms, kme
+    this%m_old%d = m%d
 
-    this%m%d = m%d
-
-    select case (m%loc)
-    case ('cell')
-      kds = m%mesh%full_kds
-      kde = m%mesh%full_kde
-      kms = m%mesh%full_kms
-      kme = m%mesh%full_kme
-    case ('lev')
-      kds = m%mesh%half_kds
-      kde = m%mesh%half_kde
-      kms = m%mesh%half_kms
-      kme = m%mesh%half_kme
-    case default
-      stop 'Unhandled branch in adv_batch_copy_m!'
-    end select
-
-    ! Set upper and lower boundary conditions for calculating CFL number.
-    do k = kds - 1, kms, -1
-      do j = m%mesh%full_jds, m%mesh%full_jde
-        do i = m%mesh%full_ids, m%mesh%full_ide
-          this%m%d(i,j,k) = 3 * this%m%d(i,j,k+1) - 3 * this%m%d(i,j,k+2) + this%m%d(i,j,k+3)
-        end do
-      end do
-    end do
-    do k = kde + 1, kme
-      do j = m%mesh%full_jds, m%mesh%full_jde
-        do i = m%mesh%full_ids, m%mesh%full_ide
-          this%m%d(i,j,k) = 3 * this%m%d(i,j,k-1) - 3 * this%m%d(i,j,k-2) + this%m%d(i,j,k-3)
-        end do
-      end do
-    end do
-
-  end subroutine adv_batch_copy_m
+  end subroutine adv_batch_copy_m_old
 
   subroutine adv_batch_set_wind(this, u_lon, v_lat, we_lev, mfx_lon, mfy_lat, m, dt)
 
@@ -613,7 +594,9 @@ contains
     call this%we %link(we_lev )
     call this%mfx%link(mfx_lon)
     call this%mfy%link(mfy_lat)
-    call this%m  %copy(m      )
+
+    call this%m%copy(m)
+    call adv_fill_vhalo(this%m)
     call fill_halo(this%m)
 
     if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
@@ -621,12 +604,12 @@ contains
 
   end subroutine adv_batch_set_wind
 
-  subroutine adv_batch_accum_wind(this, dmg_lon, dmg_lat, dmg_lev, mfx_lon, mfy_lat)
+  subroutine adv_batch_accum_wind(this, mx, my, m, mfx_lon, mfy_lat)
 
     class(adv_batch_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(in) :: dmg_lon
-    type(latlon_field3d_type), intent(in) :: dmg_lat
-    type(latlon_field3d_type), intent(in) :: dmg_lev
+    type(latlon_field3d_type), intent(in) :: mx
+    type(latlon_field3d_type), intent(in) :: my
+    type(latlon_field3d_type), intent(in) :: m
     type(latlon_field3d_type), intent(in) :: mfx_lon
     type(latlon_field3d_type), intent(in) :: mfy_lat
 
@@ -638,35 +621,40 @@ contains
       this%mfy%d = this%mfy0%d
       this%u  %d = this%mx0 %d
       this%v  %d = this%my0 %d
+      call this%m%copy(this%m0)
       this%step = 1
     end if
     if (this%step == 0) then
       ! This is the first step.
       this%mfx%d = mfx_lon%d
       this%mfy%d = mfy_lat%d
-      this%u  %d = dmg_lon%d
-      this%v  %d = dmg_lat%d
+      this%u  %d = mx%d
+      this%v  %d = my%d
+      call this%m%copy(m)
     else if (this%step == this%nstep) then
       ! This is the end step.
       this%mfx %d = (this%mfx%d + mfx_lon%d) / (this%nstep + 1)
       this%mfy %d = (this%mfy%d + mfy_lat%d) / (this%nstep + 1)
-      this%u   %d = (this%u  %d + dmg_lon%d) / (this%nstep + 1)
-      this%v   %d = (this%v  %d + dmg_lat%d) / (this%nstep + 1)
+      this%u   %d = (this%u  %d + mx%d     ) / (this%nstep + 1)
+      this%v   %d = (this%v  %d + my%d     ) / (this%nstep + 1)
+      call this%m%add(m);this%m%d = this%m%d / (this%nstep + 1)
       this%mfx0%d = mfx_lon%d
       this%mfy0%d = mfy_lat%d
-      this%mx0 %d = dmg_lon%d
-      this%my0 %d = dmg_lat%d
-      this%mz0 %d = dmg_lev%d
+      this%mx0 %d = mx%d
+      this%my0 %d = my%d
+      this%m0  %d = m%d
     else
       ! Accumulating.
       this%mfx %d = this%mfx%d + mfx_lon%d
       this%mfy %d = this%mfy%d + mfy_lat%d
-      this%u   %d = this%u  %d + dmg_lon%d
-      this%v   %d = this%v  %d + dmg_lat%d
+      this%u   %d = this%u  %d + mx%d
+      this%v   %d = this%v  %d + my%d
+      call this%m%add(m)
     end if
     this%step = merge(0, this%step + 1, this%dynamic)
     if (this%dynamic .or. this%step > this%nstep) then
       if (.not. this%dynamic) this%step = -1
+      call fill_halo(this%m)
       associate (mesh => this%u%mesh, &
                  dt   => this%dt    , &
                  mfx  => this%mfx   , &
@@ -723,9 +711,11 @@ contains
 
     real(r8) work(this%u%mesh%full_ids:this%u%mesh%full_ide,this%u%mesh%half_nlev)
     real(r8) pole(this%u%mesh%half_nlev)
-    integer ks, ke, i, j, k
+    real(r8) dm
+    integer ks, ke, i, j, k, l
 
     associate (mesh => this%u%mesh, &
+               m    => this%m     , &
                mfx  => this%mfx   , &
                mfy  => this%mfy   , &
                u    => this%u     , &
@@ -739,17 +729,60 @@ contains
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
       ke = merge(mesh%full_kde, mesh%half_kde, this%loc == 'cell')
+      if (this%slave) then
+        do k = ks, ke
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              dm = mfx%d(i,j,k) * mesh%le_lon(j) * dt
+              if (dm >= 0) then
+                do l = i + 1, mesh%full_ime
+                  if (dm < m%d(l,j,k) * mesh%area_cell(j)) exit
+                  dm = dm - m%d(l,j,k) * mesh%area_cell(j)
+                end do
+                cflx%d(i,j,k) = l - (i + 1) + dm / m%d(l,j,k) / mesh%area_cell(j)
+              else
+                do l = i, mesh%full_ims, -1
+                  if (dm > -m%d(l,j,k) * mesh%area_cell(j)) exit
+                  dm = dm + m%d(l,j,k) * mesh%area_cell(j)
+                end do
+                cflx%d(i,j,k) = l - i + dm / m%d(l,j,k) / mesh%area_cell(j)
+              end if
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              dm = mfy%d(i,j,k) * mesh%le_lat(j) * dt
+              if (dm >= 0) then
+                do l = j + 1, mesh%full_jme
+                  if (dm < m%d(i,l,k) * mesh%area_cell(l)) exit
+                  dm = dm - m%d(i,l,k) * mesh%area_cell(l)
+                end do
+                cfly%d(i,j,k) = l - (j + 1) + dm / m%d(i,l,k) / mesh%area_cell(l)
+              else
+                do l = j, mesh%full_jms, -1
+                  if (dm > -m%d(i,l,k) * mesh%area_cell(l)) exit
+                  dm = dm + m%d(i,l,k) * mesh%area_cell(l)
+                end do
+                cfly%d(i,j,k) = l - j + dm / m%d(i,l,k) / mesh%area_cell(l)
+              end if
+            end do
+          end do
+        end do
+      else
+        do k = ks, ke
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              cflx%d(i,j,k) = u%d(i,j,k) * dt / mesh%de_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              cfly%d(i,j,k) = v%d(i,j,k) * dt / mesh%de_lat(j)
+            end do
+          end do
+        end do
+      end if
       do k = ks, ke
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%half_ids - 1, mesh%half_ide
-            cflx%d(i,j,k) = u%d(i,j,k) * dt / mesh%de_lon(j)
-          end do
-        end do
-        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            cfly%d(i,j,k) = v%d(i,j,k) * dt / mesh%de_lat(j)
-          end do
-        end do
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
             divx%d(i,j,k) = (u%d(i,j,k) - u%d(i-1,j,k)) * mesh%le_lon(j) / mesh%area_cell(j)
@@ -860,5 +893,50 @@ contains
     call this%clear()
 
   end subroutine adv_batch_final
+
+  subroutine adv_fill_vhalo(f)
+
+    type(latlon_field3d_type), intent(inout) :: f
+
+    integer kds, kde, kms, kme, i, j, k
+
+    select case (f%loc)
+    case ('cell')
+      kds = f%mesh%full_kds
+      kde = f%mesh%full_kde
+      kms = f%mesh%full_kms
+      kme = f%mesh%full_kme
+    case ('lev')
+      kds = f%mesh%half_kds
+      kde = f%mesh%half_kde
+      kms = f%mesh%half_kms
+      kme = f%mesh%half_kme
+    case default
+      stop 'Unhandled branch in adv_fill_vhalo!'
+    end select
+
+    ! Set upper and lower boundary conditions.
+    do k = kds - 1, kms, -1
+      do j = f%mesh%full_jds, f%mesh%full_jde
+        do i = f%mesh%full_ids, f%mesh%full_ide
+          ! f%d(i,j,k) = f%d(i,j,kds)
+          ! f%d(i,j,k) = 2 * f%d(i,j,k+1) - f%d(i,j,k+2)
+          f%d(i,j,k) = 3 * f%d(i,j,k+1) - 3 * f%d(i,j,k+2) + f%d(i,j,k+3)
+          ! f%d(i,j,k) = 4 * f%d(i,j,k+1) - 6 * f%d(i,j,k+2) + 4 * f%d(i,j,k+3) - f%d(i,j,k+4)
+        end do
+      end do
+    end do
+    do k = kde + 1, kme
+      do j = f%mesh%full_jds, f%mesh%full_jde
+        do i = f%mesh%full_ids, f%mesh%full_ide
+          ! f%d(i,j,k) = f%d(i,j,kde)
+          ! f%d(i,j,k) = 2 * f%d(i,j,k-1) - f%d(i,j,k-2)
+          f%d(i,j,k) = 3 * f%d(i,j,k-1) - 3 * f%d(i,j,k-2) + f%d(i,j,k-3)
+          ! f%d(i,j,k) = 4 * f%d(i,j,k-1) - 6 * f%d(i,j,k-2) + 4 * f%d(i,j,k-3) - f%d(i,j,k-4)
+        end do
+      end do
+    end do
+
+  end subroutine adv_fill_vhalo
 
 end module adv_batch_mod

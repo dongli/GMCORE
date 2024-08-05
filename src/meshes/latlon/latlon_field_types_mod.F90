@@ -82,6 +82,7 @@ module latlon_field_types_mod
     procedure :: init  => latlon_field3d_init
     procedure :: clear => latlon_field3d_clear
     procedure :: copy  => latlon_field3d_copy
+    procedure :: add   => latlon_field3d_add
     procedure, private :: latlon_field3d_link_3d
     procedure, private :: latlon_field3d_link_4d
     generic :: link => latlon_field3d_link_3d, latlon_field3d_link_4d
@@ -440,6 +441,51 @@ contains
     end do
 
   end subroutine latlon_field3d_copy
+
+  subroutine latlon_field3d_add(this, other)
+
+    class(latlon_field3d_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: other
+
+
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    select case (this%loc)
+    case ('cell')
+      is = this%mesh%full_ids; ie = this%mesh%full_ide
+      js = this%mesh%full_jds; je = this%mesh%full_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    case ('lon')
+      is = this%mesh%half_ids; ie = this%mesh%half_ide
+      js = this%mesh%full_jds; je = this%mesh%full_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    case ('lat')
+      is = this%mesh%full_ids; ie = this%mesh%full_ide
+      js = this%mesh%half_jds; je = this%mesh%half_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    case ('lev')
+      is = this%mesh%full_ids; ie = this%mesh%full_ide
+      js = this%mesh%full_jds; je = this%mesh%full_jde
+      ks = this%mesh%half_kds; ke = this%mesh%half_kde
+    case ('vtx')
+      is = this%mesh%half_ids; ie = this%mesh%half_ide
+      js = this%mesh%half_jds; je = this%mesh%half_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    case default
+      call log_error('Unhandled branch in latlon_field3d_add!', __FILE__, __LINE__)
+    end select
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k) = this%d(i,j,k) + other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field3d_add
 
   subroutine latlon_field3d_link_3d(this, other)
 

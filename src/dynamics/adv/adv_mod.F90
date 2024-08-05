@@ -65,14 +65,14 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true.)
+          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., slave=.true.)
       end if
       if (nonhydrostatic) then
         call blocks(iblk)%adv_batch_nh%init(                  &
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true.)
+          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., slave=.true.)
       end if
     end do
 
@@ -95,7 +95,8 @@ contains
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), dynamic=.false., idx=idx(1:n))
+          'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), &
+          dynamic=.false., slave=.true., idx=idx(1:n))
       end do
     end do
 
@@ -121,7 +122,7 @@ contains
         associate (dmg => blocks(iblk)%dstate(itime)%dmg)
         if (allocated(blocks(iblk)%adv_batches)) then
           do m = 1, size(blocks(iblk)%adv_batches)
-            call blocks(iblk)%adv_batches(m)%copy_m(dmg)
+            call blocks(iblk)%adv_batches(m)%copy_m_old(dmg)
           end do
         end if
         end associate
@@ -192,10 +193,10 @@ contains
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             q_old%d = q_new%d
-            associate (m_old => batch%m   , & ! inout
-                       qmfx  => batch%qmfx, & ! working array
-                       qmfy  => batch%qmfy, & ! working array
-                       qmfz  => batch%qmfz)   ! working array
+            associate (m_old => batch%m_old, & ! inout
+                       qmfx  => batch%qmfx , & ! working array
+                       qmfy  => batch%qmfy , & ! working array
+                       qmfz  => batch%qmfz )   ! working array
             ! Calculate horizontal tracer mass flux.
             call adv_calc_tracer_hflx(batch, q_old, qmfx, qmfy)
             call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)
@@ -223,7 +224,7 @@ contains
             end associate
           end do
           end associate
-          call block%adv_batches(m)%copy_m(m_new)
+          call block%adv_batches(m)%copy_m_old(m_new)
         end if
       end do
       call tracer_calc_qm(block)
@@ -231,55 +232,6 @@ contains
     end do
 
   end subroutine adv_run
-
-  subroutine adv_fill_vhalo(f)
-
-    type(latlon_field3d_type), intent(inout) :: f
-
-    integer kds, kde, kms, kme, i, j, k
-
-    call perf_start('adv_fill_vhalo')
-
-    select case (f%loc)
-    case ('cell')
-      kds = f%mesh%full_kds
-      kde = f%mesh%full_kde
-      kms = f%mesh%full_kms
-      kme = f%mesh%full_kme
-    case ('lev')
-      kds = f%mesh%half_kds
-      kde = f%mesh%half_kde
-      kms = f%mesh%half_kms
-      kme = f%mesh%half_kme
-    case default
-      stop 'Unhandled branch in adv_fill_vhalo!'
-    end select
-
-    ! Set upper and lower boundary conditions.
-    do k = kds - 1, kms, -1
-      do j = f%mesh%full_jds, f%mesh%full_jde
-        do i = f%mesh%full_ids, f%mesh%full_ide
-          ! f%d(i,j,k) = f%d(i,j,kds)
-          ! f%d(i,j,k) = 2 * f%d(i,j,k+1) - f%d(i,j,k+2)
-          f%d(i,j,k) = 3 * f%d(i,j,k+1) - 3 * f%d(i,j,k+2) + f%d(i,j,k+3)
-          ! f%d(i,j,k) = 4 * f%d(i,j,k+1) - 6 * f%d(i,j,k+2) + 4 * f%d(i,j,k+3) - f%d(i,j,k+4)
-        end do
-      end do
-    end do
-    do k = kde + 1, kme
-      do j = f%mesh%full_jds, f%mesh%full_jde
-        do i = f%mesh%full_ids, f%mesh%full_ide
-          ! f%d(i,j,k) = f%d(i,j,kde)
-          ! f%d(i,j,k) = 2 * f%d(i,j,k-1) - f%d(i,j,k-2)
-          f%d(i,j,k) = 3 * f%d(i,j,k-1) - 3 * f%d(i,j,k-2) + f%d(i,j,k-3)
-          ! f%d(i,j,k) = 4 * f%d(i,j,k-1) - 6 * f%d(i,j,k-2) + 4 * f%d(i,j,k-3) - f%d(i,j,k-4)
-        end do
-      end do
-    end do
-
-    call perf_stop('adv_fill_vhalo')
-
-  end subroutine adv_fill_vhalo
 
   subroutine adv_accum_wind(itime)
 
@@ -290,17 +242,17 @@ contains
     call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
-      associate (block   => blocks(iblk)                      , &
-                 dmg_lon => blocks(iblk)%aux%dmg_lon          , &
-                 dmg_lat => blocks(iblk)%aux%dmg_lat          , &
-                 dmg_lev => blocks(iblk)%dstate(itime)%dmg_lev, &
-                 mfx_lon => blocks(iblk)%aux%mfx_lon          , &
-                 mfy_lat => blocks(iblk)%aux%mfy_lat          )
+      associate (block   => blocks(iblk)                  , &
+                 dmg_lon => blocks(iblk)%aux%dmg_lon      , &
+                 dmg_lat => blocks(iblk)%aux%dmg_lat      , &
+                 dmg     => blocks(iblk)%dstate(itime)%dmg, &
+                 mfx_lon => blocks(iblk)%aux%mfx_lon      , &
+                 mfy_lat => blocks(iblk)%aux%mfy_lat      )
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)
           case ('cell')
-            call block%adv_batches(l)%accum_wind(dmg_lon, dmg_lat, dmg_lev, mfx_lon, mfy_lat)
+            call block%adv_batches(l)%accum_wind(dmg_lon, dmg_lat, dmg, mfx_lon, mfy_lat)
           end select
         end do
       end if
