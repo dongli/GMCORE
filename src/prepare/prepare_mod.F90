@@ -46,23 +46,57 @@ contains
 
   end subroutine prepare_topo
 
+  subroutine prepare_tracers()
+
+    select case (planet)
+    case ('earth')
+      select case (bkg_type)
+      case ('era5')
+        ! Add water vapor tracer for testing.
+        if (idx_qv == 0 .and. physics_suite == 'N/A') then
+          call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+          call tracer_add('moist', dt_adv, 'qc', 'Cloud water', 'kg kg-1')
+          call tracer_add('moist', dt_adv, 'qi', 'Cloud ice'  , 'kg kg-1')
+          call tracer_add('moist', dt_adv, 'qr', 'Rain water' , 'kg kg-1')
+          call tracer_add('moist', dt_adv, 'qs', 'Snow water' , 'kg kg-1')
+        end if
+      end select
+    end select
+
+  end subroutine prepare_tracers
+
   subroutine prepare_bkg()
 
     integer iblk
 
     call latlon_bkg_read(min_lon, max_lon, min_lat, max_lat)
     if (proc%is_model()) then
-      call latlon_bkg_regrid_mgs()
-      call latlon_bkg_calc_mg()
-      call latlon_bkg_regrid_qv()
+      call latlon_bkg_regrid_phs()
       call latlon_bkg_calc_ph()
-      call latlon_bkg_regrid_pt()
+      call latlon_bkg_regrid_wet_qv()
+      call latlon_bkg_regrid_wet_qc()
+      call latlon_bkg_regrid_wet_qi()
+      call latlon_bkg_regrid_wet_qr()
+      call latlon_bkg_regrid_wet_qs()
+      do iblk = 1, size(blocks)
+        call tracer_calc_qm(blocks(iblk))
+      end do
+      call latlon_bkg_calc_mgs()
+      call latlon_bkg_calc_mg()
       call latlon_bkg_regrid_u()
       call latlon_bkg_regrid_v()
+      call latlon_bkg_regrid_t()
+      ! Change wet mixing ratio to dry mixing ratio.
+      call latlon_bkg_calc_dry_qv()
+      call latlon_bkg_calc_dry_qc()
+      call latlon_bkg_calc_dry_qi()
+      call latlon_bkg_calc_dry_qr()
+      call latlon_bkg_calc_dry_qs()
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
         call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
       end do
+      call latlon_bkg_calc_pt()
     end if
 
   end subroutine prepare_bkg

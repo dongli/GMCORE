@@ -382,7 +382,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =''                                                  , &
+        output          ='h0'                                                , &
         restart         =.false.                                             , &
         field           =this%ph                                             )
     end if

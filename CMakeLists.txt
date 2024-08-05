@@ -335,10 +335,8 @@ target_sources(gmcore PRIVATE
   src/prepare/readers/era5_reader_mod.F90
   src/prepare/readers/cam_reader_mod.F90
   src/prepare/readers/fnl_reader_mod.F90
-  src/prepare/readers/mpas_reader_mod.F90
   src/prepare/readers/openmars_reader_mod.F90
   src/prepare/readers/topo_reader_mod.F90
-  src/prepare/readers/waccm_reader_mod.F90
   src/prepare/ref_mod.F90
   src/prepare/vert_interp_mod.F90
   src/tests/aquaplanet_test_mod.F90

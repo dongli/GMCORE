@@ -26,9 +26,7 @@ module era5_reader_mod
   real(r8), allocatable, dimension(:,:,:) :: era5_qi
   real(r8), allocatable, dimension(:,:,:) :: era5_qr
   real(r8), allocatable, dimension(:,:,:) :: era5_qs
-  real(r8), allocatable, dimension(:,:,:) :: era5_pd
   real(r8), allocatable, dimension(:,:  ) :: era5_ps
-  real(r8), allocatable, dimension(:,:  ) :: era5_psd
   real(r8), allocatable, dimension(:,:  ) :: era5_zs
 
 contains
@@ -111,60 +109,6 @@ contains
       era5_qs = 0
     end if
 
-    ! Change moist mixing ratio to dry mixing ratio.
-    do k = 1, era5_nlev
-      do j = 1, era5_nlat
-        do i = 1, era5_nlon
-          qm = era5_qv(i,j,k) + era5_ql(i,j,k) + era5_qi(i,j,k) + era5_qr(i,j,k) + era5_qs(i,j,k)
-          era5_qv(i,j,k) = era5_qv(i,j,k) / (1 - qm)
-          era5_ql(i,j,k) = era5_ql(i,j,k) / (1 - qm)
-          era5_qi(i,j,k) = era5_qi(i,j,k) / (1 - qm)
-          era5_qr(i,j,k) = era5_qr(i,j,k) / (1 - qm)
-          era5_qs(i,j,k) = era5_qs(i,j,k) / (1 - qm)
-        end do
-      end do
-    end do
-
-    if (proc%is_root()) call log_notice('Calculate ERA5 dry-air pressure or weight.')
-    allocate(era5_pd (era5_nlon,era5_nlat,era5_nlev))
-    allocate(era5_psd(era5_nlon,era5_nlat))
-    do j = 1, era5_nlat
-      do i = 1, era5_nlon
-        k0 = 1
-        do k = 1, era5_nlev
-          if (era5_lev(k) >= era5_ps(i,j)) then
-            k0 = k - 1
-            exit
-          end if
-        end do
-        k0 = min(k0, era5_nlev - 1)
-        era5_pd(i,j,:) = era5_lev(:)
-        sum_q_lev = 0
-        ! Pressure levels
-        do k = 2, k0
-          qm1 = era5_qv(i,j,k-1) + era5_ql(i,j,k-1) + era5_qi(i,j,k-1) + era5_qr(i,j,k-1) + era5_qs(i,j,k-1)
-          qm2 = era5_qv(i,j,k  ) + era5_ql(i,j,k  ) + era5_qi(i,j,k  ) + era5_qr(i,j,k  ) + era5_qs(i,j,k  )
-          qm  = 0.5_r8 * (qm1 + qm2)
-          tv1 = virtual_temperature(era5_t(i,j,k-1), era5_qv(i,j,k-1), qm1)
-          tv2 = virtual_temperature(era5_t(i,j,k  ), era5_qv(i,j,k  ), qm2)
-          rho = 0.5_r8 * (era5_lev(k-1) / rd / tv1 + era5_lev(k) / rd / tv2)
-          dz = era5_z(i,j,k-1) - era5_z(i,j,k)
-          sum_q_lev = sum_q_lev + g * rho * qm / (1 + qm) * dz
-          era5_pd(i,j,k) = era5_pd(i,j,k) - sum_q_lev
-        end do
-        ! Surface
-        qm1 = era5_qv(i,j,k0) + era5_ql(i,j,k0) + era5_qi(i,j,k0) + era5_qr(i,j,k0) + era5_qs(i,j,k0)
-        qm2 = era5_qv(i,j,k0) + era5_ql(i,j,k0) + era5_qi(i,j,k0) + era5_qr(i,j,k0) + era5_qs(i,j,k0)
-        qm  = 0.5_r8 * (qm1 + qm2)
-        tv1 = virtual_temperature(era5_t(i,j,k0), era5_qv(i,j,k0), qm1)
-        tv2 = virtual_temperature(era5_t(i,j,k0), era5_qv(i,j,k0), qm2)
-        rho = 0.5_r8 * (era5_lev(k0) / rd / tv1 + era5_ps(i,j) / rd / tv2)
-        dz = era5_z(i,j,k0) - era5_zs(i,j)
-        sum_q_lev = sum_q_lev + g * rho * qm / (1 + qm) * dz
-        era5_psd(i,j) = era5_ps(i,j) - sum_q_lev
-      end do
-    end do
-
   end subroutine era5_reader_run
 
   subroutine era5_reader_final()
@@ -181,9 +125,7 @@ contains
     if (allocated(era5_qi )) deallocate(era5_qi )
     if (allocated(era5_qr )) deallocate(era5_qr )
     if (allocated(era5_qs )) deallocate(era5_qs )
-    if (allocated(era5_pd )) deallocate(era5_pd )
     if (allocated(era5_ps )) deallocate(era5_ps )
-    if (allocated(era5_psd)) deallocate(era5_psd)
     if (allocated(era5_zs )) deallocate(era5_zs )
 
   end subroutine era5_reader_final

@@ -64,11 +64,7 @@ program gmcore_driver
 
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then
     call prepare_topo()
-    ! Add water vapor tracer for testing.
-    if (planet == 'earth' .and. idx_qv == 0 .and. physics_suite == 'N/A') then
-      ! When reading from bkg_file, add water vapor tracer.
-      call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
-    end if
+    call prepare_tracers()
   end if
 
   call gmcore_init_stage2(namelist_path)
