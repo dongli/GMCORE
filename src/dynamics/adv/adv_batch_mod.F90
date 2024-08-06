@@ -654,6 +654,7 @@ contains
     this%step = merge(0, this%step + 1, this%dynamic)
     if (this%dynamic .or. this%step > this%nstep) then
       if (.not. this%dynamic) this%step = -1
+      call adv_fill_vhalo(this%m)
       call fill_halo(this%m)
       associate (mesh => this%u%mesh, &
                  dt   => this%dt    , &
