@@ -49,7 +49,7 @@ module adv_batch_mod
   public adv_fill_vhalo
 
   ! Different tracers can be combined into one batch, and advected in different
-  ! frequencies.
+  ! time steps.
   type adv_batch_type
     character(30) :: scheme_h = 'N/A'
     character(30) :: scheme_v = 'N/A'
@@ -65,19 +65,19 @@ module adv_batch_mod
     type(latlon_mesh_type), pointer :: mesh => null()
     type(array_type) fields
     type(latlon_field3d_type) m_old
-    type(latlon_field3d_type) m
-    type(latlon_field3d_type) mfx
-    type(latlon_field3d_type) mfy
+    type(latlon_field3d_type) m     ! Dry-air weight
+    type(latlon_field3d_type) mfx   ! Mass flux in x direction
+    type(latlon_field3d_type) mfy   ! Mass flux in y direction
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
-    type(latlon_field3d_type) we     ! Explicit part of vertical mass flux
+    type(latlon_field3d_type) we    ! Explicit part of vertical mass flux
     type(latlon_field3d_type) m0
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
     type(latlon_field3d_type) my0
-    type(latlon_field3d_type) dmf
-    type(latlon_field2d_type) dmgs
+    type(latlon_field3d_type) dmf   ! FIXME: Borrow other array?
+    type(latlon_field2d_type) dmgs  ! FIXME: Borrow other array?
     type(latlon_field3d_type) qmfx
     type(latlon_field3d_type) qmfy
     type(latlon_field3d_type) qmfz
@@ -117,9 +117,6 @@ contains
     logical, intent(in) :: dynamic
     logical, intent(in) :: slave
     integer, intent(in), optional :: idx(:)
-
-    real(r8) min_width
-    integer j
 
     call this%clear()
 
@@ -219,15 +216,18 @@ contains
           restart         =.false.                                             , &
           field           =this%dmgs                                           )
       end if
-      call append_field(this%fields                                            , &
-        name            =trim(this%name) // '_m'                               , &
-        long_name       ='Saved dry-air weight'                                , &
-        units           ='Pa'                                                  , &
-        loc             ='cell'                                                , &
-        mesh            =filter_mesh                                           , &
-        halo            =filter_halo                                           , &
-        restart         =.true.                                                , &
-        field           =this%m                                                )
+      if (this%slave) then
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_m'                             , &
+          long_name       ='Dry-air weight'                                    , &
+          units           ='Pa'                                                , &
+          loc             ='cell'                                              , &
+          mesh            =filter_mesh                                         , &
+          halo            =filter_halo                                         , &
+          output          =merge('h0', '  ', advection)                        , &
+          restart         =.false.                                             , &
+          field           =this%m                                              )
+      end if
       call append_field(this%fields                                            , &
         name              =trim(this%name) // '_u'                             , &
         long_name         ='U wind component'                                  , &
@@ -235,6 +235,7 @@ contains
         loc               ='lon'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%u                                              )
       call append_field(this%fields                                            , &
@@ -244,6 +245,7 @@ contains
         loc               ='lat'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%v                                              )
       call append_field(this%fields                                            , &
@@ -253,6 +255,7 @@ contains
         loc               ='lev'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%we                                             )
       call append_field(this%fields                                            , &
@@ -262,6 +265,7 @@ contains
         loc               ='lon'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%mfx                                            )
       call append_field(this%fields                                            , &
@@ -271,6 +275,7 @@ contains
         loc               ='lat'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%mfy                                            )
       call append_field(this%fields                                            , &
@@ -280,6 +285,7 @@ contains
         loc               ='lon'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%qmfx                                           )
       call append_field(this%fields                                            , &
@@ -289,6 +295,7 @@ contains
         loc               ='lat'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%qmfy                                           )
       call append_field(this%fields                                            , &
@@ -298,6 +305,7 @@ contains
         loc               ='lev'                                               , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
+        output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%qmfz                                           )
       select case (this%scheme_h)
@@ -309,6 +317,7 @@ contains
           loc             ='lon'                                               , &
           mesh            =mesh                                                , &
           halo            =halo                                                , &
+          output          =merge('h0', '  ', advection)                        , &
           restart         =.false.                                             , &
           field           =this%cflx                                           )
         call append_field(this%fields                                          , &
@@ -318,6 +327,7 @@ contains
           loc             ='lat'                                               , &
           mesh            =mesh                                                , &
           halo            =halo                                                , &
+          output          =merge('h0', '  ', advection)                        , &
           restart         =.false.                                             , &
           field           =this%cfly                                           )
         call append_field(this%fields                                          , &
@@ -367,6 +377,7 @@ contains
           loc             ='lev'                                               , &
           mesh            =mesh                                                , &
           halo            =halo                                                , &
+          output          =merge('h0', '  ', advection)                        , &
           restart         =.false.                                             , &
           field           =this%cflz                                           )
       end select
@@ -374,12 +385,12 @@ contains
       ! Only for nonhydrostatic dynamic calculation.
       call append_field(this%fields                                            , &
         name            =trim(this%name) // '_m'                               , &
-        long_name       ='Saved dry-air weight'                                , &
+        long_name       ='Dry-air weight'                                      , &
         units           ='Pa'                                                  , &
         loc             ='lev'                                                 , &
         mesh            =filter_mesh                                           , &
         halo            =filter_halo                                           , &
-        restart         =.true.                                                , &
+        restart         =.false.                                               , &
         field           =this%m                                                )
       call append_field(this%fields                                            , &
         name              =trim(this%name) // '_u'                             , &
@@ -822,6 +833,7 @@ contains
         end do
       end if
     case ('vtx')
+      call log_error('Unsupported grid location ' // this%loc // '!', __FILE__, __LINE__)
     end select
     end associate
 

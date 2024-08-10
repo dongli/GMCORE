@@ -136,6 +136,19 @@ contains
     k = global_mesh%half_kde
     global_mesh%half_dlev(k) = global_mesh%half_lev(k) - global_mesh%full_lev(k)
 
+    do k = global_mesh%full_kms, global_mesh%full_kds - 1
+      global_mesh%full_dlev(k) = global_mesh%full_dlev(global_mesh%full_kds)
+    end do
+    do k = global_mesh%full_kde + 1, global_mesh%full_kme
+      global_mesh%full_dlev(k) = global_mesh%full_dlev(global_mesh%full_kde)
+    end do
+    do k = global_mesh%half_kms, global_mesh%half_kds - 1
+      global_mesh%half_dlev(k) = global_mesh%half_dlev(global_mesh%half_kds)
+    end do
+    do k = global_mesh%half_kde + 1, global_mesh%half_kme
+      global_mesh%half_dlev(k) = global_mesh%half_dlev(global_mesh%half_kde)
+    end do
+
   end subroutine vert_coord_init
 
   subroutine vert_coord_final()

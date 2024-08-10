@@ -141,6 +141,7 @@ contains
     character(*), intent(in) :: namelist_path
 
     call global_mesh%init_global(nlon, nlat, nlev, lon_hw=lon_hw, lat_hw=lat_hw, lev_hw=3)
+    call vert_coord_init(namelist_path)
     call process_create_blocks()
     if (proc%is_model()) then
       associate (mesh => blocks(1)%mesh)
@@ -172,7 +173,6 @@ contains
     integer iblk
 
     call regrid_init()
-    call vert_coord_init(namelist_path)
     call physics_init_stage2(namelist_path)
     call pgf_init()
     call interp_init()
