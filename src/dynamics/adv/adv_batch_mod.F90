@@ -747,17 +747,17 @@ contains
             do i = mesh%half_ids - 1, mesh%half_ide
               dm = mfx%d(i,j,k) * mesh%le_lon(j) * dt
               if (dm >= 0) then
-                do l = i + 1, mesh%full_ime
+                do l = i, mesh%full_ims, -1
                   if (dm < m%d(l,j,k) * mesh%area_cell(j)) exit
                   dm = dm - m%d(l,j,k) * mesh%area_cell(j)
                 end do
-                cflx%d(i,j,k) = l - (i + 1) + dm / m%d(l,j,k) / mesh%area_cell(j)
+                cflx%d(i,j,k) = i - l + dm / m%d(l,j,k) / mesh%area_cell(j)
               else
-                do l = i, mesh%full_ims, -1
+                do l = i + 1, mesh%full_ime
                   if (dm > -m%d(l,j,k) * mesh%area_cell(j)) exit
                   dm = dm + m%d(l,j,k) * mesh%area_cell(j)
                 end do
-                cflx%d(i,j,k) = l - i + dm / m%d(l,j,k) / mesh%area_cell(j)
+                cflx%d(i,j,k) = i + 1 - l + dm / m%d(l,j,k) / mesh%area_cell(j)
               end if
             end do
           end do
@@ -765,17 +765,17 @@ contains
             do i = mesh%full_ids, mesh%full_ide
               dm = mfy%d(i,j,k) * mesh%le_lat(j) * dt
               if (dm >= 0) then
-                do l = j + 1, mesh%full_jme
+                do l = j, mesh%full_jms, -1
                   if (dm < m%d(i,l,k) * mesh%area_cell(l)) exit
                   dm = dm - m%d(i,l,k) * mesh%area_cell(l)
                 end do
-                cfly%d(i,j,k) = l - (j + 1) + dm / m%d(i,l,k) / mesh%area_cell(l)
+                cfly%d(i,j,k) = j - l + dm / m%d(i,l,k) / mesh%area_cell(l)
               else
-                do l = j, mesh%full_jms, -1
+                do l = j + 1, mesh%full_jme
                   if (dm > -m%d(i,l,k) * mesh%area_cell(l)) exit
                   dm = dm + m%d(i,l,k) * mesh%area_cell(l)
                 end do
-                cfly%d(i,j,k) = l - j + dm / m%d(i,l,k) / mesh%area_cell(l)
+                cfly%d(i,j,k) = j + 1 - l + dm / m%d(i,l,k) / mesh%area_cell(l)
               end if
             end do
           end do
@@ -858,17 +858,17 @@ contains
           do i = mesh%full_ids, mesh%full_ide
             dm = we%d(i,j,k) * mesh%half_dlev(k) * dt
             if (dm >= 0) then
-              do l = k, mesh%full_kme
+              do l = k - 1, mesh%full_kms, -1
                 if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
               end do
-              cflz%d(i,j,k) = l - k + dm / m%d(i,j,l) / mesh%full_dlev(l)
+              cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             else
-              do l = k - 1, mesh%full_kms, -1
+              do l = k, mesh%full_kme
                 if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
               end do
-              cflz%d(i,j,k) = l - (k - 1) + dm / m%d(i,j,l) / mesh%full_dlev(l)
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             end if
           end do
         end do
@@ -879,17 +879,17 @@ contains
           do i = mesh%full_ids, mesh%full_ide
             dm = we%d(i,j,k) * mesh%full_dlev(k) * dt
             if (dm >= 0) then
-              do l = k, mesh%half_kme
+              do l = k, mesh%half_kms, -1
                 if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
               end do
-              cflz%d(i,j,k) = l - k + dm / m%d(i,j,l) / mesh%half_dlev(l)
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             else
-              do l = k, mesh%half_kms, -1
+              do l = k, mesh%half_kme
                 if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
               end do
-              cflz%d(i,j,k) = l - k + dm / m%d(i,j,l) / mesh%half_dlev(l)
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             end if
           end do
         end do
