@@ -64,14 +64,12 @@ module adv_batch_mod
     integer , allocatable :: idx(:) ! Global index of tracers in this batch
     type(latlon_mesh_type), pointer :: mesh => null()
     type(array_type) fields
-    type(latlon_field3d_type) m_old
-    type(latlon_field3d_type) m     ! Dry-air weight
+    type(latlon_field3d_type) m     ! Dry-air weight at n time level
     type(latlon_field3d_type) mfx   ! Mass flux in x direction
     type(latlon_field3d_type) mfy   ! Mass flux in y direction
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
     type(latlon_field3d_type) we    ! Explicit part of vertical mass flux
-    type(latlon_field3d_type) m0
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
@@ -143,24 +141,6 @@ contains
     select case (batch_loc)
     case ('cell')
       if (.not. this%dynamic) then
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_m_old'                         , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%m_old                                          )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_m0'                            , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%m0                                             )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_mfx0'                          , &
           long_name       ='Mass flux in x direction'                          , &
@@ -585,7 +565,9 @@ contains
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: m
 
-    this%m_old%d = m%d
+    call this%m%copy(m)
+    call adv_fill_vhalo(this%m)
+    call fill_halo(this%m)
 
   end subroutine adv_batch_copy_m_old
 
@@ -606,9 +588,7 @@ contains
     call this%mfx%link(mfx_lon)
     call this%mfy%link(mfy_lat)
 
-    call this%m%copy(m)
-    call adv_fill_vhalo(this%m)
-    call fill_halo(this%m)
+    call this%copy_m_old(m)
 
     if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
     if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
@@ -632,7 +612,7 @@ contains
       this%mfy%d = this%mfy0%d
       this%u  %d = this%mx0 %d
       this%v  %d = this%my0 %d
-      call this%m%copy(this%m0)
+      call this%copy_m_old(m)
       this%step = 1
     end if
     if (this%step == 0) then
@@ -641,7 +621,7 @@ contains
       this%mfy%d = mfy_lat%d
       this%u  %d = mx%d
       this%v  %d = my%d
-      call this%m%copy(m)
+      call this%copy_m_old(m)
     else if (this%step == this%nstep) then
       ! This is the end step.
       this%mfx %d = (this%mfx%d + mfx_lon%d) / (this%nstep + 1)
@@ -653,20 +633,16 @@ contains
       this%mfy0%d = mfy_lat%d
       this%mx0 %d = mx%d
       this%my0 %d = my%d
-      this%m0  %d = m%d
     else
       ! Accumulating.
       this%mfx %d = this%mfx%d + mfx_lon%d
       this%mfy %d = this%mfy%d + mfy_lat%d
       this%u   %d = this%u  %d + mx%d
       this%v   %d = this%v  %d + my%d
-      call this%m%add(m)
     end if
     this%step = merge(0, this%step + 1, this%dynamic)
     if (this%dynamic .or. this%step > this%nstep) then
       if (.not. this%dynamic) this%step = -1
-      call adv_fill_vhalo(this%m)
-      call fill_halo(this%m)
       associate (mesh => this%u%mesh, &
                  dt   => this%dt    , &
                  mfx  => this%mfx   , &
@@ -727,15 +703,15 @@ contains
     integer ks, ke, i, j, k, l
 
     associate (mesh => this%u%mesh, &
-               m    => this%m     , &
-               mfx  => this%mfx   , &
-               mfy  => this%mfy   , &
-               u    => this%u     , &
-               v    => this%v     , &
-               cflx => this%cflx  , &
-               cfly => this%cfly  , &
-               divx => this%divx  , &
-               divy => this%divy  )
+               m    => this%m     , & ! in
+               mfx  => this%mfx   , & ! in
+               mfy  => this%mfy   , & ! in
+               u    => this%u     , & ! in
+               v    => this%v     , & ! in
+               cflx => this%cflx  , & ! out
+               cfly => this%cfly  , & ! out
+               divx => this%divx  , & ! out
+               divy => this%divy  )   ! out
     ! Calculate horizontal CFL number and divergence along each axis.
     select case (this%loc)
     case ('cell', 'lev')
@@ -848,9 +824,9 @@ contains
     integer i, j, k, l
 
     associate (mesh => this%u%mesh, &
-               m    => this%m     , &
-               we   => this%we    , &
-               cflz => this%cflz  )
+               m    => this%m     , & ! in
+               we   => this%we    , & ! in
+               cflz => this%cflz  )   ! out
     select case (this%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1

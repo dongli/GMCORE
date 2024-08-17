@@ -193,7 +193,7 @@ contains
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             q_old%d = q_new%d
-            associate (m_old => batch%m_old, & ! inout
+            associate (m_old => batch%m,     & ! inout
                        qmfx  => batch%qmfx , & ! working array
                        qmfy  => batch%qmfy , & ! working array
                        qmfz  => batch%qmfz )   ! working array
