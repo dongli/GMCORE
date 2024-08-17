@@ -27,17 +27,18 @@ contains
 
     u0 = pi2 * radius / period
 
-    call tracer_add('solid_rotation', dt, 'q0', 'background tracer' )
-    call tracer_add('solid_rotation', dt, 'q1', 'cosine bell tracer')
+    call tracer_add('adv', dt, 'q0', 'background tracer' )
+    call tracer_add('adv', dt, 'q1', 'cosine bell tracer')
+    call tracer_add('adv', dt, 'q2', 'slotted cylinder tracer')
 
   end subroutine solid_rotation_test_init
 
   subroutine solid_rotation_test_set_ic()
 
     integer iblk, i, j
-    real(8) lon, lat, r, R0
+    real(8) lon, lat, r, r0, qmin, qmax
 
-    R0 = radius / 3.0_r8
+    r0 = radius / 3.0_r8
 
     do iblk = 1, size(blocks)
       associate (block => blocks(iblk)     , &
@@ -51,14 +52,31 @@ contains
         do i = mesh%full_ids, mesh%full_ide
           lon = mesh%full_lon(i)
           r = great_circle(radius, lon0, lat0, lon, lat)
-          if (r < R0) then
-            q%d(i,j,1,2) = h0 / 2.0_r8 * (1 + cos(pi * r / R0))
+          if (r < r0) then
+            q%d(i,j,1,2) = h0 / 2.0_r8 * (1 + cos(pi * r / r0))
           else
             q%d(i,j,1,2) = 0
           end if
         end do
       end do
       call fill_halo(q, 2)
+      ! Slotted cylinders
+      qmax = 1.0_r8; qmin = 0.1_r8; r = radius * 0.5_r8
+      do j = mesh%full_jds, mesh%full_jde
+        lat = mesh%full_lat(j)
+        do i = mesh%full_ids, mesh%full_ide
+          lon = mesh%full_lon(i)
+          r0 = great_circle(radius, lon0, lat0, lon, lat)
+          if (r0 <= r .and. abs(lon - lon0) >= r / radius / 6.0_r8) then
+            q%d(i,j,1,3) = qmax
+          else if (r0 <= r .and. abs(lon - lon0) < r / radius / 6.0_r8 .and. lat - lat0 < -5.0_r8 / 12.0_r8 * (r / radius)) then
+            q%d(i,j,1,3) = qmax
+          else
+            q%d(i,j,1,3) = qmin
+          end if
+        end do
+      end do
+      call fill_halo(q, 3)
       end associate
     end do
 

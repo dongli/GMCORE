@@ -38,8 +38,8 @@ contains
     ptop = 25494.4
     rho0 = p0 / (rd * T0)
 
-    call tracer_add('dcmip12', dt, 'q0', 'background tracer')
-    call tracer_add('dcmip12', dt, 'q1', 'test tracer'      )
+    call tracer_add('adv', dt, 'q0', 'background tracer')
+    call tracer_add('adv', dt, 'q1', 'test tracer'      )
 
   end subroutine dcmip12_test_init
 

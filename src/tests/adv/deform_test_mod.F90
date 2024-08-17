@@ -47,10 +47,10 @@ contains
       lat2 = 0
     end select
 
-    call tracer_add('deform_test', dt, 'q0', 'background tracer'       )
-    call tracer_add('deform_test', dt, 'q1', 'cosine hills tracer'     )
-    call tracer_add('deform_test', dt, 'q2', 'slotted cylinders tracer')
-    call tracer_add('deform_test', dt, 'q3', 'gaussian hills tracer'   )
+    call tracer_add('adv', dt, 'q0', 'background tracer'       )
+    call tracer_add('adv', dt, 'q1', 'cosine hills tracer'     )
+    call tracer_add('adv', dt, 'q2', 'slotted cylinders tracer')
+    call tracer_add('adv', dt, 'q3', 'gaussian hills tracer'   )
 
   end subroutine deform_test_init
 

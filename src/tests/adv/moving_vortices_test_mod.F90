@@ -43,8 +43,8 @@ contains
     latv = latv0
     lonvr0 = lonvr
 
-    call tracer_add('moving_vortices', dt, 'q0', 'background tracer')
-    call tracer_add('moving_vortices', dt, 'q1', 'vortex tracer'    )
+    call tracer_add('adv', dt, 'q0', 'background tracer')
+    call tracer_add('adv', dt, 'q1', 'vortex tracer'    )
 
   end subroutine moving_vortices_test_init
 
