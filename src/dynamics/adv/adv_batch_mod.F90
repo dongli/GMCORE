@@ -85,6 +85,8 @@ module adv_batch_mod
     type(latlon_field3d_type) cflz
     type(latlon_field3d_type) divx
     type(latlon_field3d_type) divy
+    type(latlon_field3d_type) qmfx0
+    type(latlon_field3d_type) qmfy0
     type(latlon_field3d_type) qx
     type(latlon_field3d_type) qy
   contains
@@ -329,6 +331,24 @@ contains
           restart         =.false.                                             , &
           field           =this%divy                                           )
         call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_qmfx0'                         , &
+          long_name       ='Inner tracer mass flux in x direction'             , &
+          units           ='Pa kg kg-1 m s-1'                                  , &
+          loc             ='lon'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%qmfx0                                          )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_qmfy0'                         , &
+          long_name       ='Inner tracer mass flux in y direction'             , &
+          units           ='Pa kg kg-1 m s-1'                                  , &
+          loc             ='lat'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%qmfy0                                          )
+        call append_field(this%fields                                          , &
           name            =trim(this%name) // '_qx'                            , &
           long_name       ='Tracer dry mixing ratio after advection in x direction', &
           units           ='kg kg-1'                                           , &
@@ -482,6 +502,24 @@ contains
           halo            =halo                                                , &
           restart         =.false.                                             , &
           field           =this%divy                                           )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_qmfx0'                         , &
+          long_name       ='Inner tracer mass flux in x direction'             , &
+          units           ='Pa kg kg-1 m s-1'                                  , &
+          loc             ='lev_lon'                                           , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%qmfx0                                          )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_qmfy0'                         , &
+          long_name       ='Inner tracer mass flux in y direction'             , &
+          units           ='Pa kg kg-1 m s-1'                                  , &
+          loc             ='lev_lat'                                           , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%qmfy0                                          )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_qx'                            , &
           long_name       ='Tracer dry mixing ratio after advection in x direction', &
