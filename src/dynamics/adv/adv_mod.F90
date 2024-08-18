@@ -242,17 +242,16 @@ contains
     call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
-      associate (block   => blocks(iblk)                  , &
-                 dmg_lon => blocks(iblk)%aux%dmg_lon      , &
-                 dmg_lat => blocks(iblk)%aux%dmg_lat      , &
-                 dmg     => blocks(iblk)%dstate(itime)%dmg, &
-                 mfx_lon => blocks(iblk)%aux%mfx_lon      , &
-                 mfy_lat => blocks(iblk)%aux%mfy_lat      )
+      associate (block   => blocks(iblk)            , &
+                 dmg_lon => blocks(iblk)%aux%dmg_lon, &
+                 dmg_lat => blocks(iblk)%aux%dmg_lat, &
+                 mfx_lon => blocks(iblk)%aux%mfx_lon, &
+                 mfy_lat => blocks(iblk)%aux%mfy_lat)
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)
           case ('cell')
-            call block%adv_batches(l)%accum_wind(dmg_lon, dmg_lat, dmg, mfx_lon, mfy_lat)
+            call block%adv_batches(l)%accum_wind(dmg_lon, dmg_lat, mfx_lon, mfy_lat)
           end select
         end do
       end if

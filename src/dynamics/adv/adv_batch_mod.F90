@@ -633,12 +633,11 @@ contains
 
   end subroutine adv_batch_set_wind
 
-  subroutine adv_batch_accum_wind(this, mx, my, m, mfx_lon, mfy_lat)
+  subroutine adv_batch_accum_wind(this, mx, my, mfx_lon, mfy_lat)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: mx
     type(latlon_field3d_type), intent(in) :: my
-    type(latlon_field3d_type), intent(in) :: m
     type(latlon_field3d_type), intent(in) :: mfx_lon
     type(latlon_field3d_type), intent(in) :: mfy_lat
 
@@ -650,7 +649,6 @@ contains
       this%mfy%d = this%mfy0%d
       this%u  %d = this%mx0 %d
       this%v  %d = this%my0 %d
-      call this%copy_m_old(m)
       this%step = 1
     end if
     if (this%step == 0) then
@@ -659,14 +657,12 @@ contains
       this%mfy%d = mfy_lat%d
       this%u  %d = mx%d
       this%v  %d = my%d
-      call this%copy_m_old(m)
     else if (this%step == this%nstep) then
       ! This is the end step.
       this%mfx %d = (this%mfx%d + mfx_lon%d) / (this%nstep + 1)
       this%mfy %d = (this%mfy%d + mfy_lat%d) / (this%nstep + 1)
       this%u   %d = (this%u  %d + mx%d     ) / (this%nstep + 1)
       this%v   %d = (this%v  %d + my%d     ) / (this%nstep + 1)
-      call this%m%add(m);this%m%d = this%m%d / (this%nstep + 1)
       this%mfx0%d = mfx_lon%d
       this%mfy0%d = mfy_lat%d
       this%mx0 %d = mx%d
