@@ -193,10 +193,10 @@ contains
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             q_old%d = q_new%d
-            associate (m_old => batch%m,     & ! inout
-                       qmfx  => batch%qmfx , & ! working array
-                       qmfy  => batch%qmfy , & ! working array
-                       qmfz  => batch%qmfz )   ! working array
+            associate (m_old => batch%m   , & ! inout
+                       qmfx  => batch%qmfx, & ! working array
+                       qmfy  => batch%qmfy, & ! working array
+                       qmfz  => batch%qmfz)   ! working array
             ! Calculate horizontal tracer mass flux.
             call adv_calc_tracer_hflx(batch, q_old, qmfx, qmfy)
             call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)

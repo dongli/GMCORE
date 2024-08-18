@@ -338,9 +338,10 @@ contains
     real(r8), intent(in) :: dt
 
     integer ks, ke, i, j, k, iu, ju, ci
-    real(r8) cf, dm
+    real(r8) cf, dq
 
     associate (mesh => u%mesh    , &
+               m    => batch%m   , & ! in
                cflx => batch%cflx, & ! in
                cfly => batch%cfly)   ! in
     select case (batch%loc)
@@ -357,12 +358,14 @@ contains
               qmfx%d(i,j,k) = 0
             else if (cflx%d(i,j,k) > 0) then
               iu = i - ci
-              dm = slope(qx%d(iu-1,j,k), qx%d(iu,j,k), qx%d(iu+1,j,k))
-              qmfx%d(i,j,k) = u%d(i,j,k) * (cf * (qx%d(iu,j,k) + dm * 0.5_r8 * (1 - cf)) + sum(qx%d(iu+1:i,j,k))) / cflx%d(i,j,k)
+              dq = slope(qx%d(iu-1,j,k), qx%d(iu,j,k), qx%d(iu+1,j,k))
+              qmfx%d(i,j,k) = (cf * (qx%d(iu,j,k) + dq * 0.5_r8 * (1 - cf))) * m%d(iu,j,k) * mesh%de_lon(j) / dt &
+                            + sum(m%d(iu+1:i,j,k) * qx%d(iu+1:i,j,k)) * mesh%de_lon(j) / dt
             else
               iu = i - ci + 1
-              dm = slope(qx%d(iu-1,j,k), qx%d(iu,j,k), qx%d(iu+1,j,k))
-              qmfx%d(i,j,k) = u%d(i,j,k) * (cf * (qx%d(iu,j,k) - dm * 0.5_r8 * (1 + cf)) - sum(qx%d(i+1:iu-1,j,k))) / cflx%d(i,j,k)
+              dq = slope(qx%d(iu-1,j,k), qx%d(iu,j,k), qx%d(iu+1,j,k))
+              qmfx%d(i,j,k) = (cf * (qx%d(iu,j,k) - dq * 0.5_r8 * (1 + cf))) * m%d(iu,j,k) * mesh%de_lon(j) / dt &
+                            - sum(m%d(i+1:iu-1,j,k) * qx%d(i+1:iu-1,j,k)) * mesh%de_lon(j) / dt
             end if
           end do
         end do
@@ -371,8 +374,8 @@ contains
           do i = mesh%full_ids, mesh%full_ide
             cf = cfly%d(i,j,k)
             ju = merge(j, j + 1, cf > 0)
-            dm = slope(qy%d(i,ju-1,k), qy%d(i,ju,k), qy%d(i,ju+1,k))
-            qmfy%d(i,j,k) = v%d(i,j,k) * (qy%d(i,ju,k) + dm * 0.5_r8 * (sign(1.0_r8, cf) - cf))
+            dq = slope(qy%d(i,ju-1,k), qy%d(i,ju,k), qy%d(i,ju+1,k))
+            qmfy%d(i,j,k) = v%d(i,j,k) * (qy%d(i,ju,k) + dq * 0.5_r8 * (sign(1.0_r8, cf) - cf))
           end do
         end do
       end do
@@ -391,9 +394,10 @@ contains
     real(r8), intent(in) :: dt
 
     integer i, j, k, ku, ci
-    real(r8) cf, dm
+    real(r8) cf, dq
 
     associate (mesh => q%mesh    , &
+               m    => batch%m   , & ! in
                cflz => batch%cflz)   ! in
     select case (batch%loc)
     case ('cell')
@@ -406,12 +410,14 @@ contains
               qmfz%d(i,j,k) = 0
             else if (cflz%d(i,j,k) > 0) then
               ku = k - ci - 1
-              dm = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
-              qmfz%d(i,j,k) = w%d(i,j,k) * (cf * (q%d(i,j,ku) + dm * 0.5_r8 * (1 - cf)) + sum(q%d(i,j,ku+1:k-1))) / cflz%d(i,j,k)
+              dq = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
+              qmfz%d(i,j,k) = (cf * (q%d(i,j,ku) + dq * 0.5_r8 * (1 - cf))) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            + sum(m%d(i,j,ku+1:k-1) * q%d(i,j,ku+1:k-1)) / dt 
             else
               ku = k - ci
-              dm = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
-              qmfz%d(i,j,k) = w%d(i,j,k) * (cf * (q%d(i,j,ku) - dm * 0.5_r8 * (1 + cf)) - sum(q%d(i,j,k:ku-1))) / cflz%d(i,j,k)
+              dq = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
+              qmfz%d(i,j,k) = (cf * (q%d(i,j,ku) - dq * 0.5_r8 * (1 + cf))) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            - sum(m%d(i,j,k:ku-1) * q%d(i,j,k:ku-1)) / dt
             end if
           end do
         end do
@@ -426,12 +432,14 @@ contains
               qmfz%d(i,j,k) = 0
             else if (cflz%d(i,j,k) > 0) then
               ku = k - ci
-              dm = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
-              qmfz%d(i,j,k) = w%d(i,j,k) * (cf * (q%d(i,j,ku) + dm * 0.5_r8 * (1 - cf)) + sum(q%d(i,j,ku+1:k))) / cflz%d(i,j,k)
+              dq = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
+              qmfz%d(i,j,k) = (cf * (q%d(i,j,ku) + dq * 0.5_r8 * (1 - cf))) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            + sum(m%d(i,j,ku+1:k) * q%d(i,j,ku+1:k)) / dt
             else
               ku = k - ci + 1
-              dm = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
-              qmfz%d(i,j,k) = w%d(i,j,k) * (cf * (q%d(i,j,ku) - dm * 0.5_r8 * (1 + cf)) - sum(q%d(i,j,k+1:ku-1))) / cflz%d(i,j,k)
+              dq = slope(q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1))
+              qmfz%d(i,j,k) = (cf * (q%d(i,j,ku) - dq * 0.5_r8 * (1 + cf))) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            - sum(m%d(i,j,k+1:ku-1) * q%d(i,j,k+1:ku-1)) / dt
             end if
           end do
         end do
@@ -456,6 +464,7 @@ contains
     real(r8) cf, s1, s2, ds1, ds2, ds3, ql, dq, q6
 
     associate (mesh => u%mesh    , &
+               m    => batch%m   , & ! in
                cflx => batch%cflx, & ! in
                cfly => batch%cfly)   ! in
     select case (batch%loc)
@@ -478,7 +487,8 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfx%d(i,j,k) =  u%d(i,j,k) * (sum(qx%d(iu+1:i,j,k)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflx%d(i,j,k)
+              qmfx%d(i,j,k) = ((ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * m%d(iu,j,k) &
+                            + sum(m%d(iu+1:i,j,k) * qx%d(iu+1:i,j,k))) * mesh%de_lon(j) / dt
             else
               iu = i - ci + 1
               call ppm(qx%d(iu-2,j,k), qx%d(iu-1,j,k), qx%d(iu,j,k), qx%d(iu+1,j,k), qx%d(iu+2,j,k), ql, dq, q6)
@@ -487,7 +497,8 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfx%d(i,j,k) = -u%d(i,j,k) * (sum(qx%d(i+1:iu-1,j,k)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflx%d(i,j,k)
+              qmfx%d(i,j,k) = -((ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * m%d(iu,j,k) &
+                            + sum(m%d(i+1:iu-1,j,k) * qx%d(i+1:iu-1,j,k))) * mesh%de_lon(j) / dt
             end if
           end do
         end do
@@ -536,6 +547,7 @@ contains
     real(r8) cf, s1, s2, ds1, ds2, ds3, ql, dq, q6
 
     associate (mesh => q%mesh    , &
+               m    => batch%m   , & ! in
                cflz => batch%cflz)   ! in
     select case (batch%loc)
     case ('cell')
@@ -555,7 +567,9 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfz%d(i,j,k) =  w%d(i,j,k) * (sum(q%d(i,j,ku+1:k-1)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflz%d(i,j,k)
+              qmfz%d(i,j,k) = (ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            + sum(m%d(i,j,ku+1:k-1) * q%d(i,j,ku+1:k-1)) / dt
+                              
             else
               ku = k - ci
               ku = min(max(ku, mesh%full_kms + 2), mesh%full_kme - 2)
@@ -565,7 +579,9 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfz%d(i,j,k) = -w%d(i,j,k) * (sum(q%d(i,j,k:ku-1)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflz%d(i,j,k)
+              qmfz%d(i,j,k) = -(ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            - sum(m%d(i,j,k:ku-1) * q%d(i,j,k:ku-1)) / dt
+                              
             end if
           end do
         end do
@@ -586,7 +602,8 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfz%d(i,j,k) =  w%d(i,j,k) * (sum(q%d(i,j,ku+1:k)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflz%d(i,j,k)
+              qmfz%d(i,j,k) = (ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            + sum(m%d(i,j,ku+1:k) * q%d(i,j,ku+1:k)) / dt
             else
               ku = k - ci + 1
               call ppm(q%d(i,j,ku-2), q%d(i,j,ku-1), q%d(i,j,ku), q%d(i,j,ku+1), q%d(i,j,ku+2), ql, dq, q6)
@@ -595,7 +612,8 @@ contains
               ds1 = s2    - s1
               ds2 = s2**2 - s1**2
               ds3 = s2**3 - s1**3
-              qmfz%d(i,j,k) = -w%d(i,j,k) * (sum(q%d(i,j,k+1:ku-1)) + ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) / cflz%d(i,j,k)
+              qmfz%d(i,j,k) = -(ql * ds1 + 0.5_r8 * dq * ds2 + q6 * (ds2 / 2.0_r8 - ds3 / 3.0_r8)) * w%d(i,j,k) / cflz%d(i,j,k) &
+                            - sum(m%d(i,j,k+1:ku-1) * q%d(i,j,k+1:ku-1)) / dt
             end if
           end do
         end do
