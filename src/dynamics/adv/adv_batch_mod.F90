@@ -80,6 +80,9 @@ module adv_batch_mod
     type(latlon_field3d_type) qmfy
     type(latlon_field3d_type) qmfz
     ! FFSL variables
+    type(latlon_field3d_type) u_frac
+    type(latlon_field3d_type) mfx_frac
+    type(latlon_field3d_type) we_frac
     type(latlon_field3d_type) cflx
     type(latlon_field3d_type) cfly
     type(latlon_field3d_type) cflz
@@ -292,6 +295,39 @@ contains
         field             =this%qmfz                                           )
       select case (this%scheme_h)
       case ('ffsl')
+        if (this%slave) then
+          call append_field(this%fields                                        , &
+            name          =trim(this%name) // '_mfx_frac'                      , &
+            long_name     ='Fractional mass flux in x direction'               , &
+            units         ='Pa m-1 s-1'                                        , &
+            loc           ='lon'                                               , &
+            mesh          =mesh                                                , &
+            halo          =halo                                                , &
+            output        ='h0'                                                , &
+            restart       =.false.                                             , &
+            field         =this%mfx_frac                                       )
+          call append_field(this%fields                                        , &
+            name          =trim(this%name) // '_we_frac'                       , &
+            long_name     ='Fractional vertical mass flux'                     , &
+            units         ='Pa m-2 s-1'                                        , &
+            loc           ='lev'                                               , &
+            mesh          =mesh                                                , &
+            halo          =halo                                                , &
+            output        ='h0'                                                , &
+            restart       =.false.                                             , &
+            field         =this%we_frac                                        )
+        else
+          call append_field(this%fields                                        , &
+            name          =trim(this%name) // '_u_frac'                        , &
+            long_name     ='Fractional U wind component'                       , &
+            units         ='m s-1'                                             , &
+            loc           ='lon'                                               , &
+            mesh          =mesh                                                , &
+            halo          =halo                                                , &
+            output        ='h0'                                                , &
+            restart       =.false.                                             , &
+            field         =this%u_frac                                         )
+        end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
           long_name       ='CFL number in x direction'                         , &
@@ -466,6 +502,24 @@ contains
         field             =this%qmfz                                           )
       select case (this%scheme_h)
       case ('ffsl')
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_mfx_frac'                      , &
+          long_name       ='Fractional mass flux in x direction'               , &
+          units           ='Pa m-1 s-1'                                        , &
+          loc             ='lev_lon'                                           , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%mfx_frac                                       )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_we_frac'                       , &
+          long_name       ='Fractional vertical mass flux'                     , &
+          units           ='Pa m-2 s-1'                                        , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%we_frac                                        )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
           long_name       ='CFL number in x direction'                         , &
@@ -736,16 +790,17 @@ contains
     real(r8) dm
     integer ks, ke, i, j, k, l
 
-    associate (mesh => this%u%mesh, &
-               m    => this%m     , & ! in
-               mfx  => this%mfx   , & ! in
-               mfy  => this%mfy   , & ! in
-               u    => this%u     , & ! in
-               v    => this%v     , & ! in
-               cflx => this%cflx  , & ! out
-               cfly => this%cfly  , & ! out
-               divx => this%divx  , & ! out
-               divy => this%divy  )   ! out
+    associate (mesh     => this%m%mesh  , &
+               m        => this%m       , & ! in
+               mfx      => this%mfx     , & ! in
+               mfy      => this%mfy     , & ! in
+               u        => this%u       , & ! in
+               v        => this%v       , & ! in
+               mfx_frac => this%mfx_frac, & ! out
+               cflx     => this%cflx    , & ! out
+               cfly     => this%cfly    , & ! out
+               divx     => this%divx    , & ! out
+               divy     => this%divy    )   ! out
     ! Calculate horizontal CFL number and divergence along each axis.
     select case (this%loc)
     case ('cell', 'lev')
@@ -756,16 +811,19 @@ contains
           do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
             do i = mesh%half_ids - 1, mesh%half_ide
               dm = mfx%d(i,j,k) * mesh%le_lon(j) * dt
+              mfx_frac%d(i,j,k) = mfx%d(i,j,k)
               if (dm >= 0) then
                 do l = i, mesh%full_ims, -1
                   if (dm < m%d(l,j,k) * mesh%area_cell(j)) exit
                   dm = dm - m%d(l,j,k) * mesh%area_cell(j)
+                  mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) - m%d(l,j,k) * mesh%de_lon(j) / dt
                 end do
                 cflx%d(i,j,k) = i - l + dm / m%d(l,j,k) / mesh%area_cell(j)
               else
                 do l = i + 1, mesh%full_ime
                   if (dm > -m%d(l,j,k) * mesh%area_cell(j)) exit
                   dm = dm + m%d(l,j,k) * mesh%area_cell(j)
+                  mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) + m%d(l,j,k) * mesh%de_lon(j) / dt
                 end do
                 cflx%d(i,j,k) = i + 1 - l + dm / m%d(l,j,k) / mesh%area_cell(j)
               end if
@@ -787,6 +845,7 @@ contains
                 end do
                 cfly%d(i,j,k) = j + 1 - l + dm / m%d(i,l,k) / mesh%area_cell(l)
               end if
+              if (abs(cfly%d(i,j,k)) > 1) call log_error('cfly exceeds 1!', __FILE__, __LINE__)
             end do
           end do
         end do
@@ -857,26 +916,30 @@ contains
     real(r8) dm
     integer i, j, k, l
 
-    associate (mesh => this%u%mesh, &
-               m    => this%m     , & ! in
-               we   => this%we    , & ! in
-               cflz => this%cflz  )   ! out
+    associate (mesh    => this%m%mesh , &
+               m       => this%m      , & ! in
+               we      => this%we     , & ! in
+               we_frac => this%we_frac, & ! out
+               cflz    => this%cflz   )   ! out
     select case (this%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             dm = we%d(i,j,k) * mesh%half_dlev(k) * dt
+            we_frac%d(i,j,k) = we%d(i,j,k)
             if (dm >= 0) then
               do l = k - 1, mesh%full_kms, -1
                 if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
+                we_frac%d(i,j,k) = we_frac%d(i,j,k) - m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             else
               do l = k, mesh%full_kme
                 if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
+                we_frac%d(i,j,k) = we_frac%d(i,j,k) + m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             end if
@@ -888,16 +951,19 @@ contains
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             dm = we%d(i,j,k) * mesh%full_dlev(k) * dt
+            we_frac%d(i,j,k) = we%d(i,j,k)
             if (dm >= 0) then
               do l = k, mesh%half_kms, -1
                 if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
+                we_frac%d(i,j,k) = we_frac%d(i,j,k) - m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             else
               do l = k, mesh%half_kme
                 if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
+                we_frac%d(i,j,k) = we_frac%d(i,j,k) + m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             end if
