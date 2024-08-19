@@ -306,16 +306,6 @@ contains
             output        ='h0'                                                , &
             restart       =.false.                                             , &
             field         =this%mfx_frac                                       )
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_we_frac'                       , &
-            long_name     ='Fractional vertical mass flux'                     , &
-            units         ='Pa m-2 s-1'                                        , &
-            loc           ='lev'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h0'                                                , &
-            restart       =.false.                                             , &
-            field         =this%we_frac                                        )
         else
           call append_field(this%fields                                        , &
             name          =trim(this%name) // '_u_frac'                        , &
@@ -406,6 +396,18 @@ contains
       end select
       select case (this%scheme_v)
       case ('ffsl')
+        if (this%slave) then
+          call append_field(this%fields                                        , &
+            name          =trim(this%name) // '_we_frac'                       , &
+            long_name     ='Fractional vertical mass flux'                     , &
+            units         ='Pa m-2 s-1'                                        , &
+            loc           ='lev'                                               , &
+            mesh          =mesh                                                , &
+            halo          =halo                                                , &
+            output        ='h0'                                                , &
+            restart       =.false.                                             , &
+            field         =this%we_frac                                        )
+        end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflz'                          , &
           long_name       ='CFL number in z direction'                         , &
@@ -512,15 +514,6 @@ contains
           restart         =.false.                                             , &
           field           =this%mfx_frac                                       )
         call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_we_frac'                       , &
-          long_name       ='Fractional vertical mass flux'                     , &
-          units           ='Pa m-2 s-1'                                        , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%we_frac                                        )
-        call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
           long_name       ='CFL number in x direction'                         , &
           units           =''                                                  , &
@@ -596,6 +589,15 @@ contains
       end select
       select case (this%scheme_v)
       case ('ffsl')
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_we_frac'                       , &
+          long_name       ='Fractional vertical mass flux'                     , &
+          units           ='Pa m-2 s-1'                                        , &
+          loc             ='cell'                                              , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          restart         =.false.                                             , &
+          field           =this%we_frac                                        )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflz'                          , &
           long_name       ='CFL number in z direction'                         , &
