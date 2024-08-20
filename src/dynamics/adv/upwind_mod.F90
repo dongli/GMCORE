@@ -146,8 +146,8 @@ contains
 
     call perf_start('upwind_calc_tracer_vflx')
 
-    associate (mesh => q%mesh  , &
-               we   => batch%we)   ! in
+    associate (mesh => q%mesh   , &
+               mfz  => batch%mfz)   ! in
     select case (batch%loc)
     case ('cell')
       select case (upwind_order)
@@ -155,7 +155,7 @@ contains
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              qmfz%d(i,j,k) = upwind3(sign(1.0_r8, we%d(i,j,k)), upwind_wgt, q%d(i,j,k-2:k+1)) * we%d(i,j,k)
+              qmfz%d(i,j,k) = upwind3(sign(1.0_r8, mfz%d(i,j,k)), upwind_wgt, q%d(i,j,k-2:k+1)) * mfz%d(i,j,k)
             end do
           end do
         end do
@@ -163,7 +163,7 @@ contains
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              qmfz%d(i,j,k) = upwind5(sign(1.0_r8, we%d(i,j,k)), upwind_wgt, q%d(i,j,k-3:k+2)) * we%d(i,j,k)
+              qmfz%d(i,j,k) = upwind5(sign(1.0_r8, mfz%d(i,j,k)), upwind_wgt, q%d(i,j,k-3:k+2)) * mfz%d(i,j,k)
             end do
           end do
         end do
@@ -174,7 +174,7 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              qmfz%d(i,j,k) = upwind3(sign(1.0_r8, we%d(i,j,k)), upwind_wgt, q%d(i,j,k-1:k+2)) * we%d(i,j,k)
+              qmfz%d(i,j,k) = upwind3(sign(1.0_r8, mfz%d(i,j,k)), upwind_wgt, q%d(i,j,k-1:k+2)) * mfz%d(i,j,k)
             end do
           end do
         end do
@@ -182,7 +182,7 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              qmfz%d(i,j,k) = upwind5(sign(1.0_r8, we%d(i,j,k)), upwind_wgt, q%d(i,j,k-2:k+3)) * we%d(i,j,k)
+              qmfz%d(i,j,k) = upwind5(sign(1.0_r8, mfz%d(i,j,k)), upwind_wgt, q%d(i,j,k-2:k+3)) * mfz%d(i,j,k)
             end do
           end do
         end do

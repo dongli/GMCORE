@@ -67,9 +67,9 @@ module adv_batch_mod
     type(latlon_field3d_type) m     ! Dry-air weight at n time level
     type(latlon_field3d_type) mfx   ! Mass flux in x direction
     type(latlon_field3d_type) mfy   ! Mass flux in y direction
+    type(latlon_field3d_type) mfz   ! Mass flux in z direction
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
-    type(latlon_field3d_type) we    ! Explicit part of vertical mass flux
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
@@ -82,7 +82,7 @@ module adv_batch_mod
     ! FFSL variables
     type(latlon_field3d_type) u_frac
     type(latlon_field3d_type) mfx_frac
-    type(latlon_field3d_type) we_frac
+    type(latlon_field3d_type) mfz_frac
     type(latlon_field3d_type) cflx
     type(latlon_field3d_type) cfly
     type(latlon_field3d_type) cflz
@@ -234,7 +234,7 @@ contains
         restart           =.false.                                             , &
         field             =this%v                                              )
       call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_we'                            , &
+        name              =trim(this%name) // '_mfz'                           , &
         long_name         ='Vertical mass flux'                                , &
         units             ='Pa s-1'                                            , &
         loc               ='lev'                                               , &
@@ -242,7 +242,7 @@ contains
         halo              =halo                                                , &
         output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
-        field             =this%we                                             )
+        field             =this%mfz                                            )
       call append_field(this%fields                                            , &
         name              =trim(this%name) // '_mfx'                           , &
         long_name         ='Mass flux in x direction'                          , &
@@ -398,7 +398,7 @@ contains
       case ('ffsl')
         if (this%slave) then
           call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_we_frac'                       , &
+            name          =trim(this%name) // '_mfz_frac'                      , &
             long_name     ='Fractional vertical mass flux'                     , &
             units         ='Pa m-2 s-1'                                        , &
             loc           ='lev'                                               , &
@@ -406,7 +406,7 @@ contains
             halo          =halo                                                , &
             output        ='h0'                                                , &
             restart       =.false.                                             , &
-            field         =this%we_frac                                        )
+            field         =this%mfz_frac                                        )
         end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflz'                          , &
@@ -449,14 +449,14 @@ contains
         restart           =.false.                                             , &
         field             =this%v                                              )
       call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_we'                            , &
+        name              =trim(this%name) // '_mfz'                           , &
         long_name         ='Vertical mass flux'                                , &
         units             ='Pa s-1'                                            , &
         loc               ='cell'                                              , &
         mesh              =mesh                                                , &
         halo              =halo                                                , &
         restart           =.false.                                             , &
-        field             =this%we                                             )
+        field             =this%mfz                                            )
       call append_field(this%fields                                            , &
         name              =trim(this%name) // '_mfx'                           , &
         long_name         ='Mass flux in x direction'                          , &
@@ -590,14 +590,14 @@ contains
       select case (this%scheme_v)
       case ('ffsl')
         call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_we_frac'                       , &
+          name            =trim(this%name) // '_mfz_frac'                      , &
           long_name       ='Fractional vertical mass flux'                     , &
           units           ='Pa m-2 s-1'                                        , &
           loc             ='cell'                                              , &
           mesh            =mesh                                                , &
           halo            =halo                                                , &
           restart         =.false.                                             , &
-          field           =this%we_frac                                        )
+          field           =this%mfz_frac                                       )
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflz'                          , &
           long_name       ='CFL number in z direction'                         , &
@@ -665,22 +665,22 @@ contains
 
   end subroutine adv_batch_copy_m_old
 
-  subroutine adv_batch_set_wind(this, u_lon, v_lat, we_lev, mfx_lon, mfy_lat, m, dt)
+  subroutine adv_batch_set_wind(this, u, v, mfz, mfx, mfy, m, dt)
 
     class(adv_batch_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(in) :: u_lon
-    type(latlon_field3d_type), intent(in) :: v_lat
-    type(latlon_field3d_type), intent(in) :: we_lev
-    type(latlon_field3d_type), intent(in) :: mfx_lon
-    type(latlon_field3d_type), intent(in) :: mfy_lat
+    type(latlon_field3d_type), intent(in) :: u
+    type(latlon_field3d_type), intent(in) :: v
+    type(latlon_field3d_type), intent(in) :: mfz
+    type(latlon_field3d_type), intent(in) :: mfx
+    type(latlon_field3d_type), intent(in) :: mfy
     type(latlon_field3d_type), intent(in) :: m
     real(r8), intent(in) :: dt
 
-    call this%u  %link(u_lon  )
-    call this%v  %link(v_lat  )
-    call this%we %link(we_lev )
-    call this%mfx%link(mfx_lon)
-    call this%mfy%link(mfy_lat)
+    call this%u  %link(u  )
+    call this%v  %link(v  )
+    call this%mfz%link(mfz)
+    call this%mfx%link(mfx)
+    call this%mfy%link(mfy)
 
     call this%copy_m_old(m)
 
@@ -737,11 +737,11 @@ contains
                  dt   => this%dt    , &
                  mfx  => this%mfx   , &
                  mfy  => this%mfy   , &
+                 mfz  => this%mfz   , &
                  mx   => this%u     , &
                  my   => this%v     , &
                  u    => this%u     , &
                  v    => this%v     , &
-                 we   => this%we    , &
                  dmf  => this%dmf   , &
                  dmgs => this%dmgs  )
       do k = mesh%full_kds, mesh%full_kde
@@ -771,7 +771,7 @@ contains
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            we%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
+            mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
           end do
         end do
       end do
@@ -918,30 +918,30 @@ contains
     real(r8) dm
     integer i, j, k, l
 
-    associate (mesh    => this%m%mesh , &
-               m       => this%m      , & ! in
-               we      => this%we     , & ! in
-               we_frac => this%we_frac, & ! out
-               cflz    => this%cflz   )   ! out
+    associate (mesh     => this%m%mesh  , &
+               m        => this%m       , & ! in
+               mfz      => this%mfz     , & ! in
+               mfz_frac => this%mfz_frac, & ! out
+               cflz     => this%cflz    )   ! out
     select case (this%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            dm = we%d(i,j,k) * mesh%half_dlev(k) * dt
-            we_frac%d(i,j,k) = we%d(i,j,k)
+            dm = mfz%d(i,j,k) * mesh%half_dlev(k) * dt
+            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
             if (dm >= 0) then
               do l = k - 1, mesh%full_kms, -1
                 if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
-                we_frac%d(i,j,k) = we_frac%d(i,j,k) - m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             else
               do l = k, mesh%full_kme
                 if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
-                we_frac%d(i,j,k) = we_frac%d(i,j,k) + m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             end if
@@ -952,20 +952,20 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            dm = we%d(i,j,k) * mesh%full_dlev(k) * dt
-            we_frac%d(i,j,k) = we%d(i,j,k)
+            dm = mfz%d(i,j,k) * mesh%full_dlev(k) * dt
+            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
             if (dm >= 0) then
               do l = k, mesh%half_kms, -1
                 if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
-                we_frac%d(i,j,k) = we_frac%d(i,j,k) - m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             else
               do l = k, mesh%half_kme
                 if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
-                we_frac%d(i,j,k) = we_frac%d(i,j,k) + m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             end if

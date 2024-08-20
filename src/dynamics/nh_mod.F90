@@ -108,7 +108,7 @@ contains
 
     associate (mesh     => block%mesh             , &
                dmf_lev  => block%aux%dmf_lev      , & ! in
-               we       => block%adv_batch_nh%we  , & ! in
+               mfz      => block%adv_batch_nh%mfz , & ! in
                qmfx     => block%adv_batch_nh%qmfx, &
                qmfy     => block%adv_batch_nh%qmfy, &
                qmfz     => block%adv_batch_nh%qmfz)
@@ -132,7 +132,7 @@ contains
         do i = mesh%full_ids, mesh%full_ide
           dqdt_lev%d(i,j,k) = dqdt_lev%d(i,j,k) - ( &
             qmfz%d(i,j,k) - qmfz%d(i,j,k-1) -       &
-            q_lev%d(i,j,k) * (we%d(i,j,k) - we%d(i,j,k-1)))
+            q_lev%d(i,j,k) * (mfz%d(i,j,k) - mfz%d(i,j,k-1)))
         end do
       end do
     end do

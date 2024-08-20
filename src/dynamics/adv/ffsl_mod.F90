@@ -317,7 +317,7 @@ contains
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    call vflx(batch, batch%we, batch%we_frac, q, qmfz, dt_opt)
+    call vflx(batch, batch%mfz, batch%mfz_frac, q, qmfz, dt_opt)
 
     call perf_stop('ffsl_calc_tracer_vflx')
 
