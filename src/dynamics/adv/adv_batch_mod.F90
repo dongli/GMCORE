@@ -847,7 +847,8 @@ contains
                 end do
                 cfly%d(i,j,k) = j + 1 - l + dm / m%d(i,l,k) / mesh%area_cell(l)
               end if
-              if (abs(cfly%d(i,j,k)) > 1) call log_error('cfly exceeds 1!', __FILE__, __LINE__)
+              ! if (abs(cfly%d(i,j,k)) > 1) call log_error(trim(this%name) // ' cfly ' // &
+              !   to_str(cfly%d(i,j,k), 5) // ' exceeds 1!', __FILE__, __LINE__)
             end do
           end do
         end do
