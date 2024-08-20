@@ -108,29 +108,29 @@ contains
                divx   => batch%divx  , & ! in
                divy   => batch%divy  , & ! in
                mx     => batch%qx    , & ! work array
-               my     => batch%qy    )   ! work array
+               my     => batch%qy    , & ! work array
+               mfx0   => batch%qmfx0 , & ! work array
+               mfy0   => batch%qmfy0 )   ! work array
     ! Run inner advective operators.
-    call hflx(batch, u, u_frac, v, m, m, mfx, mfy, dt_opt)
-    call fill_halo(mfx, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(mfy, west_halo=.false., east_halo=.false., north_halo=.false.)
+    call hflx(batch, u, u_frac, v, m, m, mfx0, mfy0, dt_opt)
+    call fill_halo(mfx0, south_halo=.false., north_halo=.false., east_halo=.false.)
+    call fill_halo(mfy0, west_halo=.false., east_halo=.false., north_halo=.false.)
     ! Calculate intermediate tracer density due to advective operators.
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
           ! Subtract divergence terms from flux to form advective operators.
-          mx%d(i,j,k) = m%d(i,j,k) - 0.5_r8 * (      &
-            (                                        &
-              mfx%d(i,j,k) - mfx%d(i-1,j,k)          &
-            ) * mesh%le_lon(j) / mesh%area_cell(j) - &
-            divx%d(i,j,k) * m%d(i,j,k)               &
-          ) * dt_opt
-          my%d(i,j,k) = m%d(i,j,k) - 0.5_r8 * (     &
-            (                                       &
-              mfy%d(i,j  ,k) * mesh%le_lat(j  ) -   &
-              mfy%d(i,j-1,k) * mesh%le_lat(j-1)     &
-            ) / mesh%area_cell(j) -                 &
-            divy%d(i,j,k) * m%d(i,j,k)              &
-          ) * dt_opt
+          mx%d(i,j,k) = (m%d(i,j,k) - dt_opt * (   &
+            (                                      &
+              mfx0%d(i,j,k) - mfx0%d(i-1,j,k)      &
+            ) * mesh%le_lon(j) / mesh%area_cell(j) &
+          )) / (1 - dt_opt * divx%d(i,j,k))
+          my%d(i,j,k) = (m%d(i,j,k) - dt_opt * (   &
+            (                                      &
+              mfy0%d(i,j  ,k) * mesh%le_lat(j  ) - &
+              mfy0%d(i,j-1,k) * mesh%le_lat(j-1)   &
+            ) / mesh%area_cell(j)                  &
+          )) / (1 - dt_opt * divy%d(i,j,k))
         end do
       end do
     end do
@@ -139,15 +139,15 @@ contains
       j = mesh%full_jds
       do k = mesh%full_kds, mesh%full_kde
         do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = mfy%d(i,j,k)
+          work(i,k) = mfy0%d(i,j,k)
         end do
       end do
       call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+      pole = dt_opt * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
       do k = mesh%full_kds, mesh%full_kde
         do i = mesh%full_ids, mesh%full_ide
           mx%d(i,j,k) = m%d(i,j,k)
-          my%d(i,j,k) = m%d(i,j,k) - 0.5_r8 * (pole(k) - divy%d(i,j,k) * m%d(i,j,k)) * dt_opt
+          my%d(i,j,k) = (m%d(i,j,k) - pole(k)) / (1 - dt_opt * divy%d(i,j,k))
         end do
       end do
     end if
@@ -155,15 +155,15 @@ contains
       j = mesh%full_jde
       do k = mesh%full_kds, mesh%full_kde
         do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = mfy%d(i,j-1,k)
+          work(i,k) = mfy0%d(i,j-1,k)
         end do
       end do
       call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+      pole = dt_opt * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
       do k = mesh%full_kds, mesh%full_kde
         do i = mesh%full_ids, mesh%full_ide
           mx%d(i,j,k) = m%d(i,j,k)
-          my%d(i,j,k) = m%d(i,j,k) + 0.5_r8 * (pole(k) - divy%d(i,j,k) * m%d(i,j,k)) * dt_opt
+          my%d(i,j,k) = (m%d(i,j,k) + pole(k)) / (1 - dt_opt * divy%d(i,j,k))
         end do
       end do
     end if
@@ -171,6 +171,19 @@ contains
     call fill_halo(my, south_halo=.false., north_halo=.false.)
     ! Run outer flux form operators.
     call hflx(batch, u, u_frac, v, my, mx, mfx, mfy, dt_opt)
+    ! Do SWIFT splitting.
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids, mesh%half_ide
+          mfx%d(i,j,k) = 0.5_r8 * (mfx0%d(i,j,k) + mfx%d(i,j,k))
+        end do
+      end do
+      do j = mesh%half_jds, mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          mfy%d(i,j,k) = 0.5_r8 * (mfy0%d(i,j,k) + mfy%d(i,j,k))
+        end do
+      end do
+    end do
     end associate
 
     call perf_stop('ffsl_calc_mass_hflx')
