@@ -282,7 +282,7 @@ contains
         call time_advance(dt_dyn)
         ! ----------------------------------------------------------------------
         !                            Tracer Advection
-        call adv_run(old)
+        call adv_run_tracers(old)
         ! ----------------------------------------------------------------------
         !                                Physics
         call test_forcing_run(dt_dyn, old)

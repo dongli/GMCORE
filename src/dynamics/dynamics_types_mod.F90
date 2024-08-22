@@ -33,7 +33,7 @@ module dynamics_types_mod
     type(latlon_field3d_type) v
     type(latlon_field3d_type) u_lon
     type(latlon_field3d_type) v_lat
-    type(latlon_field3d_type) we_lev
+    type(latlon_field3d_type) we_lev    ! TODO: Rename to mfz_lev.
     type(latlon_field3d_type) gz
     type(latlon_field3d_type) gz_lev
     type(latlon_field3d_type) dmg
@@ -288,7 +288,7 @@ contains
       loc               ='cell'                                              , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            ='h1'                                                , &
+      output            =merge('h0', 'h1', advection)                        , &
       restart           =.false.                                             , &
       field             =this%dmg                                            )
     if (baroclinic .or. advection) then

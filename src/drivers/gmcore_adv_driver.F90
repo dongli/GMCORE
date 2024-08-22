@@ -100,7 +100,7 @@ program gmcore_adv_driver
     call set_uv(elapsed_seconds + dt_adv, new)
     call time_advance(dt_adv)
     call adv_accum_wind(old)
-    call adv_run(old)
+    call adv_run_tracers(old)
     call diagnose(old)
     if (proc%is_root() .and. time_is_alerted('print')) call log_print_diag(curr_time%isoformat())
     call output(old)

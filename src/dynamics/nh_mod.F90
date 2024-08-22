@@ -90,7 +90,14 @@ contains
     call fill_halo(v_lev_lat)
     call fill_halo(mfx_lev_lon)
     call fill_halo(mfy_lev_lat)
-    call block%adv_batch_nh%set_wind(u_lev_lon, v_lev_lat, we, mfx_lev_lon, mfy_lev_lat, dmg_lev, dt)
+    call block%adv_batch_nh%set_wind( &
+      u                 =u_lev_lon  , &
+      v                 =v_lev_lat  , &
+      mfx               =mfx_lev_lon, &
+      mfy               =mfy_lev_lat, &
+      mfz               =we         , &
+      m                 =dmg_lev    , &
+      dt                =dt         )
     call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)
     end associate
 

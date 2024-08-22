@@ -55,11 +55,12 @@ module adv_batch_mod
     character(30) :: scheme_v = 'N/A'
     character(10) :: loc  = 'cell'
     character(30) :: name = ''
-    logical  :: dynamic   = .false.
-    logical  :: slave     = .true.
-    integer  :: ntracers  = 1
-    integer  :: nstep     = 0       ! Number of dynamic steps for one adv step
-    integer  :: step      = 0       ! Step counter
+    logical  :: initialized = .false.
+    logical  :: dynamic     = .false.
+    logical  :: slave       = .true.
+    integer  :: ntracers    = 1
+    integer  :: nstep       = 0     ! Number of dynamic steps for one adv step
+    integer  :: step        = 0     ! Step counter
     real(r8) :: dt                  ! Advection time step size in seconds
     integer , allocatable :: idx(:) ! Global index of tracers in this batch
     type(latlon_mesh_type), pointer :: mesh => null()
@@ -620,6 +621,8 @@ contains
 
     call time_add_alert(batch_name, seconds=dt)
 
+    this%initialized = .true.
+
   end subroutine adv_batch_init
 
   subroutine adv_batch_clear(this)
@@ -647,6 +650,7 @@ contains
     this%loc         = 'cell'
     this%name        = ''
     this%dt          = 0
+    this%initialized = .false.
     this%dynamic     = .false.
     this%ntracers    = 0
     this%nstep       = 0
@@ -665,24 +669,23 @@ contains
 
   end subroutine adv_batch_copy_m_old
 
-  subroutine adv_batch_set_wind(this, u, v, mfz, mfx, mfy, m, dt)
+  subroutine adv_batch_set_wind(this, u, v, mfx, mfy, mfz, m, dt)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: u
     type(latlon_field3d_type), intent(in) :: v
-    type(latlon_field3d_type), intent(in) :: mfz
-    type(latlon_field3d_type), intent(in) :: mfx
-    type(latlon_field3d_type), intent(in) :: mfy
-    type(latlon_field3d_type), intent(in) :: m
-    real(r8), intent(in) :: dt
+    type(latlon_field3d_type), intent(in), optional :: mfx
+    type(latlon_field3d_type), intent(in), optional :: mfy
+    type(latlon_field3d_type), intent(in), optional :: mfz
+    type(latlon_field3d_type), intent(in), optional :: m
+    real(r8), intent(in), optional :: dt
 
     call this%u  %link(u  )
     call this%v  %link(v  )
-    call this%mfz%link(mfz)
-    call this%mfx%link(mfx)
-    call this%mfy%link(mfy)
-
-    call this%copy_m_old(m)
+    if (present(mfx)) call this%mfx%link(mfx)
+    if (present(mfy)) call this%mfy%link(mfy)
+    if (present(mfz)) call this%mfz%link(mfz)
+    if (present(m  )) call this%copy_m_old(m)
 
     if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
     if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
@@ -792,7 +795,7 @@ contains
     real(r8) dm
     integer ks, ke, i, j, k, l
 
-    associate (mesh     => this%m%mesh  , &
+    associate (mesh     => this%qx%mesh , &
                m        => this%m       , & ! in
                mfx      => this%mfx     , & ! in
                mfy      => this%mfy     , & ! in
@@ -919,7 +922,7 @@ contains
     real(r8) dm
     integer i, j, k, l
 
-    associate (mesh     => this%m%mesh  , &
+    associate (mesh     => this%qx%mesh , &
                m        => this%m       , & ! in
                mfz      => this%mfz     , & ! in
                mfz_frac => this%mfz_frac, & ! out

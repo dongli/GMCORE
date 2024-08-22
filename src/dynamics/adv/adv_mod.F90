@@ -34,7 +34,7 @@ module adv_mod
 
   public adv_init
   public adv_prepare
-  public adv_run
+  public adv_run_tracers
   public adv_final
   public adv_fill_vhalo
   public adv_accum_wind
@@ -167,7 +167,7 @@ contains
 
   end subroutine adv_calc_tracer_vflx
 
-  subroutine adv_run(itime)
+  subroutine adv_run_tracers(itime)
 
     integer, intent(in) :: itime
 
@@ -180,7 +180,6 @@ contains
 
     do iblk = 1, size(blocks)
       associate (block     => blocks(iblk)                  , &
-                 dstate    => blocks(iblk)%dstate(itime)    , &
                  mesh      => blocks(iblk)%filter_mesh      , &
                  m_new     => blocks(iblk)%dstate(itime)%dmg, &
                  dqdt      => blocks(iblk)%aux%pv           )   ! Borrow array.
@@ -231,7 +230,7 @@ contains
       end associate
     end do
 
-  end subroutine adv_run
+  end subroutine adv_run_tracers
 
   subroutine adv_accum_wind(itime)
 
