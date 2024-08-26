@@ -181,8 +181,8 @@ contains
     do iblk = 1, size(blocks)
       associate (block     => blocks(iblk)                  , &
                  mesh      => blocks(iblk)%filter_mesh      , &
-                 m_new     => blocks(iblk)%dstate(itime)%dmg, &
-                 dqdt      => blocks(iblk)%aux%pv           )   ! Borrow array.
+                 m_new     => blocks(iblk)%dstate(itime)%dmg, & ! in
+                 dqdt      => blocks(iblk)%aux%pv           )   ! borrowed array
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, itime, dt_adv)
@@ -192,10 +192,10 @@ contains
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             q_old%d = q_new%d
-            associate (m_old => batch%m   , & ! inout
-                       qmfx  => batch%qmfx, & ! working array
-                       qmfy  => batch%qmfy, & ! working array
-                       qmfz  => batch%qmfz)   ! working array
+            associate (m_old => batch%m   , & ! in
+                       qmfx  => batch%qmfx, & ! work array
+                       qmfy  => batch%qmfy, & ! work array
+                       qmfz  => batch%qmfz)   ! work array
             ! Calculate horizontal tracer mass flux.
             call adv_calc_tracer_hflx(batch, q_old, qmfx, qmfy)
             call div_operator(qmfx, qmfy, dqdt)
@@ -239,16 +239,16 @@ contains
     call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
-      associate (block   => blocks(iblk)            , &
-                 dmg_lon => blocks(iblk)%aux%dmg_lon, &
-                 dmg_lat => blocks(iblk)%aux%dmg_lat, &
-                 mfx_lon => blocks(iblk)%aux%mfx_lon, &
-                 mfy_lat => blocks(iblk)%aux%mfy_lat)
+      associate (block => blocks(iblk)            , &
+                 mx    => blocks(iblk)%aux%dmg_lon, & ! in
+                 my    => blocks(iblk)%aux%dmg_lat, & ! in
+                 mfx   => blocks(iblk)%aux%mfx_lon, & ! in
+                 mfy   => blocks(iblk)%aux%mfy_lat)   ! in
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)
           case ('cell')
-            call block%adv_batches(l)%accum_wind(dmg_lon, dmg_lat, mfx_lon, mfy_lat)
+            call block%adv_batches(l)%accum_wind(mx, my, mfx, mfy)
           end select
         end do
       end if

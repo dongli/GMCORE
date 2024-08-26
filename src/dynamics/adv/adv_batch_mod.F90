@@ -99,6 +99,8 @@ module adv_batch_mod
     procedure :: copy_m_old => adv_batch_copy_m_old
     procedure :: set_wind   => adv_batch_set_wind
     procedure :: accum_wind => adv_batch_accum_wind
+    procedure :: calc_cfl_mass => adv_batch_calc_cfl_mass
+    procedure :: calc_cfl_tracers => adv_batch_calc_cfl_tracers
     procedure, private :: prepare_ffsl_h => adv_batch_prepare_ffsl_h
     procedure, private :: prepare_ffsl_v => adv_batch_prepare_ffsl_v
     final :: adv_batch_final
@@ -785,13 +787,110 @@ contains
 
   end subroutine adv_batch_accum_wind
 
-  subroutine adv_batch_prepare_ffsl_h(this, dt)
+  subroutine adv_batch_calc_cfl_mass(this, dt)
 
     class(adv_batch_type), intent(inout) :: this
     real(r8), intent(in) :: dt
 
+    integer i, j, k
+
+    associate (mesh   => this%mesh  , &
+               u      => this%u     , & ! in
+               v      => this%v     , & ! in
+               cflx   => this%cflx  , & ! out
+               cfly   => this%cfly  , & ! out
+               u_frac => this%u_frac)   ! out
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids - 1, mesh%half_ide
+          cflx%d(i,j,k) = u%d(i,j,k) * dt / mesh%de_lon(j)
+          u_frac%d(i,j,k) = u%d(i,j,k) - int(cflx%d(i,j,k)) * mesh%de_lon(j) / dt
+        end do
+      end do
+      do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          cfly%d(i,j,k) = v%d(i,j,k) * dt / mesh%de_lat(j)
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine adv_batch_calc_cfl_mass
+
+  subroutine adv_batch_calc_cfl_tracers(this, mx, my, mfx, mfy, cflx, cfly, mfx_frac, dt)
+
+    class(adv_batch_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: mx
+    type(latlon_field3d_type), intent(in) :: my
+    type(latlon_field3d_type), intent(in) :: mfx
+    type(latlon_field3d_type), intent(in) :: mfy
+    type(latlon_field3d_type), intent(inout) :: cflx
+    type(latlon_field3d_type), intent(inout) :: cfly
+    type(latlon_field3d_type), intent(inout) :: mfx_frac
+    real(r8), intent(in) :: dt
+
     real(r8) dm
     integer ks, ke, i, j, k, l
+
+    associate (mesh => this%qx%mesh)
+    select case (this%loc)
+    case ('cell', 'lev')
+      ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
+      ke = merge(mesh%full_kde, mesh%half_kde, this%loc == 'cell')
+      do k = ks, ke
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            dm = mfx%d(i,j,k) * mesh%le_lon(j) * dt
+            mfx_frac%d(i,j,k) = mfx%d(i,j,k)
+            if (dm >= 0) then
+              do l = i, mesh%full_ims, -1
+                if (dm < mx%d(l,j,k) * mesh%area_cell(j)) exit
+                dm = dm - mx%d(l,j,k) * mesh%area_cell(j)
+                mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) - mx%d(l,j,k) * mesh%de_lon(j) / dt
+              end do
+              cflx%d(i,j,k) = i - l + dm / mx%d(l,j,k) / mesh%area_cell(j)
+            else
+              do l = i + 1, mesh%full_ime
+                if (dm > -mx%d(l,j,k) * mesh%area_cell(j)) exit
+                dm = dm + mx%d(l,j,k) * mesh%area_cell(j)
+                mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) + mx%d(l,j,k) * mesh%de_lon(j) / dt
+              end do
+              cflx%d(i,j,k) = i + 1 - l + dm / mx%d(l,j,k) / mesh%area_cell(j)
+            end if
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            dm = mfy%d(i,j,k) * mesh%le_lat(j) * dt
+            if (dm >= 0) then
+              do l = j, mesh%full_jms, -1
+                if (dm < my%d(i,l,k) * mesh%area_cell(l)) exit
+                dm = dm - my%d(i,l,k) * mesh%area_cell(l)
+              end do
+              cfly%d(i,j,k) = j - l + dm / my%d(i,l,k) / mesh%area_cell(l)
+            else
+              do l = j + 1, mesh%full_jme
+                if (dm > -my%d(i,l,k) * mesh%area_cell(l)) exit
+                dm = dm + my%d(i,l,k) * mesh%area_cell(l)
+              end do
+              cfly%d(i,j,k) = j + 1 - l + dm / my%d(i,l,k) / mesh%area_cell(l)
+            end if
+          end do
+        end do
+      end do
+    end select
+    end associate
+
+  end subroutine adv_batch_calc_cfl_tracers
+
+  subroutine adv_batch_prepare_ffsl_h(this, dt)
+
+    class(adv_batch_type), intent(inout) :: this
+    real(r8), intent(in), optional :: dt
+
+    real(r8) dt_opt
+
+    dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
     associate (mesh     => this%qx%mesh , &
                m        => this%m       , & ! in
@@ -807,65 +906,10 @@ contains
     ! Calculate horizontal CFL number and divergence along each axis.
     select case (this%loc)
     case ('cell', 'lev')
-      ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
-      ke = merge(mesh%full_kde, mesh%half_kde, this%loc == 'cell')
       if (this%slave) then
-        do k = ks, ke
-          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-            do i = mesh%half_ids - 1, mesh%half_ide
-              dm = mfx%d(i,j,k) * mesh%le_lon(j) * dt
-              mfx_frac%d(i,j,k) = mfx%d(i,j,k)
-              if (dm >= 0) then
-                do l = i, mesh%full_ims, -1
-                  if (dm < m%d(l,j,k) * mesh%area_cell(j)) exit
-                  dm = dm - m%d(l,j,k) * mesh%area_cell(j)
-                  mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) - m%d(l,j,k) * mesh%de_lon(j) / dt
-                end do
-                cflx%d(i,j,k) = i - l + dm / m%d(l,j,k) / mesh%area_cell(j)
-              else
-                do l = i + 1, mesh%full_ime
-                  if (dm > -m%d(l,j,k) * mesh%area_cell(j)) exit
-                  dm = dm + m%d(l,j,k) * mesh%area_cell(j)
-                  mfx_frac%d(i,j,k) = mfx_frac%d(i,j,k) + m%d(l,j,k) * mesh%de_lon(j) / dt
-                end do
-                cflx%d(i,j,k) = i + 1 - l + dm / m%d(l,j,k) / mesh%area_cell(j)
-              end if
-            end do
-          end do
-          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
-            do i = mesh%full_ids, mesh%full_ide
-              dm = mfy%d(i,j,k) * mesh%le_lat(j) * dt
-              if (dm >= 0) then
-                do l = j, mesh%full_jms, -1
-                  if (dm < m%d(i,l,k) * mesh%area_cell(l)) exit
-                  dm = dm - m%d(i,l,k) * mesh%area_cell(l)
-                end do
-                cfly%d(i,j,k) = j - l + dm / m%d(i,l,k) / mesh%area_cell(l)
-              else
-                do l = j + 1, mesh%full_jme
-                  if (dm > -m%d(i,l,k) * mesh%area_cell(l)) exit
-                  dm = dm + m%d(i,l,k) * mesh%area_cell(l)
-                end do
-                cfly%d(i,j,k) = j + 1 - l + dm / m%d(i,l,k) / mesh%area_cell(l)
-              end if
-              ! if (abs(cfly%d(i,j,k)) > 1) call log_error(trim(this%name) // ' cfly ' // &
-              !   to_str(cfly%d(i,j,k), 5) // ' exceeds 1!', __FILE__, __LINE__)
-            end do
-          end do
-        end do
+        call this%calc_cfl_tracers(m, m, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
       else
-        do k = ks, ke
-          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-            do i = mesh%half_ids - 1, mesh%half_ide
-              cflx%d(i,j,k) = u%d(i,j,k) * dt / mesh%de_lon(j)
-            end do
-          end do
-          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
-            do i = mesh%full_ids, mesh%full_ide
-              cfly%d(i,j,k) = v%d(i,j,k) * dt / mesh%de_lat(j)
-            end do
-          end do
-        end do
+        call this%calc_cfl_mass(dt_opt)
       end if
       call divx_operator(u, divx)
       call divy_operator(v, divy)
@@ -879,10 +923,12 @@ contains
   subroutine adv_batch_prepare_ffsl_v(this, dt)
 
     class(adv_batch_type), intent(inout) :: this
-    real(r8), intent(in) :: dt
+    real(r8), intent(in), optional :: dt
 
-    real(r8) dm
+    real(r8) dt_opt, dm
     integer i, j, k, l
+
+    dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
     associate (mesh     => this%qx%mesh , &
                m        => this%m       , & ! in
@@ -894,20 +940,20 @@ contains
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            dm = mfz%d(i,j,k) * mesh%half_dlev(k) * dt
+            dm = mfz%d(i,j,k) * mesh%half_dlev(k) * dt_opt
             mfz_frac%d(i,j,k) = mfz%d(i,j,k)
             if (dm >= 0) then
               do l = k - 1, mesh%full_kms, -1
                 if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt_opt
               end do
               cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             else
               do l = k, mesh%full_kme
                 if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt_opt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
             end if
@@ -918,20 +964,20 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            dm = mfz%d(i,j,k) * mesh%full_dlev(k) * dt
+            dm = mfz%d(i,j,k) * mesh%full_dlev(k) * dt_opt
             mfz_frac%d(i,j,k) = mfz%d(i,j,k)
             if (dm >= 0) then
               do l = k, mesh%half_kms, -1
                 if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt_opt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             else
               do l = k, mesh%half_kme
                 if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
                 dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt_opt
               end do
               cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
             end if
