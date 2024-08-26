@@ -22,6 +22,7 @@ module ffsl_mod
   use namelist_mod
   use latlon_mesh_mod, only: global_mesh
   use latlon_field_types_mod
+  use latlon_operators_mod
   use latlon_parallel_mod
   use process_mod, only: proc
   use adv_batch_mod
@@ -93,8 +94,6 @@ contains
     real(r8), intent(in), optional :: dt
 
     integer i, j, k
-    real(r8) work(m%mesh%full_ids:m%mesh%full_ide,m%mesh%full_nlev)
-    real(r8) pole(m%mesh%full_nlev)
     real(r8) dt_opt
 
     call perf_start('ffsl_calc_mass_hflx')
@@ -110,64 +109,25 @@ contains
                mx     => batch%qx    , & ! work array
                my     => batch%qy    , & ! work array
                mfx0   => batch%qmfx0 , & ! work array
-               mfy0   => batch%qmfy0 )   ! work array
+               mfy0   => batch%qmfy0 , & ! work array
+               dmxdt  => batch%qx    , & ! borrowed array
+               dmydt  => batch%qy    )   ! borrowed array
     ! Run inner advective operators.
     call hflx(batch, u, u_frac, v, m, m, mfx0, mfy0, dt_opt)
-    call fill_halo(mfx0, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(mfy0, west_halo=.false., east_halo=.false., north_halo=.false.)
+    call fill_halo(mfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(mfy0, west_halo =.false., east_halo =.false., north_halo=.false.)
     ! Calculate intermediate tracer density due to advective operators.
+    call divx_operator(mfx0, dmxdt)
+    call divy_operator(mfy0, dmydt)
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+      do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          ! Subtract divergence terms from flux to form advective operators.
-          mx%d(i,j,k) = (m%d(i,j,k) - dt_opt * (   &
-            (                                      &
-              mfx0%d(i,j,k) - mfx0%d(i-1,j,k)      &
-            ) * mesh%le_lon(j) / mesh%area_cell(j) &
-          )) / (1 - dt_opt * divx%d(i,j,k))
-          my%d(i,j,k) = (m%d(i,j,k) - dt_opt * (   &
-            (                                      &
-              mfy0%d(i,j  ,k) * mesh%le_lat(j  ) - &
-              mfy0%d(i,j-1,k) * mesh%le_lat(j-1)   &
-            ) / mesh%area_cell(j)                  &
-          )) / (1 - dt_opt * divy%d(i,j,k))
+          mx%d(i,j,k) = (m%d(i,j,k) - dt_opt * dmxdt%d(i,j,k)) / (1 - dt_opt * divx%d(i,j,k))
+          my%d(i,j,k) = (m%d(i,j,k) - dt_opt * dmydt%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
         end do
       end do
     end do
-    ! Handle the Pole boundary conditions.
-    if (mesh%has_south_pole()) then
-      j = mesh%full_jds
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = mfy0%d(i,j,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = dt_opt * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          mx%d(i,j,k) = m%d(i,j,k)
-          my%d(i,j,k) = (m%d(i,j,k) - pole(k)) / (1 - dt_opt * divy%d(i,j,k))
-        end do
-      end do
-    end if
-    if (mesh%has_north_pole()) then
-      j = mesh%full_jde
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          work(i,k) = mfy0%d(i,j-1,k)
-        end do
-      end do
-      call zonal_sum(proc%zonal_circle, work, pole)
-      pole = dt_opt * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
-      do k = mesh%full_kds, mesh%full_kde
-        do i = mesh%full_ids, mesh%full_ide
-          mx%d(i,j,k) = m%d(i,j,k)
-          my%d(i,j,k) = (m%d(i,j,k) + pole(k)) / (1 - dt_opt * divy%d(i,j,k))
-        end do
-      end do
-    end if
-    call fill_halo(mx, west_halo=.false., east_halo=.false.)
+    call fill_halo(mx, west_halo =.false., east_halo =.false.)
     call fill_halo(my, south_halo=.false., north_halo=.false.)
     ! Run outer flux form operators.
     call hflx(batch, u, u_frac, v, my, mx, mfx, mfy, dt_opt)
@@ -184,6 +144,8 @@ contains
         end do
       end do
     end do
+    call fill_halo(mfx, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
     call perf_stop('ffsl_calc_mass_hflx')
@@ -199,8 +161,6 @@ contains
     real(r8), intent(in), optional :: dt
 
     integer ks, ke, i, j, k
-    real(r8) work(q%mesh%full_ids:q%mesh%full_ide,q%mesh%half_nlev)
-    real(r8) pole(q%mesh%half_nlev)
     real(r8) dt_opt
 
     call perf_start('ffsl_calc_tracer_hflx')
@@ -219,69 +179,31 @@ contains
                qx       => batch%qx      , & ! work array
                qy       => batch%qy      , & ! work array
                qmfx0    => batch%qmfx0   , & ! out
-               qmfy0    => batch%qmfy0   )   ! out
+               qmfy0    => batch%qmfy0   , & ! out
+               dqmxdt   => batch%qx      , & ! borrowed array
+               dqmydt   => batch%qy      )   ! borrowed array
     ! Run inner advective operators.
     call hflx(batch, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
-    call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(qmfy0, west_halo=.false., east_halo=.false., north_halo=.false.)
+    call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(qmfy0, west_halo =.false., east_halo =.false., north_halo=.false.)
     select case (batch%loc)
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
       ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
       ! Calculate intermediate tracer density due to advective operators.
+      call divx_operator(qmfx0, dqmxdt)
+      call divy_operator(qmfy0, dqmydt)
       do k = ks, ke
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            qx%d(i,j,k) = (q%d(i,j,k) - dt_opt * (     &
-              (                                        &
-                qmfx0%d(i,j,k) - qmfx0%d(i-1,j,k)      &
-              ) * mesh%le_lon(j) / mesh%area_cell(j)   &
-            ) / m%d(i,j,k)) / (1 - dt_opt * divx%d(i,j,k))
-            qy%d(i,j,k) = (q%d(i,j,k) - dt_opt * (     &
-              (                                        &
-                qmfy0%d(i,j  ,k) * mesh%le_lat(j  ) -  &
-                qmfy0%d(i,j-1,k) * mesh%le_lat(j-1)    &
-              ) / mesh%area_cell(j)                    &
-            ) / m%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
+            qx%d(i,j,k) = (q%d(i,j,k) - dt_opt * dqmxdt%d(i,j,k) / m%d(i,j,k)) / (1 - dt_opt * divx%d(i,j,k))
+            qy%d(i,j,k) = (q%d(i,j,k) - dt_opt * dqmydt%d(i,j,k) / m%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
           end do
         end do
       end do
-      ! Handle the Pole boundary conditions.
-      if (mesh%has_south_pole()) then
-        j = mesh%full_jds
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            work(i,k) = qmfy0%d(i,j,k)
-          end do
-        end do
-        call zonal_sum(proc%zonal_circle, work(:,ks:ke), pole(ks:ke))
-        pole(ks:ke) = dt_opt * pole(ks:ke) * mesh%le_lat(j) / global_mesh%area_pole_cap
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            qx%d(i,j,k) = q%d(i,j,k)
-            qy%d(i,j,k) = (q%d(i,j,k) - pole(k) / m%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
-          end do
-        end do
-      end if
-      if (mesh%has_north_pole()) then
-        j = mesh%full_jde
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            work(i,k) = qmfy0%d(i,j-1,k)
-          end do
-        end do
-        call zonal_sum(proc%zonal_circle, work(:,ks:ke), pole(ks:ke))
-        pole(ks:ke) = dt_opt * pole(ks:ke) * mesh%le_lat(j-1) / global_mesh%area_pole_cap
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            qx%d(i,j,k) = q%d(i,j,k)
-            qy%d(i,j,k) = (q%d(i,j,k) + pole(k) / m%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
-          end do
-        end do
-      end if
     case ('vtx')
     end select
-    call fill_halo(qx, west_halo=.false., east_halo=.false.)
+    call fill_halo(qx, west_halo =.false., east_halo =.false.)
     call fill_halo(qy, south_halo=.false., north_halo=.false.)
     ! Run outer flux form operators.
     call hflx(batch, mfx, mfx_frac, mfy, qy, qx, qmfx, qmfy, dt_opt)
@@ -298,6 +220,8 @@ contains
         end do
       end do
     end do
+    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
     call perf_stop('ffsl_calc_tracer_hflx')

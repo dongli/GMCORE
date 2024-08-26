@@ -1107,8 +1107,6 @@ contains
                dpt     => dtend%dpt        )   ! out
     call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=we_lev, m=dmg, dt=dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
-    call fill_halo(ptfx, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(ptfy, north_halo=.false.,  west_halo=.false., east_halo=.false.)
     call div_operator(ptfx, ptfy, dpt)
     call adv_fill_vhalo(pt)
     call adv_calc_tracer_vflx(block%adv_batch_pt, pt, ptfz, dt)

@@ -198,8 +198,6 @@ contains
                        qmfz  => batch%qmfz)   ! working array
             ! Calculate horizontal tracer mass flux.
             call adv_calc_tracer_hflx(batch, q_old, qmfx, qmfy)
-            call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)
-            call fill_halo(qmfy, north_halo=.false.,  west_halo=.false., east_halo=.false.)
             call div_operator(qmfx, qmfy, dqdt)
             ! Update tracer mixing ratio due to horizontal advection.
             do k = mesh%full_kds, mesh%full_kde

@@ -30,10 +30,91 @@ module latlon_operators_mod
 
   private
 
+  public divx_operator
+  public divy_operator
   public div_operator
   public curl_operator
 
 contains
+
+  subroutine divx_operator(fx, divx)
+
+    type(latlon_field3d_type), intent(in   ) :: fx
+    type(latlon_field3d_type), intent(inout) :: divx
+
+    integer ks, ke, i, j, k
+
+    associate (mesh => divx%mesh)
+    ks = merge(mesh%full_kds, mesh%half_kds, divx%loc(1:3) /= 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, divx%loc(1:3) /= 'lev')
+    do k = ks, ke
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          divx%d(i,j,k) = (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) / mesh%area_cell(j)
+        end do
+      end do
+    end do
+    if (mesh%has_south_pole()) divx%d(:,mesh%full_jds,:) = 0
+    if (mesh%has_north_pole()) divx%d(:,mesh%full_jde,:) = 0
+    end associate
+
+  end subroutine divx_operator
+
+  subroutine divy_operator(fy, divy)
+
+    type(latlon_field3d_type), intent(in   ) :: fy
+    type(latlon_field3d_type), intent(inout) :: divy
+
+    real(r8) work(divy%mesh%full_ids:divy%mesh%full_ide,divy%nlev)
+    real(r8) pole(divy%nlev)
+    integer ks, ke, i, j, k
+
+    associate (mesh => divy%mesh)
+    ks = merge(mesh%full_kds, mesh%half_kds, divy%loc(1:3) /= 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, divy%loc(1:3) /= 'lev')
+    do k = ks, ke
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          divy%d(i,j,k) = (                    &
+            fy%d(i,j  ,k) * mesh%le_lat(j  ) - &
+            fy%d(i,j-1,k) * mesh%le_lat(j-1)   &
+          ) / mesh%area_cell(j)
+        end do
+      end do
+    end do
+    if (mesh%has_south_pole()) then
+      j = mesh%full_jds
+      do k = ks, ke
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = fy%d(i,j,k)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+      do k = ks, ke
+        do i = mesh%full_ids, mesh%full_ide
+          divy%d(i,j,k) = pole(k)
+        end do
+      end do
+    end if
+    if (mesh%has_north_pole()) then
+      j = mesh%full_jde
+      do k = ks, ke
+        do i = mesh%full_ids, mesh%full_ide
+          work(i,k) = fy%d(i,j-1,k)
+        end do
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+      do k = ks, ke
+        do i = mesh%full_ids, mesh%full_ide
+          divy%d(i,j,k) = -pole(k)
+        end do
+      end do
+    end if
+    end associate
+
+  end subroutine divy_operator
 
   subroutine div_operator(fx, fy, div, with_halo)
 

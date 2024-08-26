@@ -120,8 +120,6 @@ contains
                qmfy     => block%adv_batch_nh%qmfy, &
                qmfz     => block%adv_batch_nh%qmfz)
     call adv_calc_tracer_hflx(block%adv_batch_nh, q_lev, qmfx, qmfy, dt)
-    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo=.false.)
-    call fill_halo(qmfy, west_halo=.false., east_halo=.false., north_halo=.false.)
     call div_operator(qmfx, qmfy, dqdt_lev)
     ! Remove horizontal mass flux divergence part.
     do k = mesh%half_kds, mesh%half_kde

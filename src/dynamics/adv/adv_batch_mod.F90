@@ -790,8 +790,6 @@ contains
     class(adv_batch_type), intent(inout) :: this
     real(r8), intent(in) :: dt
 
-    real(r8) work(this%u%mesh%full_ids:this%u%mesh%full_ide,this%u%mesh%half_nlev)
-    real(r8) pole(this%u%mesh%half_nlev)
     real(r8) dm
     integer ks, ke, i, j, k, l
 
@@ -869,44 +867,8 @@ contains
           end do
         end do
       end if
-      do k = ks, ke
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%full_ids, mesh%full_ide
-            divx%d(i,j,k) = (u%d(i,j,k) - u%d(i-1,j,k)) * mesh%le_lon(j) / mesh%area_cell(j)
-            divy%d(i,j,k) = (v%d(i,j,k) * mesh%le_lat(j) - v%d(i,j-1,k) * mesh%le_lat(j-1)) / mesh%area_cell(j)
-          end do
-        end do
-      end do
-      if (mesh%has_south_pole()) then
-        j = mesh%full_jds
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            work(i,k) = v%d(i,j,k)
-          end do
-        end do
-        call zonal_sum(proc%zonal_circle, work(:,ks:ke), pole(ks:ke))
-        pole(ks:ke) = pole(ks:ke) * mesh%le_lat(j) / global_mesh%area_pole_cap
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            divy%d(i,j,k) = pole(k)
-          end do
-        end do
-      end if
-      if (mesh%has_north_pole()) then
-        j = mesh%full_jde
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            work(i,k) = -v%d(i,j-1,k)
-          end do
-        end do
-        call zonal_sum(proc%zonal_circle, work(:,ks:ke), pole(ks:ke))
-        pole(ks:ke) = pole(ks:ke) * mesh%le_lat(j-1) / global_mesh%area_pole_cap
-        do k = ks, ke
-          do i = mesh%full_ids, mesh%full_ide
-            divy%d(i,j,k) = pole(k)
-          end do
-        end do
-      end if
+      call divx_operator(u, divx)
+      call divy_operator(v, divy)
     case ('vtx')
       call log_error('Unsupported grid location ' // this%loc // '!', __FILE__, __LINE__)
     end select
