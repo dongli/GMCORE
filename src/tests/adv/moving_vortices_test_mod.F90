@@ -43,7 +43,6 @@ contains
     latv = latv0
     lonvr0 = lonvr
 
-    call tracer_add('adv', dt, 'q0', 'background tracer')
     call tracer_add('adv', dt, 'q1', 'vortex tracer'    )
 
   end subroutine moving_vortices_test_init
@@ -54,21 +53,22 @@ contains
     real(8) lon, lat, lonr, latr
 
     do iblk = 1, size(blocks)
-      associate (block => blocks(iblk)     , &
-                 mesh  => blocks(iblk)%mesh, &
-                 q     => tracers(iblk)%q  )
+      associate (block => blocks(iblk)              , &
+                 mesh  => blocks(iblk)%mesh         , &
+                 m     => blocks(iblk)%dstate(1)%dmg, &
+                 q     => tracers(iblk)%q           )
       ! Background tracer
-      q%d(:,:,:,1) = 1
+      m%d(:,:,:) = 1
       ! Vortex tracer
       do j = mesh%full_jds, mesh%full_jde
         lat = mesh%full_lat(j)
         do i = mesh%full_ids, mesh%full_ide
           lon = mesh%full_lon(i)
           call rotate(lonv0, latv0, lon, lat, lonr, latr)
-          q%d(i,j,1,2) = 1 - tanh(rho(latr) / gamma * sin(lonr))
+          q%d(i,j,1,1) = 1 - tanh(rho(latr) / gamma * sin(lonr))
         end do
       end do
-      call fill_halo(q, 2)
+      call fill_halo(q, 1)
       end associate
     end do
 
@@ -89,14 +89,8 @@ contains
     do iblk = 1, size(blocks)
       associate (block   => blocks(iblk)                    , &
                  mesh    => blocks(iblk)%mesh               , &
-                 dmg     => blocks(iblk)%dstate(itime)%dmg  , &
-                 dmg_lon => blocks(iblk)%aux%dmg_lon        , &
-                 dmg_lat => blocks(iblk)%aux%dmg_lat        , &
                  u       => blocks(iblk)%dstate(itime)%u_lon, &
-                 v       => blocks(iblk)%dstate(itime)%v_lat, &
-                 mfx     => blocks(iblk)%aux%mfx_lon        , &
-                 mfy     => blocks(iblk)%aux%mfy_lat        )
-      dmg%d = 1; dmg_lon%d = 1; dmg_lat%d = 1
+                 v       => blocks(iblk)%dstate(itime)%v_lat)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         lat = mesh%full_lat(j)
         do i = mesh%half_ids, mesh%half_ide
@@ -108,7 +102,6 @@ contains
         end do
       end do
       call fill_halo(u)
-      mfx%d = u%d * dmg_lon%d
       do j = mesh%half_jds, mesh%half_jde
         lat = mesh%half_lat(j)
         do i = mesh%full_ids, mesh%full_ide
@@ -119,7 +112,6 @@ contains
         end do
       end do
       call fill_halo(v)
-      mfy%d = v%d * dmg_lat%d
       end associate
     end do
 

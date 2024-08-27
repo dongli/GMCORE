@@ -39,6 +39,7 @@ module ffsl_mod
 
   public ffsl_init
   public ffsl_calc_mass_hflx_swift1
+  public ffsl_calc_mass_vflx
   public ffsl_calc_tracer_hflx_swift1
   public ffsl_calc_tracer_vflx
 
@@ -125,7 +126,7 @@ contains
     integer i, j, k
     real(r8) dt_opt
 
-    call perf_start('ffsl_calc_mass_hflx')
+    call perf_start('ffsl_calc_mass_hflx_swift1')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -177,7 +178,7 @@ contains
     call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
-    call perf_stop('ffsl_calc_mass_hflx')
+    call perf_stop('ffsl_calc_mass_hflx_swift1')
 
   end subroutine ffsl_calc_mass_hflx_swift1
 
@@ -192,7 +193,7 @@ contains
     integer ks, ke, i, j, k
     real(r8) dt_opt
 
-    call perf_start('ffsl_calc_tracer_hflx')
+    call perf_start('ffsl_calc_tracer_hflx_swift1')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -255,9 +256,28 @@ contains
     call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
-    call perf_stop('ffsl_calc_tracer_hflx')
+    call perf_stop('ffsl_calc_tracer_hflx_swift1')
 
   end subroutine ffsl_calc_tracer_hflx_swift1
+
+  subroutine ffsl_calc_mass_vflx(batch, m, mfz, dt)
+
+    type(adv_batch_type     ), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in   ) :: m
+    type(latlon_field3d_type), intent(inout) :: mfz
+    real(r8), intent(in), optional :: dt
+
+    real(r8) dt_opt
+
+    call perf_start('ffsl_calc_mass_vflx')
+
+    dt_opt = batch%dt; if (present(dt)) dt_opt = dt
+
+    call vflx_mass(batch, batch%w, batch%w_frac, m, mfz, dt_opt)
+
+    call perf_stop('ffsl_calc_mass_vflx')
+
+  end subroutine ffsl_calc_mass_vflx
 
   subroutine ffsl_calc_tracer_vflx(batch, q, qmfz, dt)
 

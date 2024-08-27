@@ -84,10 +84,9 @@ program gmcore_adv_driver
 
   call gmcore_init_stage2(namelist_path)
 
-  call set_uv(elapsed_seconds, old)
   call set_ic()
+  call set_uv(elapsed_seconds, old)
   call adv_prepare(old)
-  call adv_accum_wind(old)
 
   call gmcore_init_stage3()
 
@@ -97,9 +96,9 @@ program gmcore_adv_driver
 
   time1 = MPI_WTIME()
   do while (.not. time_is_finished())
+    call adv_run_mass(old, new)
     call set_uv(elapsed_seconds + dt_adv, new)
     call time_advance(dt_adv)
-    call adv_accum_wind(old)
     call adv_run_tracers(old)
     call diagnose(old)
     if (proc%is_root() .and. time_is_alerted('print')) call log_print_diag(curr_time%isoformat())
@@ -123,6 +122,16 @@ contains
       associate (mesh => blocks(iblk)%mesh             , &
                  dmg  => blocks(iblk)%dstate(itime)%dmg, &
                  q    => tracers(iblk)%q               )
+      qm = 0
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            qm = qm + dmg%d(i,j,k) * mesh%area_cell(j)
+          end do
+        end do
+      end do
+      call global_sum(proc%comm_model, qm)
+      call log_add_diag('dmg', qm)
       do l = 1, ntracers
         qm = 0
         do k = mesh%full_kds, mesh%full_kde

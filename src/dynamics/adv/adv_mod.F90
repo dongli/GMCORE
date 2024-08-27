@@ -21,6 +21,7 @@ module adv_mod
   use latlon_parallel_mod
   use process_mod, only: proc
   use tracer_mod
+  use interp_mod
   use adv_batch_mod
   use ffsl_mod
   use upwind_mod
@@ -34,9 +35,11 @@ module adv_mod
 
   public adv_init
   public adv_prepare
+  public adv_run_mass
   public adv_run_tracers
   public adv_final
   public adv_fill_vhalo
+  public adv_set_wind
   public adv_accum_wind
   public adv_calc_tracer_hflx
   public adv_calc_tracer_vflx
@@ -60,6 +63,13 @@ contains
 
     ! Initialize advection batches.
     do iblk = 1, size(blocks)
+      if (advection) then
+        call blocks(iblk)%adv_batch_bg%init(                  &
+          blocks(iblk)%big_filter                           , &
+          blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
+          blocks(iblk)%mesh, blocks(iblk)%halo              , &
+          bg_adv_scheme, 'cell', 'bg', dt_dyn, dynamic=.true., slave=.false.)
+      end if
       if (baroclinic) then
         call blocks(iblk)%adv_batch_pt%init(                  &
           blocks(iblk)%big_filter                           , &
@@ -96,7 +106,8 @@ contains
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
           'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), &
-          dynamic=.false., slave=.true., idx=idx(1:n))
+          dynamic=.false., slave=.true., idx=idx(1:n)       , &
+          bg=blocks(iblk)%adv_batch_bg)
       end do
     end do
 
@@ -134,6 +145,35 @@ contains
 
   end subroutine adv_prepare
 
+  subroutine adv_calc_mass_hflx(batch, m, mfx, mfy, dt)
+
+    type(adv_batch_type     ), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in   ) :: m
+    type(latlon_field3d_type), intent(inout) :: mfx
+    type(latlon_field3d_type), intent(inout) :: mfy
+    real(r8), intent(in), optional :: dt
+
+    select case (batch%scheme_h)
+    case ('ffsl')
+      call ffsl_calc_mass_hflx_swift1(batch, m, mfx, mfy, dt)
+    end select
+
+  end subroutine adv_calc_mass_hflx
+
+  subroutine adv_calc_mass_vflx(batch, m, mfz, dt)
+
+    type(adv_batch_type     ), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in   ) :: m
+    type(latlon_field3d_type), intent(inout) :: mfz
+    real(r8), intent(in), optional :: dt
+
+    select case (batch%scheme_v)
+    case ('ffsl')
+      call ffsl_calc_mass_vflx(batch, m, mfz, dt)
+    end select
+
+  end subroutine adv_calc_mass_vflx
+
   subroutine adv_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
 
     type(adv_batch_type     ), intent(inout) :: batch
@@ -166,6 +206,55 @@ contains
     end select
 
   end subroutine adv_calc_tracer_vflx
+
+  subroutine adv_run_mass(old, new, dt)
+
+    integer, intent(in) :: old
+    integer, intent(in) :: new
+    real(r8), intent(in), optional :: dt
+
+    real(r8) dt_opt
+    integer iblk, i, j, k
+
+    if (.not. blocks(1)%adv_batch_bg%initialized) return
+
+    dt_opt = blocks(1)%adv_batch_bg%dt; if (present(dt)) dt_opt = dt
+
+    call adv_set_wind(old)
+
+    do iblk = 1, size(blocks)
+      associate (block => blocks(iblk)                 , &
+                 batch => blocks(iblk)%adv_batch_bg    , &
+                 mesh  => blocks(iblk)%mesh            , &
+                 m_old => blocks(iblk)%dstate(old)%dmg , & ! in
+                 m_new => blocks(iblk)%dstate(new)%dmg , & ! out
+                 mfx   => blocks(iblk)%adv_batch_bg%mfx, & ! work array
+                 mfy   => blocks(iblk)%adv_batch_bg%mfy, & ! work array
+                 mfz   => blocks(iblk)%adv_batch_bg%mfz, & ! work array
+                 dmdt  => blocks(iblk)%aux%pv          )   ! borrowed array
+      call adv_calc_mass_hflx(batch, m_old, mfx, mfy, dt_opt)
+      call div_operator(mfx, mfy, dmdt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            m_new%d(i,j,k) = m_old%d(i,j,k) - dt_opt * dmdt%d(i,j,k)
+          end do
+        end do
+      end do
+      call adv_fill_vhalo(m_new)
+      call adv_calc_mass_vflx(batch, m_new, mfz, dt_opt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            m_new%d(i,j,k) = m_new%d(i,j,k) - dt_opt * (mfz%d(i,j,k+1) - mfz%d(i,j,k))
+          end do
+        end do
+      end do
+      call fill_halo(m_new)
+      end associate
+    end do
+
+  end subroutine adv_run_mass
 
   subroutine adv_run_tracers(itime)
 
@@ -230,6 +319,27 @@ contains
 
   end subroutine adv_run_tracers
 
+  subroutine adv_set_wind(itime)
+
+    integer, intent(in) :: itime
+
+    integer iblk
+
+    do iblk = 1, size(blocks)
+      associate (block => blocks(iblk))
+      if (block%adv_batch_bg%initialized) then
+        call block%adv_batch_bg%set_wind( &
+          u=block%dstate(itime)%u_lon   , & ! in
+          v=block%dstate(itime)%v_lat   , & ! in
+          w=block%dstate(itime)%we_lev  , & ! in
+          mfx=block%aux%mfx_lon         , & ! out
+          mfy=block%aux%mfy_lat         )   ! out
+      end if
+      end associate
+    end do
+
+  end subroutine adv_set_wind
+
   subroutine adv_accum_wind(itime)
 
     integer, intent(in) :: itime
@@ -239,11 +349,18 @@ contains
     call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
-      associate (block => blocks(iblk)            , &
-                 mx    => blocks(iblk)%aux%dmg_lon, & ! in
-                 my    => blocks(iblk)%aux%dmg_lat, & ! in
-                 mfx   => blocks(iblk)%aux%mfx_lon, & ! in
-                 mfy   => blocks(iblk)%aux%mfy_lat)   ! in
+      associate (block => blocks(iblk)                  , &
+        m     => blocks(iblk)%dstate(itime)%dmg, & ! in
+        mx    => blocks(iblk)%aux%dmg_lon      , & ! out
+        my    => blocks(iblk)%aux%dmg_lat      , & ! out
+        mfx   => blocks(iblk)%aux%mfx_lon      , & ! in
+        mfy   => blocks(iblk)%aux%mfy_lat      )   ! in
+      if (advection) then
+        call interp_run(m, mx)
+        call fill_halo(mx)
+        call interp_run(m, my)
+        call fill_halo(my)
+      end if
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)

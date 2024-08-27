@@ -34,6 +34,7 @@ module block_mod
     type(dstate_type), allocatable :: dstate(:)
     type(dtend_type) dtend
     type(aux_array_type) aux
+    type(adv_batch_type) adv_batch_bg
     type(adv_batch_type) adv_batch_pt
     type(adv_batch_type) adv_batch_nh
     type(adv_batch_type), allocatable :: adv_batches(:)
@@ -175,6 +176,7 @@ contains
     call this%small_filter%clear()
     call this%dtend       %clear()
     call this%aux         %clear()
+    call this%adv_batch_bg%clear()
     call this%adv_batch_pt%clear()
     call this%adv_batch_nh%clear()
     call this%accum_list  %clear()

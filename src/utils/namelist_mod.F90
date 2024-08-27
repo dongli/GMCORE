@@ -115,6 +115,7 @@ module namelist_mod
   character(8)    :: pgf_scheme           = ''       ! lin97, ptb
   integer         :: coriolis_scheme      = 1
 
+  character(30)   :: bg_adv_scheme        = 'ffsl'
   character(30)   :: pt_adv_scheme        = 'upwind:ffsl'
   character(30)   :: nh_adv_scheme        = 'upwind:ffsl'
   character(8)    :: limiter_type         = 'mono'
@@ -252,6 +253,7 @@ module namelist_mod
     pv_pole_wgt               , &
     pgf_scheme                , &
     coriolis_scheme           , &
+    bg_adv_scheme             , &
     pt_adv_scheme             , &
     nh_adv_scheme             , &
     limiter_type              , &
@@ -408,6 +410,7 @@ contains
       write(*, *) 'filter_min_width    = ', filter_min_width
       write(*, *) 'filter_ptend        = ', to_str(filter_ptend)
       write(*, *) 'pgf_scheme          = ', trim(pgf_scheme)
+      write(*, *) 'bg_adv_scheme       = ', trim(bg_adv_scheme)
       write(*, *) 'pt_adv_scheme       = ', trim(pt_adv_scheme)
       write(*, *) 'nh_adv_scheme       = ', trim(nh_adv_scheme)
       write(*, *) 'limiter_type        = ', trim(limiter_type)

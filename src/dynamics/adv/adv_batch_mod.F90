@@ -71,6 +71,7 @@ module adv_batch_mod
     type(latlon_field3d_type) mfz   ! Mass flux in z direction
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
+    type(latlon_field3d_type) w     ! Only for advection tests
     type(latlon_field3d_type) mfx0
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
@@ -82,6 +83,7 @@ module adv_batch_mod
     type(latlon_field3d_type) qmfz
     ! FFSL variables
     type(latlon_field3d_type) u_frac
+    type(latlon_field3d_type) w_frac
     type(latlon_field3d_type) mfx_frac
     type(latlon_field3d_type) mfz_frac
     type(latlon_field3d_type) cflx
@@ -93,14 +95,17 @@ module adv_batch_mod
     type(latlon_field3d_type) qmfy0
     type(latlon_field3d_type) qx
     type(latlon_field3d_type) qy
+    type(adv_batch_type), pointer :: bg => null() ! Background batch
   contains
     procedure :: init       => adv_batch_init
     procedure :: clear      => adv_batch_clear
     procedure :: copy_m_old => adv_batch_copy_m_old
     procedure :: set_wind   => adv_batch_set_wind
     procedure :: accum_wind => adv_batch_accum_wind
-    procedure :: calc_cfl_mass => adv_batch_calc_cfl_mass
-    procedure :: calc_cfl_tracers => adv_batch_calc_cfl_tracers
+    procedure :: calc_cflxy_mass   => adv_batch_calc_cflxy_mass
+    procedure :: calc_cflxy_tracer => adv_batch_calc_cflxy_tracer
+    procedure :: calc_cflz_mass    => adv_batch_calc_cflz_mass
+    procedure :: calc_cflz_tracer  => adv_batch_calc_cflz_tracer
     procedure, private :: prepare_ffsl_h => adv_batch_prepare_ffsl_h
     procedure, private :: prepare_ffsl_v => adv_batch_prepare_ffsl_v
     final :: adv_batch_final
@@ -108,7 +113,7 @@ module adv_batch_mod
 
 contains
 
-  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, slave, idx)
+  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, slave, idx, bg)
 
     class(adv_batch_type), intent(inout) :: this
     type(filter_type), intent(in) :: filter
@@ -123,6 +128,7 @@ contains
     logical, intent(in) :: dynamic
     logical, intent(in) :: slave
     integer, intent(in), optional :: idx(:)
+    class(adv_batch_type), intent(in), target, optional :: bg
 
     call this%clear()
 
@@ -136,6 +142,8 @@ contains
     this%slave    = slave
     this%nstep    = dt / dt_dyn
     this%step     = 0
+
+    if (present(bg)) this%bg => bg
 
     ! Discriminate horizontal and vertical schemes.
     if (count_string(scheme, ':') == 1) then
@@ -236,6 +244,18 @@ contains
         output            =merge('h0', '  ', advection)                        , &
         restart           =.false.                                             , &
         field             =this%v                                              )
+      if (advection .and. nlev > 1) then
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_w'                             , &
+          long_name       ='Vertical coordinate velocity'                      , &
+          units           ='s-1'                                               , &
+          loc             ='lev'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          output          =merge('h0', '  ', advection)                        , &
+          restart         =.false.                                             , &
+          field           =this%w                                              )
+      end if
       call append_field(this%fields                                            , &
         name              =trim(this%name) // '_mfz'                           , &
         long_name         ='Vertical mass flux'                                , &
@@ -320,6 +340,18 @@ contains
             output        ='h0'                                                , &
             restart       =.false.                                             , &
             field         =this%u_frac                                         )
+          if (advection .and. nlev > 1) then
+            call append_field(this%fields                                      , &
+              name        =trim(this%name) // '_w_frac'                        , &
+              long_name   ='Fractional vertical coordinate velocity'           , &
+              units       ='s-1'                                               , &
+              loc         ='lev'                                               , &
+              mesh        =mesh                                                , &
+              halo        =halo                                                , &
+              output      ='h0'                                                , &
+              restart     =.false.                                             , &
+              field       =this%w_frac                                         )
+          end if
         end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cflx'                          , &
@@ -671,19 +703,21 @@ contains
 
   end subroutine adv_batch_copy_m_old
 
-  subroutine adv_batch_set_wind(this, u, v, mfx, mfy, mfz, m, dt)
+  subroutine adv_batch_set_wind(this, u, v, w, mfx, mfy, mfz, m, dt)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: u
     type(latlon_field3d_type), intent(in) :: v
+    type(latlon_field3d_type), intent(in), optional :: w
     type(latlon_field3d_type), intent(in), optional :: mfx
     type(latlon_field3d_type), intent(in), optional :: mfy
     type(latlon_field3d_type), intent(in), optional :: mfz
     type(latlon_field3d_type), intent(in), optional :: m
     real(r8), intent(in), optional :: dt
 
-    call this%u  %link(u  )
-    call this%v  %link(v  )
+    call this%u%link(u)
+    call this%v%link(v)
+    if (present(w  )) call this%w  %link(w  )
     if (present(mfx)) call this%mfx%link(mfx)
     if (present(mfy)) call this%mfy%link(mfy)
     if (present(mfz)) call this%mfz%link(mfz)
@@ -787,7 +821,7 @@ contains
 
   end subroutine adv_batch_accum_wind
 
-  subroutine adv_batch_calc_cfl_mass(this, dt)
+  subroutine adv_batch_calc_cflxy_mass(this, dt)
 
     class(adv_batch_type), intent(inout) :: this
     real(r8), intent(in) :: dt
@@ -815,9 +849,9 @@ contains
     end do
     end associate
 
-  end subroutine adv_batch_calc_cfl_mass
+  end subroutine adv_batch_calc_cflxy_mass
 
-  subroutine adv_batch_calc_cfl_tracers(this, mx, my, mfx, mfy, cflx, cfly, mfx_frac, dt)
+  subroutine adv_batch_calc_cflxy_tracer(this, mx, my, mfx, mfy, cflx, cfly, mfx_frac, dt)
 
     class(adv_batch_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: mx
@@ -881,7 +915,113 @@ contains
     end select
     end associate
 
-  end subroutine adv_batch_calc_cfl_tracers
+  end subroutine adv_batch_calc_cflxy_tracer
+
+  subroutine adv_batch_calc_cflz_mass(this, dt)
+
+    class(adv_batch_type), intent(inout) :: this
+    real(r8), intent(in) :: dt
+
+    real(r8) dz
+    integer i, j, k, l
+
+    associate (mesh   => this%qx%mesh, &
+               w      => this%w      , & ! in
+               cflz   => this%cflz   , & ! out
+               w_frac => this%w_frac )   ! out
+    do k = mesh%half_kds + 1, mesh%half_kde - 1
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          dz = w%d(i,j,k) * dt
+          w_frac%d(i,j,k) = w%d(i,j,k)
+          if (dz >= 0) then
+            do l = k - 1, mesh%full_kms, -1
+              if (dz < mesh%full_dlev(l)) exit
+              dz = dz - mesh%full_dlev(l)
+              w_frac%d(i,j,k) = w_frac%d(i,j,k) - mesh%full_dlev(l) / dt
+            end do
+            cflz%d(i,j,k) = k - 1 - l + dz / mesh%full_dlev(l)
+          else
+            do l = k, mesh%full_kme
+              if (dz > -mesh%full_dlev(l)) exit
+              dz = dz + mesh%full_dlev(l)
+              w_frac%d(i,j,k) = w_frac%d(i,j,k) + mesh%full_dlev(l) / dt
+            end do
+            cflz%d(i,j,k) = k - l + dz / mesh%full_dlev(l)
+          end if
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine adv_batch_calc_cflz_mass
+
+  subroutine adv_batch_calc_cflz_tracer(this, dt)
+
+    class(adv_batch_type), intent(inout) :: this
+    real(r8), intent(in) :: dt
+
+    real(r8) dm
+    integer i, j, k, l
+
+    associate (mesh     => this%qx%mesh , &
+               m        => this%m       , & ! in
+               mfz      => this%mfz     , & ! in
+               cflz     => this%cflz    , & ! out
+               mfz_frac => this%mfz_frac)   ! out
+    select case (this%loc)
+    case ('cell')
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            dm = mfz%d(i,j,k) * mesh%half_dlev(k) * dt
+            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
+            if (dm >= 0) then
+              do l = k - 1, mesh%full_kms, -1
+                if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
+                dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
+              end do
+              cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
+            else
+              do l = k, mesh%full_kme
+                if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
+                dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
+              end do
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
+            end if
+          end do
+        end do
+      end do
+    case ('lev')
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            dm = mfz%d(i,j,k) * mesh%full_dlev(k) * dt
+            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
+            if (dm >= 0) then
+              do l = k, mesh%half_kms, -1
+                if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
+                dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt
+              end do
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
+            else
+              do l = k, mesh%half_kme
+                if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
+                dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
+                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt
+              end do
+              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
+            end if
+          end do
+        end do
+      end do
+    end select
+    end associate
+
+  end subroutine adv_batch_calc_cflz_tracer
 
   subroutine adv_batch_prepare_ffsl_h(this, dt)
 
@@ -892,8 +1032,7 @@ contains
 
     dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
-    associate (mesh     => this%qx%mesh , &
-               m        => this%m       , & ! in
+    associate (m        => this%m       , & ! in
                mfx      => this%mfx     , & ! in
                mfy      => this%mfy     , & ! in
                u        => this%u       , & ! in
@@ -904,18 +1043,13 @@ contains
                divx     => this%divx    , & ! out
                divy     => this%divy    )   ! out
     ! Calculate horizontal CFL number and divergence along each axis.
-    select case (this%loc)
-    case ('cell', 'lev')
-      if (this%slave) then
-        call this%calc_cfl_tracers(m, m, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
-      else
-        call this%calc_cfl_mass(dt_opt)
-      end if
-      call divx_operator(u, divx)
-      call divy_operator(v, divy)
-    case ('vtx')
-      call log_error('Unsupported grid location ' // this%loc // '!', __FILE__, __LINE__)
-    end select
+    if (this%slave) then
+      call this%calc_cflxy_tracer(m, m, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
+    else
+      call this%calc_cflxy_mass(dt_opt)
+    end if
+    call divx_operator(u, divx)
+    call divy_operator(v, divy)
     end associate
 
   end subroutine adv_batch_prepare_ffsl_h
@@ -930,62 +1064,11 @@ contains
 
     dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
-    associate (mesh     => this%qx%mesh , &
-               m        => this%m       , & ! in
-               mfz      => this%mfz     , & ! in
-               mfz_frac => this%mfz_frac, & ! out
-               cflz     => this%cflz    )   ! out
-    select case (this%loc)
-    case ('cell')
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            dm = mfz%d(i,j,k) * mesh%half_dlev(k) * dt_opt
-            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
-            if (dm >= 0) then
-              do l = k - 1, mesh%full_kms, -1
-                if (dm < m%d(i,j,l) * mesh%full_dlev(l)) exit
-                dm = dm - m%d(i,j,l) * mesh%full_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt_opt
-              end do
-              cflz%d(i,j,k) = k - 1 - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
-            else
-              do l = k, mesh%full_kme
-                if (dm > -m%d(i,j,l) * mesh%full_dlev(l)) exit
-                dm = dm + m%d(i,j,l) * mesh%full_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt_opt
-              end do
-              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%full_dlev(l)
-            end if
-          end do
-        end do
-      end do
-    case ('lev')
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            dm = mfz%d(i,j,k) * mesh%full_dlev(k) * dt_opt
-            mfz_frac%d(i,j,k) = mfz%d(i,j,k)
-            if (dm >= 0) then
-              do l = k, mesh%half_kms, -1
-                if (dm < m%d(i,j,l) * mesh%half_dlev(l)) exit
-                dm = dm - m%d(i,j,l) * mesh%half_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) - m%d(i,j,l) / dt_opt
-              end do
-              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
-            else
-              do l = k, mesh%half_kme
-                if (dm > -m%d(i,j,l) * mesh%half_dlev(l)) exit
-                dm = dm + m%d(i,j,l) * mesh%half_dlev(l)
-                mfz_frac%d(i,j,k) = mfz_frac%d(i,j,k) + m%d(i,j,l) / dt_opt
-              end do
-              cflz%d(i,j,k) = k - l + dm / m%d(i,j,l) / mesh%half_dlev(l)
-            end if
-          end do
-        end do
-      end do
-    end select
-    end associate
+    if (this%slave) then
+      call this%calc_cflz_tracer(dt_opt)
+    else
+      call this%calc_cflz_mass(dt_opt)
+    end if
 
   end subroutine adv_batch_prepare_ffsl_v
 
