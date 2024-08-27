@@ -85,12 +85,9 @@ module adv_batch_mod
     type(latlon_field3d_type) u_frac
     type(latlon_field3d_type) w_frac
     type(latlon_field3d_type) mfx_frac
-    type(latlon_field3d_type) mfx_my_frac
     type(latlon_field3d_type) mfz_frac
     type(latlon_field3d_type) cflx
-    type(latlon_field3d_type) cflx_my
     type(latlon_field3d_type) cfly
-    type(latlon_field3d_type) cfly_mx
     type(latlon_field3d_type) cflz
     type(latlon_field3d_type) divx
     type(latlon_field3d_type) divy
@@ -321,28 +318,17 @@ contains
         field             =this%qmfz                                           )
       select case (this%scheme_h)
       case ('ffsl')
-        if (this%slave) then
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_mfx_frac'                      , &
-            long_name     ='Fractional mass flux in x direction'               , &
-            units         ='Pa m-1 s-1'                                        , &
-            loc           ='lon'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h0'                                                , &
-            restart       =.false.                                             , &
-            field         =this%mfx_frac                                       )
-        else
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_mfx_my_frac'                   , &
-            long_name     ='Fractional mass flux in x direction for SWIFT splitting', &
-            units         ='Pa m-1 s-1'                                        , &
-            loc           ='lon'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h0'                                                , &
-            restart       =.false.                                             , &
-            field         =this%mfx_my_frac                                    )
+        call append_field(this%fields                                          , &
+          name            =trim(this%name) // '_mfx_frac'                      , &
+          long_name       ='Fractional mass flux in x direction'               , &
+          units           ='Pa m-1 s-1'                                        , &
+          loc             ='lon'                                               , &
+          mesh            =mesh                                                , &
+          halo            =halo                                                , &
+          output          ='h0'                                                , &
+          restart         =.false.                                             , &
+          field           =this%mfx_frac                                       )
+        if (.not. this%slave) then
           call append_field(this%fields                                        , &
             name          =trim(this%name) // '_u_frac'                        , &
             long_name     ='Fractional U wind component'                       , &
@@ -376,18 +362,6 @@ contains
           output          =merge('h0', '  ', advection)                        , &
           restart         =.false.                                             , &
           field           =this%cflx                                           )
-        if (.not. this%slave) then
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_cflx_my'                       , &
-            long_name     ='CFL number in x direction for SWIFT splitting'     , &
-            units         =''                                                  , &
-            loc           ='lon'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h0'                                                , &
-            restart       =.false.                                             , &
-            field         =this%cflx_my                                        )
-        end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_cfly'                          , &
           long_name       ='CFL number in y direction'                         , &
@@ -398,18 +372,6 @@ contains
           output          =merge('h0', '  ', advection)                        , &
           restart         =.false.                                             , &
           field           =this%cfly                                           )
-        if (.not. this%slave) then
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_cfly_mx'                       , &
-            long_name     ='CFL number in y direction for SWIFT splitting'     , &
-            units         =''                                                  , &
-            loc           ='lat'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h0'                                                , &
-            restart       =.false.                                             , &
-            field         =this%cfly_mx                                        )
-        end if
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_divx'                          , &
           long_name       ='Mass flux divergence in x direction'               , &

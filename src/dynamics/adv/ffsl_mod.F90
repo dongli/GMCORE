@@ -277,25 +277,23 @@ contains
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    associate (mesh        => m%mesh           , &
-               u           => batch%u          , & ! in
-               u_frac      => batch%u_frac     , & ! in
-               v           => batch%v          , & ! in
-               cflx        => batch%cflx       , & ! inout
-               cfly        => batch%cfly       , & ! inout
-               divx        => batch%divx       , & ! in
-               divy        => batch%divy       , & ! in
-               mx          => batch%qx         , & ! work array
-               my          => batch%qy         , & ! work array
-               sx          => batch%qx         , & ! borrowed array
-               sy          => batch%qy         , & ! borrowed array
-               mfx0        => batch%qmfx0      , & ! work array
-               mfy0        => batch%qmfy0      , & ! work array
-               cflx_my     => batch%cflx_my    , & ! work array
-               cfly_mx     => batch%cfly_mx    , & ! work array
-               mfx_my_frac => batch%mfx_my_frac, & ! work array
-               dmxdt       => batch%qx         , & ! borrowed array
-               dmydt       => batch%qy         )   ! borrowed array
+    associate (mesh     => m%mesh        , &
+               u        => batch%u       , & ! in
+               u_frac   => batch%u_frac  , & ! in
+               v        => batch%v       , & ! in
+               cflx     => batch%cflx    , & ! inout
+               cfly     => batch%cfly    , & ! inout
+               divx     => batch%divx    , & ! in
+               divy     => batch%divy    , & ! in
+               mx       => batch%qx      , & ! work array
+               my       => batch%qy      , & ! work array
+               sx       => batch%qx      , & ! borrowed array
+               sy       => batch%qy      , & ! borrowed array
+               mfx0     => batch%qmfx0   , & ! work array
+               mfy0     => batch%qmfy0   , & ! work array
+               mfx_frac => batch%mfx_frac, & ! out
+               dmxdt    => batch%qx      , & ! borrowed array
+               dmydt    => batch%qy      )   ! borrowed array
     ! Run inner advective operators.
     call hflx_mass(batch, u, u_frac, v, m, m, mfx0, mfy0, dt_opt)
     call fill_halo(mfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
@@ -304,8 +302,8 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          sx%d(i,j,k) = 1 - dt_opt * divx%d(i,j,k)
-          sy%d(i,j,k) = 1 - dt_opt * divy%d(i,j,k)
+          sx%d(i,j,k) = 1 - dt_opt * divx%d(i,j,k) ! (33a)
+          sy%d(i,j,k) = 1 - dt_opt * divy%d(i,j,k) ! (33b)
         end do
       end do
     end do
@@ -332,12 +330,12 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          mfx%d(i,j,k) = 0.5_r8 * (mfx0%d(i,j,k) + mfx%d(i,j,k))
+          mfx%d(i,j,k) = 0.5_r8 * (mfx0%d(i,j,k) + mfx%d(i,j,k)) ! (37a)
         end do
       end do
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          mfy%d(i,j,k) = 0.5_r8 * (mfy0%d(i,j,k) + mfy%d(i,j,k))
+          mfy%d(i,j,k) = 0.5_r8 * (mfy0%d(i,j,k) + mfy%d(i,j,k)) ! (37b)
         end do
       end do
     end do
@@ -349,15 +347,15 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          mx%d(i,j,k) = m%d(i,j,k) - dt_opt * dmxdt%d(i,j,k)
-          my%d(i,j,k) = m%d(i,j,k) - dt_opt * dmydt%d(i,j,k)
+          mx%d(i,j,k) = m%d(i,j,k) - dt_opt * dmxdt%d(i,j,k) ! (37c)
+          my%d(i,j,k) = m%d(i,j,k) - dt_opt * dmydt%d(i,j,k) ! (37d)
         end do
       end do
     end do
-    call fill_halo(mx)
-    call fill_halo(my)
+    call fill_halo(mx, west_halo =.false., east_halo =.false.)
+    call fill_halo(my, south_halo=.false., north_halo=.false.)
     ! NOTE: Swap mx and my.
-    call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx_my, cfly_mx, mfx_my_frac, dt_opt)
+    call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
     end associate
 
     call perf_stop('ffsl_calc_mass_hflx_swift2')
@@ -379,28 +377,28 @@ contains
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    associate (mesh        => q%mesh              , &
-               m           => batch%m             , & ! in
-               mx          => batch%bg%qx         , & ! in
-               my          => batch%bg%qy         , & ! in
-               u           => batch%u             , & ! in
-               v           => batch%v             , & ! in
-               mfx         => batch%mfx           , & ! in
-               mfx_frac    => batch%mfx_frac      , & ! in
-               mfx_my_frac => batch%bg%mfx_my_frac, & ! in
-               mfy         => batch%mfy           , & ! in
-               cflx        => batch%cflx          , & ! in
-               cflx_my     => batch%bg%cflx_my    , & ! in
-               cfly        => batch%cfly          , & ! in
-               cfly_mx     => batch%bg%cfly_mx    , & ! in
-               divx        => batch%divx          , & ! in
-               divy        => batch%divy          , & ! in
-               qx          => batch%qx            , & ! work array
-               qy          => batch%qy            , & ! work array
-               qmfx0       => batch%qmfx0         , & ! out
-               qmfy0       => batch%qmfy0         , & ! out
-               dqmxdt      => batch%qx            , & ! borrowed array
-               dqmydt      => batch%qy            )   ! borrowed array
+    associate (mesh        => q%mesh           , &
+               m           => batch%m          , & ! in
+               mx          => batch%bg%qx      , & ! in
+               my          => batch%bg%qy      , & ! in
+               u           => batch%u          , & ! in
+               v           => batch%v          , & ! in
+               mfx         => batch%mfx        , & ! in
+               mfx_frac    => batch%mfx_frac   , & ! in
+               mfx_my_frac => batch%bg%mfx_frac, & ! in
+               mfy         => batch%mfy        , & ! in
+               cflx        => batch%cflx       , & ! in
+               cflx_my     => batch%bg%cflx    , & ! in
+               cfly        => batch%cfly       , & ! in
+               cfly_mx     => batch%bg%cfly    , & ! in
+               divx        => batch%divx       , & ! in
+               divy        => batch%divy       , & ! in
+               qx          => batch%qx         , & ! work array
+               qy          => batch%qy         , & ! work array
+               qmfx0       => batch%qmfx0      , & ! out
+               qmfy0       => batch%qmfy0      , & ! out
+               dqmxdt      => batch%qx         , & ! borrowed array
+               dqmydt      => batch%qy         )   ! borrowed array
     ! Run inner advective operators.
     call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
     call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
@@ -415,8 +413,8 @@ contains
       do k = ks, ke
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            qx%d(i,j,k) = (q%d(i,j,k) * m%d(i,j,k) - dt_opt * dqmxdt%d(i,j,k)) / mx%d(i,j,k)
-            qy%d(i,j,k) = (q%d(i,j,k) * m%d(i,j,k) - dt_opt * dqmydt%d(i,j,k)) / my%d(i,j,k)
+            qx%d(i,j,k) = (q%d(i,j,k) * m%d(i,j,k) - dt_opt * dqmxdt%d(i,j,k)) / mx%d(i,j,k) ! (38a, 39a)
+            qy%d(i,j,k) = (q%d(i,j,k) * m%d(i,j,k) - dt_opt * dqmydt%d(i,j,k)) / my%d(i,j,k) ! (38b, 39b)
           end do
         end do
       end do
