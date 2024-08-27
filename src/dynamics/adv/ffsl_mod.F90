@@ -36,7 +36,7 @@ module ffsl_mod
 
   public ffsl_init
   public ffsl_calc_mass_hflx
-  public ffsl_calc_tracer_hflx
+  public ffsl_calc_tracer_hflx_swift1
   public ffsl_calc_tracer_vflx
 
   interface
@@ -152,7 +152,7 @@ contains
 
   end subroutine ffsl_calc_mass_hflx
 
-  subroutine ffsl_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
+  subroutine ffsl_calc_tracer_hflx_swift1(batch, q, qmfx, qmfy, dt)
 
     type(adv_batch_type     ), intent(inout) :: batch
     type(latlon_field3d_type), intent(in   ) :: q
@@ -226,7 +226,7 @@ contains
 
     call perf_stop('ffsl_calc_tracer_hflx')
 
-  end subroutine ffsl_calc_tracer_hflx
+  end subroutine ffsl_calc_tracer_hflx_swift1
 
   subroutine ffsl_calc_tracer_vflx(batch, q, qmfz, dt)
 

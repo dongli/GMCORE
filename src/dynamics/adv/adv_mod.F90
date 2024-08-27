@@ -146,7 +146,7 @@ contains
     case ('upwind')
       call upwind_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
     case ('ffsl')
-      call ffsl_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
+      call ffsl_calc_tracer_hflx_swift1(batch, q, qmfx, qmfy, dt)
     end select
 
   end subroutine adv_calc_tracer_hflx
