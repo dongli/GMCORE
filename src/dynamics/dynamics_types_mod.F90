@@ -281,16 +281,29 @@ contains
         restart         =.false.                                             , &
         field           =this%gz_lev                                         )
     end if
-    call append_field(this%fields                                            , &
-      name              ='dmg'                                               , &
-      long_name         ='Dry-air weight'                                    , &
-      units             ='Pa'                                                , &
-      loc               ='cell'                                              , &
-      mesh              =mesh                                                , &
-      halo              =halo                                                , &
-      output            =merge('h0', 'h1', advection)                        , &
-      restart           =.false.                                             , &
-      field             =this%dmg                                            )
+    if (advection) then
+      call append_field(this%fields                                          , &
+        name            ='dmg'                                               , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          =merge('h0', 'h1', advection)                        , &
+        restart         =.false.                                             , &
+        field           =this%dmg                                            )
+    else
+      call append_field(this%fields                                          , &
+        name            ='dmg'                                               , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =merge('h0', 'h1', advection)                        , &
+        restart         =.false.                                             , &
+        field           =this%dmg                                            )
+    end if
     if (baroclinic .or. advection) then
       call append_field(this%fields                                          , &
         name            ='dmg_lev'                                           , &
