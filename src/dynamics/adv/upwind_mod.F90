@@ -13,6 +13,7 @@ module upwind_mod
   use namelist_mod
   use adv_batch_mod
   use latlon_field_types_mod
+  use latlon_parallel_mod
   use perf_mod
 
   implicit none
@@ -129,6 +130,8 @@ contains
         end do
       end select
     end select
+    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
     call perf_stop('upwind_calc_tracer_hflx')

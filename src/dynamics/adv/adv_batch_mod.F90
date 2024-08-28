@@ -117,7 +117,7 @@ contains
 
     class(adv_batch_type), intent(inout) :: this
     type(filter_type), intent(in) :: filter
-    type(latlon_mesh_type), intent(in) :: filter_mesh
+    type(latlon_mesh_type), intent(in), target :: filter_mesh
     type(latlon_halo_type), intent(in) :: filter_halo(:)
     type(latlon_mesh_type), intent(in), target :: mesh
     type(latlon_halo_type), intent(in) :: halo(:)
@@ -132,7 +132,7 @@ contains
 
     call this%clear()
 
-    this%mesh => mesh
+    this%mesh => filter_mesh
     this%fields = array(30)
 
     this%loc      = batch_loc
@@ -924,7 +924,7 @@ contains
     real(r8) dz
     integer i, j, k, l
 
-    associate (mesh   => this%qx%mesh, &
+    associate (mesh   => this%mesh   , &
                w      => this%w      , & ! in
                cflz   => this%cflz   , & ! out
                w_frac => this%w_frac )   ! out
@@ -963,7 +963,7 @@ contains
     real(r8) dm
     integer i, j, k, l
 
-    associate (mesh     => this%qx%mesh , &
+    associate (mesh     => this%mesh    , &
                m        => this%m       , & ! in
                mfz      => this%mfz     , & ! in
                cflz     => this%cflz    , & ! out
