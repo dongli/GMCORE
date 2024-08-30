@@ -76,8 +76,6 @@ module adv_batch_mod
     type(latlon_field3d_type) mfy0
     type(latlon_field3d_type) mx0
     type(latlon_field3d_type) my0
-    type(latlon_field3d_type) dmf   ! FIXME: Borrow other array?
-    type(latlon_field2d_type) dmgs  ! FIXME: Borrow other array?
     type(latlon_field3d_type) qmfx
     type(latlon_field3d_type) qmfy
     type(latlon_field3d_type) qmfz
@@ -193,24 +191,6 @@ contains
           halo            =halo                                                , &
           restart         =.true.                                              , &
           field           =this%my0                                            )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_dmf'                           , &
-          long_name       ='Mass flux divergence'                              , &
-          units           ='Pa m s-1'                                          , &
-          loc             ='cell'                                              , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          restart         =.false.                                             , &
-          field           =this%dmf                                            )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_dmgs'                          , &
-          long_name       ='Surface dry-air weight tendency'                   , &
-          units           ='Pa s-1'                                            , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%dmgs                                           )
       end if
       if (this%slave) then
         call append_field(this%fields                                          , &
@@ -780,8 +760,8 @@ contains
                  my   => this%v     , &
                  u    => this%u     , &
                  v    => this%v     , &
-                 dmf  => this%dmf   , &
-                 dmgs => this%dmgs  )
+                 dmf  => this%qmfx  , & ! borrowed array
+                 dmgs => this%qmfy  )   ! borrowed array
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids - 1, mesh%half_ide
@@ -797,11 +777,11 @@ contains
       ! Diagnose horizontal mass flux divergence.
       call div_operator(mfx, mfy, dmf)
       ! Diagnose surface hydrostatic pressure tendency.
-      dmgs%d = 0
+      dmgs%d(:,:,1) = 0
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            dmgs%d(i,j) = dmgs%d(i,j) - dmf%d(i,j,k)
+            dmgs%d(i,j,1) = dmgs%d(i,j,1) - dmf%d(i,j,k)
           end do
         end do
       end do
@@ -809,7 +789,7 @@ contains
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
+            mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j,1)) - sum(dmf%d(i,j,1:k-1))
           end do
         end do
       end do

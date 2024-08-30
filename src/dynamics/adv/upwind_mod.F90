@@ -76,6 +76,8 @@ contains
         end do
       end select
     end select
+    call fill_halo(mfx, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
     call perf_stop('upwind_calc_mass_hflx')

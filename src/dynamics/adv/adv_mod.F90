@@ -261,7 +261,7 @@ contains
     integer, intent(in) :: itime
 
     integer iblk, i, j, k, l, m, idx
-    type(latlon_field3d_type) q_old, q_new
+    type(latlon_field3d_type) q_new
 
     if (.not. allocated(blocks(1)%adv_batches)) return
 
@@ -276,12 +276,11 @@ contains
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, itime, dt_adv)
           associate (batch => block%adv_batches(m))
-          call q_old%link(batch%dmf) ! Borrow array.
           do l = 1, block%adv_batches(m)%ntracers
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
-            q_old%d = q_new%d
             associate (m_old => batch%m   , & ! in
+                       q_old => q_new     , & ! borrowed array
                        qmfx  => batch%qmfx, & ! work array
                        qmfy  => batch%qmfy, & ! work array
                        qmfz  => batch%qmfz)   ! work array
