@@ -109,6 +109,12 @@ contains
       era5_qs = 0
     end if
 
+    where (era5_qv < 0) era5_qv = 1.0e-10_r8
+    where (era5_ql < 0) era5_ql = 1.0e-10_r8
+    where (era5_qi < 0) era5_qi = 1.0e-10_r8
+    where (era5_qr < 0) era5_qr = 1.0e-10_r8
+    where (era5_qs < 0) era5_qs = 1.0e-10_r8
+
   end subroutine era5_reader_run
 
   subroutine era5_reader_final()

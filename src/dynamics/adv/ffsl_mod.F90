@@ -451,7 +451,7 @@ contains
     end do
     call fill_halo(mx, west_halo =.false., east_halo =.false.)
     call fill_halo(my, south_halo=.false., north_halo=.false.)
-    ! Run outer flux form operators.
+    ! Run outer flux form operators with updated cflx, cfly and u_frac.
     call hflx_mass(batch, u, u_frac, v, my, mx, mfx, mfy, dt_opt)
     ! Do SWIFT splitting.
     do k = mesh%full_kds, mesh%full_kde
@@ -468,10 +468,41 @@ contains
     end do
     call fill_halo(mfx, south_halo=.false., north_halo=.false., east_halo =.false.)
     call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
+    end associate
+
+    call perf_stop('ffsl_calc_mass_hflx_swift2')
+
+  end subroutine ffsl_calc_mass_hflx_swift2
+
+  subroutine swift2_connector(batch, m, mfx, mfy, mx, my, cflx, cfly, mfx_frac, dt)
+
+    type(adv_batch_type), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in) :: m
+    type(latlon_field3d_type), intent(in) :: mfx
+    type(latlon_field3d_type), intent(in) :: mfy
+    type(latlon_field3d_type), intent(inout) :: mx
+    type(latlon_field3d_type), intent(inout) :: my
+    type(latlon_field3d_type), intent(inout) :: cflx
+    type(latlon_field3d_type), intent(inout) :: cfly
+    type(latlon_field3d_type), intent(inout) :: mfx_frac
+    real(r8), intent(in), optional :: dt
+
+    integer ks, ke, i, j, k
+    real(r8) dt_opt
+
+    call perf_start('swift2_connector')
+
+    dt_opt = batch%dt; if (present(dt)) dt_opt = dt
+
+    associate (mesh  => batch%mesh, &
+               dmxdt => batch%qx  , & ! borrowed array
+               dmydt => batch%qy  )   ! borrowed array
+    ks = merge(mesh%full_kds, mesh%half_kds, batch%loc(1:3) /= 'lev')
+    ke = merge(mesh%full_kde, mesh%half_kde, batch%loc(1:3) /= 'lev')
     ! Calculate new mx and my from final mfx and mfy.
     call divx_operator(mfx, dmxdt)
     call divy_operator(mfy, dmydt)
-    do k = mesh%full_kds, mesh%full_kde
+    do k = ks, ke
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           mx%d(i,j,k) = m%d(i,j,k) - dt_opt * dmxdt%d(i,j,k) ! (37c)
@@ -481,13 +512,14 @@ contains
     end do
     call fill_halo(mx, west_halo =.false., east_halo =.false.)
     call fill_halo(my, south_halo=.false., north_halo=.false.)
+    ! Update cflx, cfly and mfx_frac for tracer advection.
     ! NOTE: Swap mx and my.
     call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
     end associate
 
-    call perf_stop('ffsl_calc_mass_hflx_swift2')
+    call perf_stop('swift2_connector')
 
-  end subroutine ffsl_calc_mass_hflx_swift2
+  end subroutine swift2_connector
 
   subroutine ffsl_calc_tracer_hflx_swift2(batch, q, qmfx, qmfy, dt)
 
@@ -506,18 +538,18 @@ contains
 
     associate (mesh        => q%mesh           , &
                m           => batch%m          , & ! in
-               mx          => batch%bg%qx      , & ! in
-               my          => batch%bg%qy      , & ! in
+               mx          => batch%bg%qx      , & ! borrowed array
+               my          => batch%bg%qy      , & ! borrowed array
                u           => batch%u          , & ! in
                v           => batch%v          , & ! in
                mfx         => batch%mfx        , & ! in
                mfx_frac    => batch%mfx_frac   , & ! in
-               mfx_my_frac => batch%bg%mfx_frac, & ! in
+               mfx_my_frac => batch%bg%mfx_frac, & ! borrowed array
                mfy         => batch%mfy        , & ! in
                cflx        => batch%cflx       , & ! in
-               cflx_my     => batch%bg%cflx    , & ! in
+               cflx_my     => batch%bg%cflx    , & ! borrowed array
                cfly        => batch%cfly       , & ! in
-               cfly_mx     => batch%bg%cfly    , & ! in
+               cfly_mx     => batch%bg%cfly    , & ! borrowed array
                divx        => batch%divx       , & ! in
                divy        => batch%divy       , & ! in
                qx          => batch%qx         , & ! work array
@@ -526,6 +558,8 @@ contains
                qmfy0       => batch%qmfy0      , & ! out
                dqmxdt      => batch%qx         , & ! borrowed array
                dqmydt      => batch%qy         )   ! borrowed array
+    ! FIXME: This should only run once for each batch.
+    call swift2_connector(batch, m, mfx, mfy, mx, my, cflx_my, cfly_mx, mfx_my_frac, dt_opt)
     ! Run inner advective operators.
     call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
     call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)

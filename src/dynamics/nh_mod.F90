@@ -129,7 +129,7 @@ contains
         end do
       end do
     end do
-    call adv_fill_vhalo(q_lev)
+    call adv_fill_vhalo(q_lev, no_negvals=q_lev%name=='gz_lev')
     call adv_calc_tracer_vflx(block%adv_batch_nh, q_lev, qmfz, dt)
     ! Remove vertical mass flux divergence part.
     do k = mesh%half_kds + 1, mesh%half_kde - 1

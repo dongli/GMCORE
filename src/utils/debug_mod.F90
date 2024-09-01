@@ -14,6 +14,8 @@ module debug_mod
   public debug_check_areas
   public print_min_max
   public is_inf
+  public is_greater_than
+  public is_less_than
 
   interface print_min_max
     module procedure print_min_max_3d
@@ -145,5 +147,21 @@ contains
     res = .not. ieee_is_finite(x)
 
   end function is_inf_r8
+
+  logical function is_greater_than(x, y) result(res)
+
+    real(8), intent(in) :: x, y
+
+    res = (x - y) / (x + eps) > 1.0d-10
+
+  end function is_greater_than
+
+  logical function is_less_than(x, y) result(res)
+
+    real(8), intent(in) :: x, y
+
+    res = (y - x) / (x + eps) > 1.0d-10
+
+  end function is_less_than
 
 end module debug_mod

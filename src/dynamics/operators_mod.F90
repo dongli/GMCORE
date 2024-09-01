@@ -1108,7 +1108,7 @@ contains
     call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=we_lev, m=dmg, dt=dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
     call div_operator(ptfx, ptfy, dpt)
-    call adv_fill_vhalo(pt)
+    call adv_fill_vhalo(pt, no_negvals=.true.)
     call adv_calc_tracer_vflx(block%adv_batch_pt, pt, ptfz, dt)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde

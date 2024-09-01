@@ -170,10 +170,11 @@ contains
       call fiona_add_var('h0', 'tpe', long_name='Total potential enstrophy', units='', dim_names=['time'])
     end if
 
-    call add_fields('h0', blocks(1)%dstate(1)%fields)
-    call add_fields('h0', blocks(1)%dtend    %fields)
-    call add_fields('h0', blocks(1)%static   %fields, static=.true.)
-    call add_fields('h0', blocks(1)%aux      %fields)
+    call add_fields('h0', blocks(1)%dstate(1)   %fields)
+    call add_fields('h0', blocks(1)%dtend       %fields)
+    call add_fields('h0', blocks(1)%static      %fields, static=.true.)
+    call add_fields('h0', blocks(1)%aux         %fields)
+    call add_fields('h0', blocks(1)%adv_batch_bg%fields)
     call add_fields('h0', blocks(1)%adv_batch_pt%fields)
     call add_fields('h0', blocks(1)%adv_batch_nh%fields)
     if (allocated(blocks(1)%adv_batches)) then
@@ -231,9 +232,10 @@ contains
       if (.not. use_div_damp .and. .not. advection) then
         call calc_div(blocks(iblk), dstate)
       end if
-      call write_fields('h0', mesh, dstate%fields)
-      call write_fields('h0', mesh, dtend %fields)
-      call write_fields('h0', mesh, aux   %fields)
+      call write_fields('h0', mesh, dstate                   %fields)
+      call write_fields('h0', mesh, dtend                    %fields)
+      call write_fields('h0', mesh, aux                      %fields)
+      call write_fields('h0', mesh, blocks(iblk)%adv_batch_bg%fields)
       call write_fields('h0', mesh, blocks(iblk)%adv_batch_pt%fields)
       call write_fields('h0', mesh, blocks(iblk)%adv_batch_nh%fields)
       if (allocated(blocks(iblk)%adv_batches)) then
@@ -439,15 +441,21 @@ contains
       n = merge(3, 4, present(static))
       select case (field%loc)
       case ('cell')
-        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=cell_dims_3d(:n), dtype=output_h0_dtype)
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=   cell_dims_3d(:n), dtype=output_h0_dtype)
       case ('lon')
-        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lon_dims_3d(:n), dtype=output_h0_dtype)
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=    lon_dims_3d(:n), dtype=output_h0_dtype)
       case ('lat')
-        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lat_dims_3d(:n), dtype=output_h0_dtype)
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=    lat_dims_3d(:n), dtype=output_h0_dtype)
       case ('vtx')
-        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_3d(:n), dtype=output_h0_dtype)
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=    vtx_dims_3d(:n), dtype=output_h0_dtype)
       case ('lev')
-        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lev_dims_3d(:n), dtype=output_h0_dtype)
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=    lev_dims_3d(:n), dtype=output_h0_dtype)
+      case ('lev_lon')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=lev_lon_dims_3d(:n), dtype=output_h0_dtype)
+      case ('lev_lat')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=lev_lat_dims_3d(:n), dtype=output_h0_dtype)
+      case default
+        call log_error('Invalid field location ' // trim(field%loc) // '!', __FILE__, __LINE__)
       end select
     type is (latlon_field4d_type)
       if (field%output /= dtag) return

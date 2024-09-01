@@ -50,6 +50,7 @@ contains
     call tracer_add('adv', dt, 'q1', 'cosine hills tracer')
     call tracer_add('adv', dt, 'q2', 'slotted cylinders tracer')
     call tracer_add('adv', dt, 'q3', 'gaussian hills tracer')
+    call tracer_add('adv', dt, 'q4', 'uniform one tracer')
 
   end subroutine deform_test_init
 
@@ -120,6 +121,8 @@ contains
         end do
       end do
       call fill_halo(q, 3)
+      ! Uniform one
+      q%d(:,:,:,4) = 1
       end associate
     end do
 

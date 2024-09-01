@@ -57,7 +57,7 @@ module adv_batch_mod
     character(30) :: name = ''
     logical  :: initialized = .false.
     logical  :: dynamic     = .false.
-    logical  :: slave       = .true.
+    logical  :: passive     = .true.
     integer  :: ntracers    = 1
     integer  :: nstep       = 0     ! Number of dynamic steps for one adv step
     integer  :: step        = 0     ! Step counter
@@ -72,10 +72,6 @@ module adv_batch_mod
     type(latlon_field3d_type) u
     type(latlon_field3d_type) v
     type(latlon_field3d_type) w     ! Only for advection tests
-    type(latlon_field3d_type) mfx0
-    type(latlon_field3d_type) mfy0
-    type(latlon_field3d_type) mx0
-    type(latlon_field3d_type) my0
     type(latlon_field3d_type) qmfx
     type(latlon_field3d_type) qmfy
     type(latlon_field3d_type) qmfz
@@ -111,7 +107,7 @@ module adv_batch_mod
 
 contains
 
-  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, slave, idx, bg)
+  subroutine adv_batch_init(this, filter, filter_mesh, filter_halo, mesh, halo, scheme, batch_loc, batch_name, dt, dynamic, passive, idx, bg)
 
     class(adv_batch_type), intent(inout) :: this
     type(filter_type), intent(in) :: filter
@@ -124,7 +120,7 @@ contains
     character(*), intent(in) :: batch_name
     real(r8), intent(in) :: dt
     logical, intent(in) :: dynamic
-    logical, intent(in) :: slave
+    logical, intent(in) :: passive
     integer, intent(in), optional :: idx(:)
     class(adv_batch_type), intent(in), target, optional :: bg
 
@@ -137,7 +133,7 @@ contains
     this%name     = batch_name
     this%dt       = dt
     this%dynamic  = dynamic
-    this%slave    = slave
+    this%passive  = passive
     this%nstep    = dt / dt_dyn
     this%step     = 0
 
@@ -154,45 +150,7 @@ contains
 
     select case (batch_loc)
     case ('cell')
-      if (.not. this%dynamic) then
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mfx0'                          , &
-          long_name       ='Mass flux in x direction'                          , &
-          units           ='Pa m s-1'                                          , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%mfx0                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mfy0'                          , &
-          long_name       ='Mass flux in y direction'                          , &
-          units           ='Pa m s-1'                                          , &
-          loc             ='lat'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%mfy0                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mx0'                           , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%mx0                                            )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_my0'                           , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='lat'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.true.                                              , &
-          field           =this%my0                                            )
-      end if
-      if (this%slave) then
+      if (this%passive) then
         call append_field(this%fields                                          , &
           name            =trim(this%name) // '_m'                             , &
           long_name       ='Dry-air weight'                                    , &
@@ -308,7 +266,7 @@ contains
           output          ='h0'                                                , &
           restart         =.false.                                             , &
           field           =this%mfx_frac                                       )
-        if (.not. this%slave) then
+        if (.not. this%passive) then
           call append_field(this%fields                                        , &
             name          =trim(this%name) // '_u_frac'                        , &
             long_name     ='Fractional U wind component'                       , &
@@ -410,7 +368,7 @@ contains
       end select
       select case (this%scheme_v)
       case ('ffsl')
-        if (this%slave) then
+        if (this%passive) then
           call append_field(this%fields                                        , &
             name          =trim(this%name) // '_mfz_frac'                      , &
             long_name     ='Fractional vertical mass flux'                     , &
@@ -677,7 +635,7 @@ contains
     type(latlon_field3d_type), intent(in) :: m
 
     call this%m%copy(m)
-    call adv_fill_vhalo(this%m)
+    call adv_fill_vhalo(this%m, no_negvals=.true.)
     call fill_halo(this%m)
 
   end subroutine adv_batch_copy_m_old
@@ -707,94 +665,74 @@ contains
 
   end subroutine adv_batch_set_wind
 
-  subroutine adv_batch_accum_wind(this, mx, my, mfx_lon, mfy_lat)
+  subroutine adv_batch_accum_wind(this, u, v, mfx, mfy)
+
+    ! FIXME: We do not need to accumulate u and v.
 
     class(adv_batch_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(in) :: mx
-    type(latlon_field3d_type), intent(in) :: my
-    type(latlon_field3d_type), intent(in) :: mfx_lon
-    type(latlon_field3d_type), intent(in) :: mfy_lat
+    type(latlon_field3d_type), intent(in) :: u
+    type(latlon_field3d_type), intent(in) :: v
+    type(latlon_field3d_type), intent(in) :: mfx
+    type(latlon_field3d_type), intent(in) :: mfy
 
     integer i, j, k
 
-    if (this%step == -1) then
+    if (this%step == 0) then
       ! Reset step.
-      this%mfx%d = this%mfx0%d
-      this%mfy%d = this%mfy0%d
-      this%u  %d = this%mx0 %d
-      this%v  %d = this%my0 %d
+      this%u  %d = 0
+      this%v  %d = 0
+      this%mfx%d = 0
+      this%mfy%d = 0
       this%step = 1
     end if
-    if (this%step == 0) then
-      ! This is the first step.
-      this%mfx%d = mfx_lon%d
-      this%mfy%d = mfy_lat%d
-      this%u  %d = mx%d
-      this%v  %d = my%d
-    else if (this%step == this%nstep) then
+    if (this%step == this%nstep) then
       ! This is the end step.
-      this%mfx %d = (this%mfx%d + mfx_lon%d) / (this%nstep + 1)
-      this%mfy %d = (this%mfy%d + mfy_lat%d) / (this%nstep + 1)
-      this%u   %d = (this%u  %d + mx%d     ) / (this%nstep + 1)
-      this%v   %d = (this%v  %d + my%d     ) / (this%nstep + 1)
-      this%mfx0%d = mfx_lon%d
-      this%mfy0%d = mfy_lat%d
-      this%mx0 %d = mx%d
-      this%my0 %d = my%d
+      this%u   %d = (this%u  %d + u  %d) / this%nstep
+      this%v   %d = (this%v  %d + v  %d) / this%nstep
+      this%mfx %d = (this%mfx%d + mfx%d) / this%nstep
+      this%mfy %d = (this%mfy%d + mfy%d) / this%nstep
     else
       ! Accumulating.
-      this%mfx %d = this%mfx%d + mfx_lon%d
-      this%mfy %d = this%mfy%d + mfy_lat%d
-      this%u   %d = this%u  %d + mx%d
-      this%v   %d = this%v  %d + my%d
+      this%u  %d = this%u  %d + u  %d
+      this%v  %d = this%v  %d + v  %d
+      this%mfx%d = this%mfx%d + mfx%d
+      this%mfy%d = this%mfy%d + mfy%d
     end if
-    this%step = merge(0, this%step + 1, this%dynamic)
-    if (this%dynamic .or. this%step > this%nstep) then
-      if (.not. this%dynamic) this%step = -1
+    this%step = this%step + 1
+    if (this%step > this%nstep) then
+      this%step = 0
       associate (mesh => this%u%mesh, &
                  dt   => this%dt    , &
                  mfx  => this%mfx   , &
                  mfy  => this%mfy   , &
                  mfz  => this%mfz   , &
-                 mx   => this%u     , &
-                 my   => this%v     , &
                  u    => this%u     , &
                  v    => this%v     , &
                  dmf  => this%qmfx  , & ! borrowed array
                  dmgs => this%qmfy  )   ! borrowed array
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%half_ids - 1, mesh%half_ide
-            u%d(i,j,k) = mfx%d(i,j,k) / mx%d(i,j,k)
-          end do
-        end do
-        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = mfy%d(i,j,k) / my%d(i,j,k)
-          end do
-        end do
-      end do
-      ! Diagnose horizontal mass flux divergence.
-      call div_operator(mfx, mfy, dmf)
-      ! Diagnose surface hydrostatic pressure tendency.
-      dmgs%d(:,:,1) = 0
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            dmgs%d(i,j,1) = dmgs%d(i,j,1) - dmf%d(i,j,k)
-          end do
-        end do
-      end do
-      ! Diagnose vertical mass flux.
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j,1)) - sum(dmf%d(i,j,1:k-1))
-          end do
-        end do
-      end do
       if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
-      if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
+      if (nlev > 1) then
+        ! Diagnose horizontal mass flux divergence.
+        call div_operator(mfx, mfy, dmf)
+        ! Diagnose surface hydrostatic pressure tendency.
+        dmgs%d(:,:,1) = 0
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              dmgs%d(i,j,1) = dmgs%d(i,j,1) - dmf%d(i,j,k)
+            end do
+          end do
+        end do
+        ! Diagnose vertical mass flux.
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j,1)) - sum(dmf%d(i,j,1:k-1))
+            end do
+          end do
+        end do
+        if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
+      end if
       end associate
     end if
 
@@ -845,7 +783,7 @@ contains
     real(r8) dm
     integer ks, ke, i, j, k, l
 
-    associate (mesh => this%qx%mesh)
+    associate (mesh => this%mesh)
     select case (this%loc)
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
@@ -1022,7 +960,7 @@ contains
                divx     => this%divx    , & ! out
                divy     => this%divy    )   ! out
     ! Calculate horizontal CFL number and divergence along each axis.
-    if (this%slave) then
+    if (this%passive) then
       call this%calc_cflxy_tracer(m, m, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
     else
       call this%calc_cflxy_mass(dt_opt)
@@ -1043,7 +981,7 @@ contains
 
     dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
-    if (this%slave) then
+    if (this%passive) then
       call this%calc_cflz_tracer(dt_opt)
     else
       call this%calc_cflz_mass(dt_opt)
@@ -1059,9 +997,10 @@ contains
 
   end subroutine adv_batch_final
 
-  subroutine adv_fill_vhalo(f)
+  subroutine adv_fill_vhalo(f, no_negvals)
 
     type(latlon_field3d_type), intent(inout) :: f
+    logical, intent(in) :: no_negvals
 
     integer kds, kde, kms, kme, i, j, k
 
@@ -1101,6 +1040,14 @@ contains
         end do
       end do
     end do
+    if (no_negvals) then
+      do j = f%mesh%full_jds, f%mesh%full_jde
+        do i = f%mesh%full_ids, f%mesh%full_ide
+          if (any(f%d(i,j,kms:kds-1) < 0)) f%d(i,j,kds-1:kms) = f%d(i,j,kds)
+          if (any(f%d(i,j,kde+1:kme) < 0)) f%d(i,j,kde+1:kme) = f%d(i,j,kde)
+        end do
+      end do
+    end if
 
   end subroutine adv_fill_vhalo
 

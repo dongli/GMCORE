@@ -21,7 +21,6 @@ module adv_mod
   use latlon_parallel_mod
   use process_mod, only: proc
   use tracer_mod
-  use interp_mod
   use adv_batch_mod
   use ffsl_mod
   use upwind_mod
@@ -63,26 +62,26 @@ contains
 
     ! Initialize advection batches.
     do iblk = 1, size(blocks)
-      if (advection) then
         call blocks(iblk)%adv_batch_bg%init(                  &
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          bg_adv_scheme, 'cell', 'bg', dt_dyn, dynamic=.true., slave=.false.)
-      end if
+          bg_adv_scheme, 'cell', 'bg', dt_dyn, dynamic=.true., passive=.false.)
       if (baroclinic) then
         call blocks(iblk)%adv_batch_pt%init(                  &
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., slave=.true.)
+          pt_adv_scheme, 'cell', 'pt', dt_dyn, dynamic=.true., passive=.true., &
+          bg=blocks(iblk)%adv_batch_bg)
       end if
       if (nonhydrostatic) then
         call blocks(iblk)%adv_batch_nh%init(                  &
           blocks(iblk)%big_filter                           , &
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
-          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., slave=.true.)
+          nh_adv_scheme, 'lev', 'nh', dt_dyn, dynamic=.true., passive=.true., &
+          bg=blocks(iblk)%adv_batch_bg)
       end if
     end do
 
@@ -106,7 +105,7 @@ contains
           blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
           blocks(iblk)%mesh, blocks(iblk)%halo              , &
           'ffsl', 'cell', batch_names(ibat), batch_dts(ibat), &
-          dynamic=.false., slave=.true., idx=idx(1:n)       , &
+          dynamic=.false., passive=.true., idx=idx(1:n)     , &
           bg=blocks(iblk)%adv_batch_bg)
       end do
     end do
@@ -124,21 +123,18 @@ contains
 
     integer, intent(in) :: itime
 
-    integer iblk, m
+    integer iblk, i
 
     call perf_start('adv_prepare')
 
     if (.not. restart) then
       do iblk = 1, size(blocks)
-        associate (dmg => blocks(iblk)%dstate(itime)%dmg)
         if (allocated(blocks(iblk)%adv_batches)) then
-          do m = 1, size(blocks(iblk)%adv_batches)
-            call blocks(iblk)%adv_batches(m)%copy_m_old(dmg)
+          do i = 1, size(blocks(iblk)%adv_batches)
+            call blocks(iblk)%adv_batches(i)%copy_m_old(blocks(iblk)%dstate(itime)%dmg)
           end do
         end if
-        end associate
       end do
-      call adv_accum_wind(itime)
     end if
 
     call perf_stop('adv_prepare')
@@ -155,7 +151,7 @@ contains
 
     select case (batch%scheme_h)
     case ('ffsl')
-      call ffsl_calc_mass_hflx_swift1(batch, m, mfx, mfy, dt)
+      call ffsl_calc_mass_hflx_swift2(batch, m, mfx, mfy, dt)
     end select
 
   end subroutine adv_calc_mass_hflx
@@ -186,7 +182,7 @@ contains
     case ('upwind')
       call upwind_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
     case ('ffsl')
-      call ffsl_calc_tracer_hflx_swift1(batch, q, qmfx, qmfy, dt)
+      call ffsl_calc_tracer_hflx_swift2(batch, q, qmfx, qmfy, dt)
     end select
 
   end subroutine adv_calc_tracer_hflx
@@ -241,7 +237,7 @@ contains
           end do
         end do
       end do
-      call adv_fill_vhalo(m_new)
+      call adv_fill_vhalo(m_new, no_negvals=.true.)
       call adv_calc_mass_vflx(batch, m_new, mfz, dt_opt)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
@@ -256,25 +252,26 @@ contains
 
   end subroutine adv_run_mass
 
-  subroutine adv_run_tracers(itime)
+  subroutine adv_run_tracers(old, new)
 
-    integer, intent(in) :: itime
+    integer, intent(in) :: old
+    integer, intent(in) :: new
 
     integer iblk, i, j, k, l, m, idx
     type(latlon_field3d_type) q_new
 
     if (.not. allocated(blocks(1)%adv_batches)) return
 
-    call adv_accum_wind(itime)
+    call adv_accum_wind(old)
 
     do iblk = 1, size(blocks)
       associate (block     => blocks(iblk)                  , &
                  mesh      => blocks(iblk)%filter_mesh      , &
-                 m_new     => blocks(iblk)%dstate(itime)%dmg, & ! in
+                 m_new     => blocks(iblk)%dstate(new)%dmg, & ! in
                  dqdt      => blocks(iblk)%aux%pv           )   ! borrowed array
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
-          if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, itime, dt_adv)
+          if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
           associate (batch => block%adv_batches(m))
           do l = 1, block%adv_batches(m)%ntracers
             idx = batch%idx(l)
@@ -296,7 +293,7 @@ contains
               end do
             end do
             ! Calculate vertical tracer mass flux.
-            call adv_fill_vhalo(q_new)
+            call adv_fill_vhalo(q_new, no_negvals=.true.)
             call adv_calc_tracer_vflx(block%adv_batches(m), q_new, qmfz)
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
@@ -331,8 +328,8 @@ contains
           u=block%dstate(itime)%u_lon   , & ! in
           v=block%dstate(itime)%v_lat   , & ! in
           w=block%dstate(itime)%we_lev  , & ! in
-          mfx=block%aux%mfx_lon         , & ! out
-          mfy=block%aux%mfy_lat         )   ! out
+          mfx=block%aux%mfx_lon         , & ! in
+          mfy=block%aux%mfy_lat         )   ! in
       end if
       end associate
     end do
@@ -348,23 +345,16 @@ contains
     call perf_start('adv_accum_wind')
 
     do iblk = 1, size(blocks)
-      associate (block => blocks(iblk)                  , &
-        m     => blocks(iblk)%dstate(itime)%dmg, & ! in
-        mx    => blocks(iblk)%aux%dmg_lon      , & ! out
-        my    => blocks(iblk)%aux%dmg_lat      , & ! out
-        mfx   => blocks(iblk)%aux%mfx_lon      , & ! in
-        mfy   => blocks(iblk)%aux%mfy_lat      )   ! in
-      if (advection) then
-        call interp_run(m, mx)
-        call fill_halo(mx)
-        call interp_run(m, my)
-        call fill_halo(my)
-      end if
+      associate (block => blocks(iblk)                    , &
+                 u     => blocks(iblk)%dstate(itime)%u_lon, & ! in
+                 v     => blocks(iblk)%dstate(itime)%v_lat, & ! in
+                 mfx   => blocks(iblk)%aux%mfx_lon        , & ! in
+                 mfy   => blocks(iblk)%aux%mfy_lat        )   ! in
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)
           case ('cell')
-            call block%adv_batches(l)%accum_wind(mx, my, mfx, mfy)
+            call block%adv_batches(l)%accum_wind(u, v, mfx, mfy)
           end select
         end do
       end if
