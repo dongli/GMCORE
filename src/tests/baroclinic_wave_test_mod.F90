@@ -37,7 +37,7 @@ contains
                v      => block%dstate(1)%v_lat , &
                mgs    => block%dstate(1)%mgs   , &
                mg     => block%dstate(1)%mg    , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                gz_lev => block%dstate(1)%gz_lev, &
                gz     => block%dstate(1)%gz    , &

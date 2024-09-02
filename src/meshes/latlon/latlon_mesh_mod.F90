@@ -273,6 +273,18 @@ contains
       end if
     end do
 
+    ! Set cell areas exceed the Poles.
+    if (this%has_south_pole()) then
+      do j = this%full_jms, this%full_jds - 1
+        this%area_cell(j) = this%area_cell(2 - j)
+      end do
+    end if
+    if (this%has_north_pole()) then
+      do j = this%full_jde + 1, this%full_jme
+        this%area_cell(j) = this%area_cell(2 * this%full_jde - j)
+      end do
+    end if
+
     do j = this%half_jds, this%half_jde
       !
       !          2,j+1

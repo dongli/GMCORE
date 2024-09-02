@@ -125,7 +125,7 @@ contains
                  u_lon    => blocks(iblk)%dstate(1)%u_lon , &
                  v_lat    => blocks(iblk)%dstate(1)%v_lat , &
                  pt       => blocks(iblk)%dstate(1)%pt    , &
-                 t        => blocks(iblk)%dstate(1)%t     , &
+                 t        => blocks(iblk)%aux%t           , &
                  gz_lev   => blocks(iblk)%dstate(1)%gz_lev, &
                  q        => tracers(iblk)%q              , &
                  qm       => tracers(iblk)%qm             )
@@ -279,7 +279,7 @@ contains
                  u_lon    => blocks(iblk)%dstate(1)%u_lon , &
                  v_lat    => blocks(iblk)%dstate(1)%v_lat , &
                  pt       => blocks(iblk)%dstate(1)%pt    , &
-                 t        => blocks(iblk)%dstate(1)%t     , &
+                 t        => blocks(iblk)%aux%t           , &
                  gz       => blocks(iblk)%dstate(1)%gz    , &
                  gz_lev   => blocks(iblk)%dstate(1)%gz_lev, &
                  q        => tracers(iblk)%q              , &

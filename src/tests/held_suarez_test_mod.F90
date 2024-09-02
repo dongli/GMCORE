@@ -40,7 +40,7 @@ contains
     associate (mesh  => block%mesh         , &
                mgs   => block%dstate(1)%mgs, &
                mg    => block%dstate(1)%mg , &
-               t     => block%dstate(1)%t  , &
+               t     => block%aux%t        , &
                pt    => block%dstate(1)%pt )
     do j = mesh%full_jds, mesh%full_jde
       do i = mesh%full_ids, mesh%full_ide
@@ -76,7 +76,7 @@ contains
                u     => dstate%u_lon, &
                v     => dstate%v_lat, &
                mg    => dstate%mg   , &
-               t     => dstate%t    , &
+               t     => block%aux%t , &
                pt    => dstate%pt   )
     do k = mesh%full_kds, mesh%full_kde
       kv = kf * max(0.0_r8, (mesh%full_lev(k) - sig_b) / (1.0_r8 - sig_b))

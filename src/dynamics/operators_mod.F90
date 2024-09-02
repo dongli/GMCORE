@@ -29,7 +29,7 @@ module operators_mod
   public calc_t
   public calc_rhod
   public calc_gz_lev
-  public calc_we_lev
+  public calc_mfz
   public calc_div
   public calc_vor
   public calc_coriolis
@@ -289,7 +289,7 @@ contains
 
   subroutine calc_t(block, dstate)
 
-    type(block_type), intent(in) :: block
+    type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
     integer i, j, k
@@ -300,8 +300,8 @@ contains
                pt   => dstate%pt          , & ! in
                p    => dstate%p           , & ! in
                q    => tracers(block%id)%q, & ! in
-               t    => dstate%t           , & ! out
-               tv   => dstate%tv          )   ! out
+               t    => block%aux%t        , & ! out
+               tv   => block%aux%tv       )   ! out
     if (idx_qv > 0) then
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
@@ -329,17 +329,17 @@ contains
 
   subroutine calc_rhod(block, dstate)
 
-    type(block_type), intent(in) :: block
+    type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
 
     integer i, j, k
 
     call perf_start('calc_rhod')
 
-    associate (mesh   => block%mesh   , &
-               gz_lev => dstate%gz_lev, & ! in
-               dmg    => dstate%dmg   , & ! in
-               rhod   => dstate%rhod  )   ! out
+    associate (mesh   => block%mesh    , &
+               gz_lev => dstate%gz_lev , & ! in
+               dmg    => dstate%dmg    , & ! in
+               rhod   => block%aux%rhod)   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1
@@ -353,7 +353,7 @@ contains
 
   end subroutine calc_rhod
 
-  subroutine calc_we_lev(block, dstate, dtend, dt)
+  subroutine calc_mfz(block, dstate, dtend, dt)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
@@ -362,30 +362,30 @@ contains
 
     integer i, j, k
 
-    call perf_start('calc_we_lev')
+    call perf_start('calc_mfz')
 
-    associate (mesh       => block%mesh          , &
-               dmf        => block%aux%dmf       , & ! in
-               dmgs       => dtend%dmgs          , & ! in
-               we_lev     => dstate%we_lev       , & ! out
-               we_lev_lon => block%aux%we_lev_lon, & ! out
-               we_lev_lat => block%aux%we_lev_lat)   ! out
+    associate (mesh        => block%mesh           , &
+               dmf         => block%aux%dmf        , & ! in
+               dmgs        => dtend%dmgs           , & ! in
+               mfz_lev     => block%aux%mfz_lev    , & ! out
+               mfz_lev_lon => block%aux%mfz_lev_lon, & ! out
+               mfz_lev_lat => block%aux%mfz_lev_lat)   ! out
     do k = mesh%half_kds + 1, mesh%half_kde - 1
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          we_lev%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
+          mfz_lev%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
         end do
       end do
     end do
-    call fill_halo(we_lev, west_halo=.false., south_halo=.false.)
+    call fill_halo(mfz_lev, west_halo=.false., south_halo=.false.)
 
-    call interp_run(we_lev, we_lev_lon)
-    call interp_run(we_lev, we_lev_lat)
+    call interp_run(mfz_lev, mfz_lev_lon)
+    call interp_run(mfz_lev, mfz_lev_lat)
     end associate
 
-    call perf_stop('calc_we_lev')
+    call perf_stop('calc_mfz')
 
-  end subroutine calc_we_lev
+  end subroutine calc_mfz
 
   subroutine calc_ke(block, dstate, substep)
 
@@ -562,7 +562,7 @@ contains
 
     associate (mesh   => block%mesh      , &
                gzs    => block%static%gzs, & ! in
-               tv     => dstate%tv       , & ! in
+               tv     => block%aux%tv    , & ! in
                ph_lev => dstate%ph_lev   , & ! in
                gz_lev => dstate%gz_lev   , & ! out
                gz     => dstate%gz       )   ! out
@@ -1096,16 +1096,16 @@ contains
     associate (mesh    => block%filter_mesh, &
                u_lon   => dstate%u_lon     , & ! in
                v_lat   => dstate%v_lat     , & ! in
-               we_lev  => dstate%we_lev    , & ! in
                mfx_lon => block%aux%mfx_lon, & ! in
                mfy_lat => block%aux%mfy_lat, & ! in
+               mfz_lev => block%aux%mfz_lev, & ! in
                dmg     => dstate%dmg       , & ! in
                pt      => dstate%pt        , & ! in
                ptfx    => block%aux%ptfx   , & ! out
                ptfy    => block%aux%ptfy   , & ! out
                ptfz    => block%aux%ptfz   , & ! out
                dpt     => dtend%dpt        )   ! out
-    call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=we_lev, m=dmg, dt=dt)
+    call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=mfz_lev, m=dmg, dt=dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
     call div_operator(ptfx, ptfy, dpt)
     call adv_fill_vhalo(pt, no_negvals=.true.)
@@ -1165,21 +1165,21 @@ contains
 
     call perf_start('calc_wedudlev_wedvdlev')
 
-    associate (mesh       => block%mesh          , &
-               u          => dstate%u_lon        , & ! in
-               v          => dstate%v_lat        , & ! in
-               dmg_lon    => block%aux%dmg_lon   , & ! in
-               dmg_lat    => block%aux%dmg_lat   , & ! in
-               we_lev_lon => block%aux%we_lev_lon, & ! in
-               we_lev_lat => block%aux%we_lev_lat, & ! in
-               du         => dtend%du            , & ! out
-               dv         => dtend%dv            )   ! out
+    associate (mesh       => block%mesh            , &
+               u          => dstate%u_lon          , & ! in
+               v          => dstate%v_lat          , & ! in
+               dmg_lon    => block%aux%dmg_lon     , & ! in
+               dmg_lat    => block%aux%dmg_lat     , & ! in
+               mfz_lev_lon => block%aux%mfz_lev_lon, & ! in
+               mfz_lev_lat => block%aux%mfz_lev_lat, & ! in
+               du         => dtend%du              , & ! out
+               dv         => dtend%dv              )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
           tmp = -(                                                &
-            we_lev_lon%d(i,j,k+1) * (u%d(i,j,k+1) - u%d(i,j,k)) - &
-            we_lev_lon%d(i,j,k  ) * (u%d(i,j,k-1) - u%d(i,j,k))   &
+            mfz_lev_lon%d(i,j,k+1) * (u%d(i,j,k+1) - u%d(i,j,k)) - &
+            mfz_lev_lon%d(i,j,k  ) * (u%d(i,j,k-1) - u%d(i,j,k))   &
           ) / dmg_lon%d(i,j,k) / 2.0_r8
           du%d(i,j,k) = du%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
@@ -1192,8 +1192,8 @@ contains
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
           tmp = -(                                                &
-            we_lev_lat%d(i,j,k+1) * (v%d(i,j,k+1) - v%d(i,j,k)) - &
-            we_lev_lat%d(i,j,k  ) * (v%d(i,j,k-1) - v%d(i,j,k))   &
+            mfz_lev_lat%d(i,j,k+1) * (v%d(i,j,k+1) - v%d(i,j,k)) - &
+            mfz_lev_lat%d(i,j,k  ) * (v%d(i,j,k-1) - v%d(i,j,k))   &
           ) / dmg_lat%d(i,j,k) / 2.0_r8
           dv%d(i,j,k) = dv%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND

@@ -71,11 +71,11 @@ contains
 
     associate (u_lon       => dstate%u_lon         , & ! in
                v_lat       => dstate%v_lat         , & ! in
-               we_lev      => dstate%we_lev        , & ! in
+               mfz_lev     => block%aux%mfz_lev    , & ! in
                dmg_lev     => dstate%dmg_lev       , & ! in
                u_lev_lon   => block%aux%u_lev_lon  , & ! out
                v_lev_lat   => block%aux%v_lev_lat  , & ! out
-               we          => dstate%we            , & ! out
+               mfz         => block%aux%mfz        , & ! out
                mfx_lev_lon => block%aux%mfx_lev_lon, & ! out
                mfy_lev_lat => block%aux%mfy_lev_lat, & ! out
                dmf_lev     => block%aux%dmf_lev    )   ! out
@@ -85,7 +85,7 @@ contains
     mfx_lev_lon%d = mfx_lev_lon%d * u_lev_lon%d
     call interp_run(dmg_lev, mfy_lev_lat)
     mfy_lev_lat%d = mfy_lev_lat%d * v_lev_lat%d
-    call interp_run(we_lev, we)
+    call interp_run(mfz_lev, mfz)
     call fill_halo(u_lev_lon)
     call fill_halo(v_lev_lat)
     call fill_halo(mfx_lev_lon)
@@ -95,7 +95,7 @@ contains
       v                 =v_lev_lat  , &
       mfx               =mfx_lev_lon, &
       mfy               =mfy_lev_lat, &
-      mfz               =we         , &
+      mfz               =mfz        , &
       m                 =dmg_lev    , &
       dt                =dt         )
     call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)

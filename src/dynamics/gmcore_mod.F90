@@ -249,7 +249,7 @@ contains
             end do
           end do
         end if
-        call dstate%c2a()
+        call dstate%c2a(block%aux%u, block%aux%v)
         call calc_div(block, dstate)
         end associate
       end do
@@ -274,7 +274,7 @@ contains
           call time_integrator(operators, blocks(iblk), old, new, dt_dyn)
           call damp_run(blocks(iblk), blocks(iblk)%dstate(new), dt_dyn)
           if (pdc_type == 1) call physics_update_dynamics(blocks(iblk), new, dt_dyn)
-          call blocks(iblk)%dstate(new)%c2a()
+          call blocks(iblk)%dstate(new)%c2a(blocks(iblk)%aux%u, blocks(iblk)%aux%v)
         end do
         ! ----------------------------------------------------------------------
         ! Advance to n+1 time level.
@@ -380,7 +380,7 @@ contains
                  dmg_lat => blocks(iblk)%aux%dmg_lat        , &
                  u_lon   => blocks(iblk)%dstate(itime)%u_lon, &
                  v_lat   => blocks(iblk)%dstate(itime)%v_lat, &
-                 tv      => blocks(iblk)%dstate(itime)%tv   , &
+                 tv      => blocks(iblk)%aux%tv             , &
                  pt      => blocks(iblk)%dstate(itime)%pt   , &
                  pv_lon  => blocks(iblk)%aux%pv_lon         , &
                  pv_lat  => blocks(iblk)%aux%pv_lat         , &
@@ -509,7 +509,7 @@ contains
       if (hydrostatic) then
         call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend, dt)
-        call calc_we_lev           (block, star_dstate, dtend, dt)
+        call calc_mfz              (block, star_dstate, dtend, dt)
         call calc_wedudlev_wedvdlev(block, star_dstate, dtend, dt)
         call calc_grad_ptf         (block, star_dstate, dtend, dt)
         call calc_coriolis         (block, star_dstate, dtend, dt)
@@ -543,7 +543,7 @@ contains
       if (baroclinic) then
         call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend, dt)
-        call calc_we_lev           (block, star_dstate, dtend, dt)
+        call calc_mfz              (block, star_dstate, dtend, dt)
         call calc_grad_ptf         (block, star_dstate, dtend, dt)
 
         dtend%update_mgs = .true.

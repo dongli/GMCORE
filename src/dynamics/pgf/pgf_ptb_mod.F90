@@ -139,7 +139,7 @@ contains
                dmg    => dstate%dmg            , & ! in
                p      => dstate%p              , & ! in
                p_lev  => dstate%p_lev          , & ! in
-               rhod   => dstate%rhod           , & ! in
+               rhod   => block%aux%rhod        , & ! in
                gz     => dstate%gz             , & ! in
                du     => dtend%du              , & ! out
                dv     => dtend%dv              )   ! out

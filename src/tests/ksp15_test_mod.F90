@@ -45,7 +45,7 @@ contains
 
     associate (mesh   => block%mesh            , &
                u_lon  => block%dstate(1)%u_lon , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                gzs    => block%static   %gzs   , &
                mgs    => block%dstate(1)%mgs   , &
@@ -113,7 +113,7 @@ contains
 
     associate (mesh   => block%mesh            , &
                u_lon  => block%dstate(1)%u_lon , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                gzs    => block%static   %gzs   , &
                mgs    => block%dstate(1)%mgs   , &

@@ -54,7 +54,7 @@ contains
                mg_lev => block%dstate(1)%mg_lev, &
                mg     => block%dstate(1)%mg    , &
                pt     => block%dstate(1)%pt    , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                gz_lev => block%dstate(1)%gz_lev, &
                gz     => block%dstate(1)%gz    , &
                gzs    => block%static%gzs)

@@ -325,9 +325,9 @@ contains
       associate (block => blocks(iblk))
       if (block%adv_batch_bg%initialized) then
         call block%adv_batch_bg%set_wind( &
-          u=block%dstate(itime)%u_lon   , & ! in
-          v=block%dstate(itime)%v_lat   , & ! in
-          w=block%dstate(itime)%we_lev  , & ! in
+          u  =block%dstate(itime)%u_lon , & ! in
+          v  =block%dstate(itime)%v_lat , & ! in
+          w  =block%aux%we_lev          , & ! in
           mfx=block%aux%mfx_lon         , & ! in
           mfy=block%aux%mfy_lat         )   ! in
       end if
@@ -349,7 +349,8 @@ contains
                  u     => blocks(iblk)%dstate(itime)%u_lon, & ! in
                  v     => blocks(iblk)%dstate(itime)%v_lat, & ! in
                  mfx   => blocks(iblk)%aux%mfx_lon        , & ! in
-                 mfy   => blocks(iblk)%aux%mfy_lat        )   ! in
+                 mfy   => blocks(iblk)%aux%mfy_lat        , & ! in
+                 mfz   => blocks(iblk)%aux%mfz_lev        )   ! in
       if (allocated(block%adv_batches)) then
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)

@@ -228,11 +228,11 @@ contains
         case ('dstate')
           select case (accum%var_name)
           case ('t')
-            call accum%accum_run_3d(this%dstate(itime)%t%d(is:ie,js:je,ks:ke))
+            call accum%accum_run_3d(this%aux%t%d(is:ie,js:je,ks:ke))
           case ('u')
-            call accum%accum_run_3d(this%dstate(itime)%u%d(is:ie,js:je,ks:ke))
+            call accum%accum_run_3d(this%aux%u%d(is:ie,js:je,ks:ke))
           case ('v')
-            call accum%accum_run_3d(this%dstate(itime)%v%d(is:ie,js:je,ks:ke))
+            call accum%accum_run_3d(this%aux%v%d(is:ie,js:je,ks:ke))
           end select
         end select
       end select

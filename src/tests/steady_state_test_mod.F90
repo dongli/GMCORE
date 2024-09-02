@@ -37,7 +37,7 @@ contains
                mg     => block%dstate(1)%mg    , &
                gz_lev => block%dstate(1)%gz_lev, &
                gz     => block%dstate(1)%gz    , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                gzs    => block%static%gzs)
     mgs%d = 1.0e5_r8

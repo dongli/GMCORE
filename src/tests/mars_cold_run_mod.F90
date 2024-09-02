@@ -32,7 +32,7 @@ contains
     associate (mesh   => block%mesh            , &
                u      => block%dstate(1)%u_lon , &
                v      => block%dstate(1)%v_lat , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                mg     => block%dstate(1)%mg    , &
                mgs    => block%dstate(1)%mgs   , &

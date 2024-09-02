@@ -46,7 +46,7 @@ contains
                mgs    => block%dstate(1)%mgs   , &
                mg_lev => block%dstate(1)%mg_lev, &
                mg     => block%dstate(1)%mg    , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                gzs    => block%static%gzs)
     u%d = 0

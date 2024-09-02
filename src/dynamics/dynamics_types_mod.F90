@@ -29,27 +29,20 @@ module dynamics_types_mod
   type dstate_type
     integer :: id = 0
     type(array_type) fields
-    type(latlon_field3d_type) u
-    type(latlon_field3d_type) v
     type(latlon_field3d_type) u_lon
     type(latlon_field3d_type) v_lat
-    type(latlon_field3d_type) we_lev    ! TODO: Rename to mfz_lev.
     type(latlon_field3d_type) gz
     type(latlon_field3d_type) gz_lev
     type(latlon_field3d_type) dmg
     type(latlon_field3d_type) dmg_lev
     type(latlon_field3d_type) pt
-    type(latlon_field3d_type) t
-    type(latlon_field3d_type) tv
     type(latlon_field3d_type) mg
     type(latlon_field3d_type) mg_lev
     type(latlon_field2d_type) mgs
     type(latlon_field3d_type) ph
     type(latlon_field3d_type) ph_lev
     type(latlon_field2d_type) phs
-    type(latlon_field3d_type) rhod
     ! Nonhydrostatic variable
-    type(latlon_field3d_type) we
     type(latlon_field3d_type) w
     type(latlon_field3d_type) w_lev
     type(latlon_field3d_type) p
@@ -124,8 +117,14 @@ module dynamics_types_mod
     type(latlon_field3d_type) kmh_lon     ! nonlinear diffusion coef on zonal edge
     type(latlon_field3d_type) kmh_lat     ! nonlinear diffusion coef on meridional edge
     ! Other variables
+    type(latlon_field3d_type) u           ! Zonal wind speed at cell center (m s-1)
+    type(latlon_field3d_type) v           ! Meridional wind speed at cell center (m s-1)
     type(latlon_field3d_type) v_lon       ! Meridional wind speed at lon edge (m s-1)
     type(latlon_field3d_type) u_lat       ! Zonal wind speed at lat edge (m s-1)
+    type(latlon_field3d_type) we_lev      ! Vertical coordinate speed (s-1)
+    type(latlon_field3d_type) t           ! Temperature (K)
+    type(latlon_field3d_type) tv          ! Virtual temperature (K)
+    type(latlon_field3d_type) rhod        ! Dry-air density (kg m-3)
     type(latlon_field3d_type) ke          ! Kinetic energy
     type(latlon_field3d_type) pv_lon      ! Potential vorticity on zonal edge
     type(latlon_field3d_type) pv_lat      ! Potential vorticity on merdional edge
@@ -133,8 +132,10 @@ module dynamics_types_mod
     type(latlon_field3d_type) dmg_lat     ! Mass on merdional edge
     type(latlon_field3d_type) dmg_vtx     ! Mass on vertex
     type(latlon_field3d_type) pkh_lev     ! Exner pressure on half levels
-    type(latlon_field3d_type) we_lev_lon  ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
-    type(latlon_field3d_type) we_lev_lat  ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
+    type(latlon_field3d_type) mfz         ! Vertical mass flux on full levels
+    type(latlon_field3d_type) mfz_lev     ! Vertical mass flux on half levels
+    type(latlon_field3d_type) mfz_lev_lon ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
+    type(latlon_field3d_type) mfz_lev_lat ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
     type(latlon_field3d_type) ptfx        ! Potential temperature on the zonal edge
     type(latlon_field3d_type) ptfy        ! Potential temperature on the merdional edge
     type(latlon_field3d_type) ptfz        ! Potential temperature on the vertical edge
@@ -191,30 +192,6 @@ contains
 
     this%fields = array(30)
 
-    if (.not. advection) then
-      call append_field(this%fields                                          , &
-        name            ='u'                                                 , &
-        long_name       ='Zonal wind component'                              , &
-        units           ='m s-1'                                             , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h0'                                                , &
-        restart         =.false.                                             , &
-        field           =this%u                                              )
-    end if
-    if (.not. advection) then
-      call append_field(this%fields                                          , &
-        name            ='v'                                                 , &
-        long_name       ='Meridional wind component'                         , &
-        units           ='m s-1'                                             , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h0'                                                , &
-        restart         =.false.                                             , &
-        field           =this%v                                              )
-    end if
     call append_field(this%fields                                            , &
       name              ='u_lon'                                             , &
       long_name         ='Zonal wind component'                              , &
@@ -235,18 +212,6 @@ contains
       output            ='h1'                                                , &
       restart           =.true.                                              , &
       field             =this%v_lat                                          )
-    if (baroclinic .or. advection) then
-      call append_field(this%fields                                          , &
-        name            ='we_lev'                                            , &
-        long_name       ='Vertical mass flux'                                , &
-        units           ='Pa s-1'                                            , &
-        loc             ='lev'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h1'                                                , &
-        restart         =.false.                                             , &
-        field           =this%we_lev                                         )
-    end if
     call append_field(this%fields                                            , &
       name              ='gz'                                                , &
       long_name         ='Geopotential'                                      , &
@@ -329,30 +294,6 @@ contains
         field           =this%pt                                             , &
         halo_cross_pole =.true.                                              )
     end if
-    if (baroclinic .or. advection) then
-      call append_field(this%fields                                          , &
-        name            ='t'                                                 , &
-        long_name       ='Temperature'                                       , &
-        units           ='K'                                                 , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h0'                                                , &
-        restart         =.false.                                             , &
-        field           =this%t                                              )
-    end if
-    if (baroclinic .or. advection) then
-      call append_field(this%fields                                          , &
-        name            ='tv'                                                , &
-        long_name       ='Virtual temperature'                               , &
-        units           ='K'                                                 , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%tv                                             )
-    end if
     call append_field(this%fields                                            , &
       name              ='mg'                                                , &
       long_name         ='Dry-air weight'                                    , &
@@ -423,30 +364,6 @@ contains
         restart         =.false.                                             , &
         field           =this%phs                                            )
       call this%phs%link(this%ph_lev, mesh%half_nlev)
-    end if
-    if (baroclinic) then
-      call append_field(this%fields                                          , &
-        name            ='rhod'                                              , &
-        long_name       ='Dry-air density'                                   , &
-        units           ='kg m-3'                                            , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h0'                                                , &
-        restart         =.false.                                             , &
-        field           =this%rhod                                           )
-    end if
-    if (nonhydrostatic) then
-      call append_field(this%fields                                          , &
-        name            ='we'                                                , &
-        long_name       ='Vertical mass flux'                                , &
-        units           ='Pa s-1'                                            , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%we                                             )
     end if
     if (nonhydrostatic) then
       call append_field(this%fields                                          , &
@@ -578,17 +495,17 @@ contains
 
   end subroutine dstate_final
 
-  subroutine dstate_a2c(this)
+  subroutine dstate_a2c(this, u, v)
 
     class(dstate_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: u
+    type(latlon_field3d_type), intent(in) :: v
 
     integer i, j, k
 
-    associate (mesh  => this%u%mesh, &
-               u     => this%u     , & ! in
-               v     => this%v     , & ! in
-               u_lon => this%u_lon , & ! out
-               v_lat => this%v_lat )   ! out
+    associate (mesh  => this%u_lon%mesh, &
+               u_lon => this%u_lon     , & ! out
+               v_lat => this%v_lat     )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
@@ -605,17 +522,17 @@ contains
 
   end subroutine dstate_a2c
 
-  subroutine dstate_c2a(this)
+  subroutine dstate_c2a(this, u, v)
 
     class(dstate_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(inout) :: u
+    type(latlon_field3d_type), intent(inout) :: v
 
     integer i, j, k
 
-    associate (mesh  => this%u%mesh, &
-               u     => this%u     , & ! out
-               v     => this%v     , & ! out
-               u_lon => this%u_lon , & ! in
-               v_lat => this%v_lat )   ! in
+    associate (mesh  => this%u_lon%mesh, &
+               u_lon => this%u_lon     , & ! in
+               v_lat => this%v_lat     )   ! in
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
@@ -1030,7 +947,73 @@ contains
         restart         =.false.                                             , &
         field           =this%kmh_lat                                        )
     end if
+    if (baroclinic .or. advection) then
+      call append_field(this%fields                                          , &
+        name            ='t'                                                 , &
+        long_name       ='Temperature'                                       , &
+        units           ='K'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        field           =this%t                                              )
+    end if
+    if (baroclinic .or. advection) then
+      call append_field(this%fields                                          , &
+        name            ='tv'                                                , &
+        long_name       ='Virtual temperature'                               , &
+        units           ='K'                                                 , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        field           =this%tv                                             )
+    end if
+    if (baroclinic) then
+      call append_field(this%fields                                          , &
+        name            ='rhod'                                              , &
+        long_name       ='Dry-air density'                                   , &
+        units           ='kg m-3'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        field           =this%rhod                                           )
+    end if
+    call append_field(this%fields                                            , &
+      name              ='we_lev'                                            , &
+      long_name         ='Vertical coordinate speed'                         , &
+      units             ='s-1'                                               , &
+      loc               ='lev'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%we_lev                                         )
     if (.not. advection) then
+      call append_field(this%fields                                          , &
+        name            ='u'                                                 , &
+        long_name       ='Zonal wind component'                              , &
+        units           ='m s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        field           =this%u                                              )
+      call append_field(this%fields                                          , &
+        name            ='v'                                                 , &
+        long_name       ='Meridional wind component'                         , &
+        units           ='m s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.false.                                             , &
+        field           =this%v                                              )
       call append_field(this%fields                                          , &
         name            ='v_lon'                                             , &
         long_name       ='Zonal wind component'                              , &
@@ -1112,6 +1095,30 @@ contains
       output            =''                                                  , &
       restart           =.false.                                             , &
       field             =this%dmg_vtx                                        )
+    if (baroclinic .or. advection) then
+      call append_field(this%fields                                          , &
+        name            ='mfz_lev'                                           , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='lev'                                               , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%mfz_lev                                        )
+    end if
+    if (nonhydrostatic) then
+      call append_field(this%fields                                          , &
+        name            ='mfz'                                               , &
+        long_name       ='Vertical mass flux'                                , &
+        units           ='Pa s-1'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =''                                                  , &
+        restart         =.false.                                             , &
+        field           =this%mfz                                            )
+    end if
     if (baroclinic) then
       call append_field(this%fields                                          , &
         name            ='pkh_lev'                                           , &
@@ -1124,7 +1131,7 @@ contains
         restart         =.false.                                             , &
         field           =this%pkh_lev                                        )
       call append_field(this%fields                                          , &
-        name            ='we_lev_lon'                                        , &
+        name            ='mfz_lev_lon'                                       , &
         long_name       ='Vertical mass flux'                                , &
         units           ='Pa s-1'                                            , &
         loc             ='lev_lon'                                           , &
@@ -1132,9 +1139,9 @@ contains
         halo            =halo                                                , &
         output          =''                                                  , &
         restart         =.false.                                             , &
-        field           =this%we_lev_lon                                     )
+        field           =this%mfz_lev_lon                                    )
       call append_field(this%fields                                          , &
-        name            ='we_lev_lat'                                        , &
+        name            ='mfz_lev_lat'                                       , &
         long_name       ='Vertical mass flux'                                , &
         units           ='Pa s-1'                                            , &
         loc             ='lev_lat'                                           , &
@@ -1142,7 +1149,7 @@ contains
         halo            =halo                                                , &
         output          =''                                                  , &
         restart         =.false.                                             , &
-        field           =this%we_lev_lat                                     )
+        field           =this%mfz_lev_lat                                    )
       call append_field(this%fields                                          , &
         name            ='ptfx'                                              , &
         long_name       ='Zonal flux of pt'                                  , &

@@ -163,7 +163,7 @@ contains
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh        , &
                  ph   => blocks(iblk)%dstate(1)%ph, & ! in
-                 t    => blocks(iblk)%dstate(1)%t )   ! out
+                 t    => blocks(iblk)%aux%t       )   ! out
         select case (bkg_type)
         case ('era5')
           allocate(t1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
@@ -360,6 +360,7 @@ contains
         end do
         deallocate(q1, p1)
       end select
+      where (q%d(:,:,:,idx_qv) < 0) q%d(:,:,:,idx_qv) = 0
       call fill_halo(q, idx_qv)
       end associate
     end do
@@ -405,6 +406,7 @@ contains
         end do
         deallocate(q1, p1)
       end select
+      where (q%d(:,:,:,idx_qc) < 0) q%d(:,:,:,idx_qc) = 0
       call fill_halo(q, idx_qc)
       end associate
     end do
@@ -450,6 +452,7 @@ contains
         end do
         deallocate(q1, p1)
       end select
+      where (q%d(:,:,:,idx_qi) < 0) q%d(:,:,:,idx_qi) = 0
       call fill_halo(q, idx_qi)
       end associate
     end do
@@ -484,6 +487,7 @@ contains
         end do
         deallocate(n1, p1)
       end select
+      where (q%d(:,:,:,idx_nc) < 0) q%d(:,:,:,idx_nc) = 0
       call fill_halo(q, idx_nc)
       end associate
     end do
@@ -518,6 +522,7 @@ contains
         end do
         deallocate(n1, p1)
       end select
+      where (q%d(:,:,:,idx_ni) < 0) q%d(:,:,:,idx_ni) = 0
       call fill_halo(q, idx_ni)
       end associate
     end do
@@ -550,6 +555,7 @@ contains
         end do
         deallocate(q1)
       end select
+      where (q%d(:,:,:,idx_qr) < 0) q%d(:,:,:,idx_qr) = 0
       call fill_halo(q, idx_qr)
       end associate
     end do
@@ -582,6 +588,7 @@ contains
         end do
         deallocate(q1)
       end select
+      where (q%d(:,:,:,idx_qs) < 0) q%d(:,:,:,idx_qs) = 0
       call fill_halo(q, idx_qs)
       end associate
     end do
@@ -635,7 +642,7 @@ contains
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh        , &
                  ph   => blocks(iblk)%dstate(1)%ph, & ! in
-                 t    => blocks(iblk)%dstate(1)%t , & ! in
+                 t    => blocks(iblk)%aux%t       , & ! in
                  q    => tracers(iblk)%q          , & ! in
                  pt   => blocks(iblk)%dstate(1)%pt)   ! out
       do k = mesh%full_kds, mesh%full_kde

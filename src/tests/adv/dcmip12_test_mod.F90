@@ -58,7 +58,7 @@ contains
                  mg     => blocks(iblk)%dstate(itime)%mg    , &
                  ph_lev => blocks(iblk)%dstate(itime)%ph_lev, &
                  ph     => blocks(iblk)%dstate(itime)%ph    , &
-                 tv     => blocks(iblk)%dstate(itime)%tv    )
+                 tv     => blocks(iblk)%aux%tv              )
       mgs%d = p0
       call calc_mg(block, dstate)
       call calc_dmg(block, dstate)
@@ -118,12 +118,14 @@ contains
       associate (block   => blocks(iblk)                      , &
                  dstate  => blocks(iblk)%dstate(itime)        , &
                  mesh    => blocks(iblk)%mesh                 , &
+                 dmg     => blocks(iblk)%dstate(itime)%dmg    , & ! in
                  mg      => blocks(iblk)%dstate(itime)%mg     , & ! in
                  gz_lev  => blocks(iblk)%dstate(itime)%gz_lev , & ! in
                  gz      => blocks(iblk)%dstate(itime)%gz     , & ! in
                  u       => blocks(iblk)%dstate(itime)%u_lon  , & ! out
                  v       => blocks(iblk)%dstate(itime)%v_lat  , & ! out
-                 we      => blocks(iblk)%dstate(itime)%we_lev )   ! out
+                 we      => blocks(iblk)%aux%we_lev           , & ! out
+                 mfz     => blocks(iblk)%aux%mfz_lev          )   ! out
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           lat = mesh%full_lat(j)
@@ -154,6 +156,7 @@ contains
             we%d(i,j,k) = -g * w0 * rho0 / K0 * (                           &
               -2 * sin(K0 * lat) * sin(lat) + K0 * cos(lat) * cos(K0 * lat) &
             ) * sin(pi * gz_lev%d(i,j,k) / (g * ztop)) * cos_t / p0
+            mfz%d(i,j,k) = we%d(i,j,k) * dmg%d(i,j,k) / mesh%half_dlev(k)
           end do
         end do
       end do

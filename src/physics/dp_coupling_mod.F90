@@ -79,9 +79,9 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%u     (icol,k) = dstate %u     %d(i,j,k)
-            pstate%v     (icol,k) = dstate %v     %d(i,j,k)
-            pstate%t     (icol,k) = dstate %t     %d(i,j,k)
+            pstate%u     (icol,k) = aux    %u     %d(i,j,k)
+            pstate%v     (icol,k) = aux    %v     %d(i,j,k)
+            pstate%t     (icol,k) = aux    %t     %d(i,j,k)
             pstate%pt    (icol,k) = dstate %pt    %d(i,j,k)
             pstate%p     (icol,k) = dstate %ph    %d(i,j,k)
             pstate%p_lev (icol,k) = dstate %ph_lev%d(i,j,k)
@@ -146,7 +146,7 @@ contains
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           pstate%ps     (icol) = dstate%phs%d(i,j)
-          pstate%wsp_bot(icol) = sqrt(dstate%u%d(i,j,mesh%full_kde)**2 + dstate%v%d(i,j,mesh%full_kde)**2)
+          pstate%wsp_bot(icol) = sqrt(aux%u%d(i,j,mesh%full_kde)**2 + aux%v%d(i,j,mesh%full_kde)**2)
           icol = icol + 1
         end do
       end do

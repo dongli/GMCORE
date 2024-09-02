@@ -217,11 +217,11 @@ contains
                ph_lev => block%dstate(1)%ph_lev, &
                z      => block%dstate(1)%gz    , &
                z_lev  => block%dstate(1)%gz_lev, &
-               u      => block%dstate(1)%u     , &
+               u      => block%aux      %u     , &
                u_lon  => block%dstate(1)%u_lon , &
-               v      => block%dstate(1)%v     , &
+               v      => block%aux      %v     , &
                v_lat  => block%dstate(1)%v_lat , &
-               t      => block%dstate(1)%t     , &
+               t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                q      => tracers(block%id)%q   )
     do j = mesh%full_jds, mesh%full_jde
