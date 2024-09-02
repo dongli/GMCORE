@@ -826,6 +826,8 @@ contains
               end do
               cfly%d(i,j,k) = j + 1 - l + dm / my%d(i,l,k) / mesh%area_cell(l)
             end if
+            ! Clip CFL number that are out of range. This should be very rare and in the polar region.
+            cfly%d(i,j,k) = min(max(cfly%d(i,j,k), -1.0_r8), 1.0_r8)
           end do
         end do
       end do
