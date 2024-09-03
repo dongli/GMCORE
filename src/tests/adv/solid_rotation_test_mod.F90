@@ -27,8 +27,9 @@ contains
 
     u0 = pi2 * radius / period
 
-    call tracer_add('adv', dt, 'q1', 'cosine bell tracer')
-    call tracer_add('adv', dt, 'q2', 'slotted cylinder tracer')
+    call tracer_add('adv', dt, 'q1', 'Cosine bell tracer')
+    call tracer_add('adv', dt, 'q2', 'Slotted cylinder tracer')
+    call tracer_add('adv', dt, 'q3', 'Constant one tracer')
 
   end subroutine solid_rotation_test_init
 
@@ -77,6 +78,8 @@ contains
         end do
       end do
       call fill_halo(q, 2)
+      ! Constant one
+      q%d(:,:,:,3) = 1
       end associate
     end do
 

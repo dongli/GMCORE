@@ -62,6 +62,11 @@ program gmcore_driver
 
   call gmcore_init_stage1(namelist_path)
 
+  select case (test_case)
+  case ('mountain_wave')
+    call mountain_wave_test_init()
+  end select
+
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then
     call prepare_topo()
     call prepare_tracers()

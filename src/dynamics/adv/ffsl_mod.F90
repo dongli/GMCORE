@@ -39,12 +39,10 @@ module ffsl_mod
 
   public ffsl_init
   public ffsl_calc_mass_hflx_lin96
-  public ffsl_calc_mass_hflx_swift1
-  public ffsl_calc_mass_hflx_swift2
+  public ffsl_calc_mass_hflx_swift
   public ffsl_calc_mass_vflx
   public ffsl_calc_tracer_hflx_lin96
-  public ffsl_calc_tracer_hflx_swift1
-  public ffsl_calc_tracer_hflx_swift2
+  public ffsl_calc_tracer_hflx_swift
   public ffsl_calc_tracer_vflx
 
   interface
@@ -244,7 +242,7 @@ contains
 
   end subroutine ffsl_calc_tracer_hflx_lin96
 
-  subroutine ffsl_calc_mass_hflx_swift1(batch, m, mfx, mfy, dt)
+  subroutine ffsl_calc_mass_hflx_swift(batch, m, mfx, mfy, dt)
 
     type(adv_batch_type     ), intent(inout) :: batch
     type(latlon_field3d_type), intent(in   ) :: m
@@ -255,152 +253,7 @@ contains
     integer i, j, k
     real(r8) dt_opt
 
-    call perf_start('ffsl_calc_mass_hflx_swift1')
-
-    dt_opt = batch%dt; if (present(dt)) dt_opt = dt
-
-    associate (mesh   => m%mesh      , &
-               u      => batch%u     , & ! in
-               u_frac => batch%u_frac, & ! in
-               v      => batch%v     , & ! in
-               divx   => batch%divx  , & ! in
-               divy   => batch%divy  , & ! in
-               mx     => batch%qx    , & ! work array
-               my     => batch%qy    , & ! work array
-               mfx0   => batch%qmfx0 , & ! work array
-               mfy0   => batch%qmfy0 , & ! work array
-               dmxdt  => batch%qx    , & ! borrowed array
-               dmydt  => batch%qy    )   ! borrowed array
-    ! Run inner advective operators.
-    call hflx_mass(batch, u, u_frac, v, m, m, mfx0, mfy0, dt_opt)
-    call fill_halo(mfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
-    call fill_halo(mfy0, west_halo =.false., east_halo =.false., north_halo=.false.)
-    ! Calculate intermediate tracer density due to advective operators.
-    call divx_operator(mfx0, dmxdt)
-    call divy_operator(mfy0, dmydt)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          mx%d(i,j,k) = (m%d(i,j,k) - dt_opt * dmxdt%d(i,j,k)) / (1 - dt_opt * divx%d(i,j,k))
-          my%d(i,j,k) = (m%d(i,j,k) - dt_opt * dmydt%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
-        end do
-      end do
-    end do
-    call fill_halo(mx, west_halo =.false., east_halo =.false.)
-    call fill_halo(my, south_halo=.false., north_halo=.false.)
-    ! Run outer flux form operators.
-    call hflx_mass(batch, u, u_frac, v, my, mx, mfx, mfy, dt_opt)
-    ! Do SWIFT splitting.
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%half_ids, mesh%half_ide
-          mfx%d(i,j,k) = 0.5_r8 * (mfx0%d(i,j,k) + mfx%d(i,j,k))
-        end do
-      end do
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
-          mfy%d(i,j,k) = 0.5_r8 * (mfy0%d(i,j,k) + mfy%d(i,j,k))
-        end do
-      end do
-    end do
-    call fill_halo(mfx, south_halo=.false., north_halo=.false., east_halo =.false.)
-    call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
-    end associate
-
-    call perf_stop('ffsl_calc_mass_hflx_swift1')
-
-  end subroutine ffsl_calc_mass_hflx_swift1
-
-  subroutine ffsl_calc_tracer_hflx_swift1(batch, q, qmfx, qmfy, dt)
-
-    type(adv_batch_type     ), intent(inout) :: batch
-    type(latlon_field3d_type), intent(in   ) :: q
-    type(latlon_field3d_type), intent(inout) :: qmfx
-    type(latlon_field3d_type), intent(inout) :: qmfy
-    real(r8), intent(in), optional :: dt
-
-    integer ks, ke, i, j, k
-    real(r8) dt_opt
-
-    call perf_start('ffsl_calc_tracer_hflx_swift1')
-
-    dt_opt = batch%dt; if (present(dt)) dt_opt = dt
-
-    associate (mesh     => q%mesh        , &
-               m        => batch%m       , & ! in
-               u        => batch%u       , & ! in
-               v        => batch%v       , & ! in
-               mfx      => batch%mfx     , & ! in
-               mfx_frac => batch%mfx_frac, & ! in
-               mfy      => batch%mfy     , & ! in
-               cflx     => batch%cflx    , & ! in
-               cfly     => batch%cfly    , & ! in
-               divx     => batch%divx    , & ! in
-               divy     => batch%divy    , & ! in
-               qx       => batch%qx      , & ! work array
-               qy       => batch%qy      , & ! work array
-               qmfx0    => batch%qmfx0   , & ! out
-               qmfy0    => batch%qmfy0   , & ! out
-               dqmxdt   => batch%qx      , & ! borrowed array
-               dqmydt   => batch%qy      )   ! borrowed array
-    ! Run inner advective operators.
-    call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
-    call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
-    call fill_halo(qmfy0, west_halo =.false., east_halo =.false., north_halo=.false.)
-    select case (batch%loc)
-    case ('cell', 'lev')
-      ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
-      ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
-      ! Calculate intermediate tracer density due to advective operators.
-      call divx_operator(qmfx0, dqmxdt)
-      call divy_operator(qmfy0, dqmydt)
-      do k = ks, ke
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
-            qx%d(i,j,k) = (q%d(i,j,k) - dt_opt * dqmxdt%d(i,j,k) / m%d(i,j,k)) / (1 - dt_opt * divx%d(i,j,k))
-            qy%d(i,j,k) = (q%d(i,j,k) - dt_opt * dqmydt%d(i,j,k) / m%d(i,j,k)) / (1 - dt_opt * divy%d(i,j,k))
-          end do
-        end do
-      end do
-    case ('vtx')
-    end select
-    call fill_halo(qx, west_halo =.false., east_halo =.false.)
-    call fill_halo(qy, south_halo=.false., north_halo=.false.)
-    ! Run outer flux form operators.
-    call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, qy, qx, qmfx, qmfy, dt_opt)
-    ! Do SWIFT splitting.
-    do k = ks, ke
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%half_ids, mesh%half_ide
-          qmfx%d(i,j,k) = 0.5_r8 * (qmfx0%d(i,j,k) + qmfx%d(i,j,k))
-        end do
-      end do
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
-          qmfy%d(i,j,k) = 0.5_r8 * (qmfy0%d(i,j,k) + qmfy%d(i,j,k))
-        end do
-      end do
-    end do
-    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo =.false.)
-    call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
-    end associate
-
-    call perf_stop('ffsl_calc_tracer_hflx_swift1')
-
-  end subroutine ffsl_calc_tracer_hflx_swift1
-
-  subroutine ffsl_calc_mass_hflx_swift2(batch, m, mfx, mfy, dt)
-
-    type(adv_batch_type     ), intent(inout) :: batch
-    type(latlon_field3d_type), intent(in   ) :: m
-    type(latlon_field3d_type), intent(inout) :: mfx
-    type(latlon_field3d_type), intent(inout) :: mfy
-    real(r8), intent(in), optional :: dt
-
-    integer i, j, k
-    real(r8) dt_opt
-
-    call perf_start('ffsl_calc_mass_hflx_swift2')
+    call perf_start('ffsl_calc_mass_hflx_swift')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -470,11 +323,11 @@ contains
     call fill_halo(mfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
-    call perf_stop('ffsl_calc_mass_hflx_swift2')
+    call perf_stop('ffsl_calc_mass_hflx_swift')
 
-  end subroutine ffsl_calc_mass_hflx_swift2
+  end subroutine ffsl_calc_mass_hflx_swift
 
-  subroutine swift2_connector(batch, m, mfx, mfy, mx, my, cflx, cfly, mfx_frac, dt)
+  subroutine swift_hflx_connector(batch, m, mfx, mfy, mx, my, cflx, cfly, mfx_frac, dt)
 
     type(adv_batch_type), intent(inout) :: batch
     type(latlon_field3d_type), intent(in) :: m
@@ -490,7 +343,7 @@ contains
     integer ks, ke, i, j, k
     real(r8) dt_opt
 
-    call perf_start('swift2_connector')
+    call perf_start('swift_hflx_connector')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -517,11 +370,11 @@ contains
     call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
     end associate
 
-    call perf_stop('swift2_connector')
+    call perf_stop('swift_hflx_connector')
 
-  end subroutine swift2_connector
+  end subroutine swift_hflx_connector
 
-  subroutine ffsl_calc_tracer_hflx_swift2(batch, q, qmfx, qmfy, dt)
+  subroutine ffsl_calc_tracer_hflx_swift(batch, q, qmfx, qmfy, dt)
 
     type(adv_batch_type     ), intent(inout) :: batch
     type(latlon_field3d_type), intent(in   ) :: q
@@ -532,7 +385,7 @@ contains
     integer ks, ke, i, j, k
     real(r8) dt_opt
 
-    call perf_start('ffsl_calc_tracer_hflx_swift2')
+    call perf_start('ffsl_calc_tracer_hflx_swift')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
@@ -559,7 +412,7 @@ contains
                dqmxdt      => batch%qx         , & ! borrowed array
                dqmydt      => batch%qy         )   ! borrowed array
     ! FIXME: This should only run once for each batch.
-    call swift2_connector(batch, m, mfx, mfy, mx, my, cflx_my, cfly_mx, mfx_my_frac, dt_opt)
+    call swift_hflx_connector(batch, m, mfx, mfy, mx, my, cflx_my, cfly_mx, mfx_my_frac, dt_opt)
     ! Run inner advective operators.
     call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
     call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
@@ -602,9 +455,9 @@ contains
     call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
     end associate
 
-    call perf_stop('ffsl_calc_tracer_hflx_swift2')
+    call perf_stop('ffsl_calc_tracer_hflx_swift')
 
-  end subroutine ffsl_calc_tracer_hflx_swift2
+  end subroutine ffsl_calc_tracer_hflx_swift
 
   subroutine ffsl_calc_mass_vflx(batch, m, mfz, dt)
 

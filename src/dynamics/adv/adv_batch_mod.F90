@@ -849,19 +849,19 @@ contains
 
   end subroutine adv_batch_calc_cflz_mass
 
-  subroutine adv_batch_calc_cflz_tracer(this, dt)
+  subroutine adv_batch_calc_cflz_tracer(this, m, mfz, cflz, mfz_frac, dt)
 
     class(adv_batch_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: m
+    type(latlon_field3d_type), intent(in) :: mfz
+    type(latlon_field3d_type), intent(inout) :: cflz
+    type(latlon_field3d_type), intent(inout) :: mfz_frac
     real(r8), intent(in) :: dt
 
     real(r8) dm
     integer i, j, k, l
 
-    associate (mesh     => this%mesh    , &
-               m        => this%m       , & ! in
-               mfz      => this%mfz     , & ! in
-               cflz     => this%cflz    , & ! out
-               mfz_frac => this%mfz_frac)   ! out
+    associate (mesh => this%mesh)
     select case (this%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1
@@ -957,11 +957,16 @@ contains
 
     dt_opt = this%dt; if (present(dt)) dt_opt = dt
 
+    associate (m        => this%m       , & ! in
+               mfz      => this%mfz     , & ! in
+               mfz_frac => this%mfz_frac, & ! out
+               cflz     => this%cflz    )   ! out
     if (this%passive) then
-      call this%calc_cflz_tracer(dt_opt)
+      call this%calc_cflz_tracer(m, mfz, cflz, mfz_frac, dt_opt)
     else
       call this%calc_cflz_mass(dt_opt)
     end if
+    end associate
 
   end subroutine adv_batch_prepare_ffsl_v
 

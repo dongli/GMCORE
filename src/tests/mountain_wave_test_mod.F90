@@ -7,11 +7,13 @@ module mountain_wave_test_mod
   use block_mod
   use formula_mod
   use operators_mod
+  use tracer_mod
 
   implicit none
 
   private
 
+  public mountain_wave_test_init
   public mountain_wave_test_set_ic
 
   real(r8), parameter :: T0   = 288.d0      ! K
@@ -25,6 +27,12 @@ module mountain_wave_test_mod
   real(r8), parameter :: N    = 0.0182      ! s-1
 
 contains
+
+  subroutine mountain_wave_test_init()
+
+    call tracer_add('adv', dt_adv, 'one', 'Constant one tracer')
+
+  end subroutine mountain_wave_test_init
 
   subroutine mountain_wave_test_set_ic(block)
 
@@ -83,6 +91,8 @@ contains
       end do
     end do
     call fill_halo(pt)
+
+    tracers(block%id)%q%d(:,:,:,1) = 1.0_r8
     end associate
 
   end subroutine mountain_wave_test_set_ic
