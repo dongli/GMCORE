@@ -355,7 +355,7 @@ contains
         do l = 1, size(block%adv_batches)
           select case (block%adv_batches(l)%loc)
           case ('cell')
-            call block%adv_batches(l)%accum_wind(u, v, mfx, mfy)
+            call block%adv_batches(l)%accum_wind(u, v, mfx, mfy, mfz)
           end select
         end do
       end if

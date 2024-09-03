@@ -665,7 +665,7 @@ contains
 
   end subroutine adv_batch_set_wind
 
-  subroutine adv_batch_accum_wind(this, u, v, mfx, mfy)
+  subroutine adv_batch_accum_wind(this, u, v, mfx, mfy, mfz, dt)
 
     ! FIXME: We do not need to accumulate u and v.
 
@@ -674,6 +674,8 @@ contains
     type(latlon_field3d_type), intent(in) :: v
     type(latlon_field3d_type), intent(in) :: mfx
     type(latlon_field3d_type), intent(in) :: mfy
+    type(latlon_field3d_type), intent(in), optional :: mfz
+    real(r8), intent(in), optional :: dt
 
     integer i, j, k
 
@@ -683,6 +685,7 @@ contains
       this%v  %d = 0
       this%mfx%d = 0
       this%mfy%d = 0
+      if (present(mfz)) this%mfz%d = 0
       this%step = 1
     end if
     if (this%step == this%nstep) then
@@ -691,49 +694,20 @@ contains
       this%v   %d = (this%v  %d + v  %d) / this%nstep
       this%mfx %d = (this%mfx%d + mfx%d) / this%nstep
       this%mfy %d = (this%mfy%d + mfy%d) / this%nstep
+      if (present(mfz)) this%mfz%d = (this%mfz%d + mfz%d) / this%nstep
     else
       ! Accumulating.
       this%u  %d = this%u  %d + u  %d
       this%v  %d = this%v  %d + v  %d
       this%mfx%d = this%mfx%d + mfx%d
       this%mfy%d = this%mfy%d + mfy%d
+      if (present(mfz)) this%mfz%d = this%mfz%d + mfz%d
     end if
     this%step = this%step + 1
     if (this%step > this%nstep) then
       this%step = 0
-      associate (mesh => this%u%mesh, &
-                 dt   => this%dt    , &
-                 mfx  => this%mfx   , &
-                 mfy  => this%mfy   , &
-                 mfz  => this%mfz   , &
-                 u    => this%u     , &
-                 v    => this%v     , &
-                 dmf  => this%qmfx  , & ! borrowed array
-                 dmgs => this%qmfy  )   ! borrowed array
       if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
-      if (nlev > 1) then
-        ! Diagnose horizontal mass flux divergence.
-        call div_operator(mfx, mfy, dmf)
-        ! Diagnose surface hydrostatic pressure tendency.
-        dmgs%d(:,:,1) = 0
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              dmgs%d(i,j,1) = dmgs%d(i,j,1) - dmf%d(i,j,k)
-            end do
-          end do
-        end do
-        ! Diagnose vertical mass flux.
-        do k = mesh%half_kds + 1, mesh%half_kde - 1
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              mfz%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j,1)) - sum(dmf%d(i,j,1:k-1))
-            end do
-          end do
-        end do
-        if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
-      end if
-      end associate
+      if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
     end if
 
   end subroutine adv_batch_accum_wind
