@@ -194,24 +194,31 @@ contains
 
       integer i, j, k, m, icol
 
-      associate (mesh   => block%mesh         , &
-                 dstate => block%dstate(itime), &
-                 aux    => block%aux          , &
-                 old_q  => tracers%q          , &
-                 old_qm => tracers%qm         )
+      associate (mesh   => block%mesh          , &
+                 dstate => block%dstate(itime) , &
+                 dudt   => block%aux%dudt_phys , & ! out
+                 dvdt   => block%aux%dvdt_phys , & ! out
+                 dptdt  => block%aux%dptdt_phys, & ! out
+                 dqdt   => block%aux%dqdt_phys , & ! out
+                 old_q  => tracers%q           , &
+                 old_qm => tracers%qm          )
       if (ptend%updated_u .and. ptend%updated_v) then
         do k = mesh%full_kds, mesh%full_kde
           icol = 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              aux%dudt_phys%d(i,j,k) = ptend%dudt(icol,k)
-              aux%dvdt_phys%d(i,j,k) = ptend%dvdt(icol,k)
+              dudt%d(i,j,k) = ptend%dudt(icol,k)
+              dvdt%d(i,j,k) = ptend%dvdt(icol,k)
               icol = icol + 1
             end do
           end do
         end do
-        call fill_halo(aux%dudt_phys, west_halo=.false., south_halo=.false., north_halo=.false.)
-        call fill_halo(aux%dvdt_phys, west_halo=.false., east_halo=.false., south_halo=.false.)
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dudt)
+          call filter_run(block%big_filter, dvdt)
+        end if
+        call fill_halo(dudt, west_halo=.false., south_halo=.false., north_halo=.false.)
+        call fill_halo(dvdt, west_halo=.false., east_halo=.false., south_halo=.false.)
       end if
       if (ptend%updated_t) then
         ! Convert temperature tendency to potential temperature tendency.
@@ -219,23 +226,29 @@ contains
           icol = 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              aux%dptdt_phys%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
-                (1 + rv_o_rd * old_q%d(i,j,k,idx_qv)) * ptend%dtdt(icol,k) +        &
+              dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
+                (1 + rv_o_rd * old_q%d(i,j,k,idx_qv)) * ptend%dtdt(icol,k) + &
                 rv_o_rd * pstate%t(icol,k) * ptend%dqdt(icol,k,idx_qv) * (1 + old_qm%d(i,j,k)))
               icol = icol + 1
             end do
           end do
         end do
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dptdt)
+        end if
       else if (ptend%updated_pt) then
         do k = mesh%full_kds, mesh%full_kde
           icol = 1
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              aux%dptdt_phys%d(i,j,k) = dstate%dmg%d(i,j,k) * ptend%dptdt(icol,k)
+              dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) * ptend%dptdt(icol,k)
               icol = icol + 1
             end do
           end do
         end do
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dptdt)
+        end if
       end if
       do m = 1, ntracers
         ! FIXME: Actually, most physics codes directly update q, so we do not need dqdt.
@@ -245,7 +258,7 @@ contains
               icol = 1
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  aux%dqdt_phys%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + old_qm%d(i,j,k))
+                  dqdt%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + old_qm%d(i,j,k))
                   icol = icol + 1
                 end do
               end do
@@ -255,7 +268,7 @@ contains
               icol = 1
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  aux%dqdt_phys%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m)
+                  dqdt%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m)
                   icol = icol + 1
                 end do
               end do

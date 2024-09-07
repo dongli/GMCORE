@@ -136,9 +136,6 @@ module dynamics_types_mod
     type(latlon_field3d_type) mfz_lev     ! Vertical mass flux on half levels
     type(latlon_field3d_type) mfz_lev_lon ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on zonal edge
     type(latlon_field3d_type) mfz_lev_lat ! Vertical coordinate speed multiplied by 𝛛π/𝛛η on merdional edge
-    type(latlon_field3d_type) ptfx        ! Potential temperature on the zonal edge
-    type(latlon_field3d_type) ptfy        ! Potential temperature on the merdional edge
-    type(latlon_field3d_type) ptfz        ! Potential temperature on the vertical edge
     type(latlon_field3d_type) mfx_lon     ! Normal mass flux on zonal edge
     type(latlon_field3d_type) mfy_lat     ! Normal mass flux on merdional edge
     type(latlon_field3d_type) mfx_lat     ! Tangient mass flux on zonal edge
@@ -597,8 +594,8 @@ contains
         long_name       ='Dynamic tendency of mgs'                           , &
         units           ='Pa s-1'                                            , &
         loc             ='cell'                                              , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmgs                                           )
@@ -1072,7 +1069,7 @@ contains
       loc               ='lon'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%dmg_lon                                        )
     call append_field(this%fields                                            , &
@@ -1082,7 +1079,7 @@ contains
       loc               ='lat'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%dmg_lat                                        )
     call append_field(this%fields                                            , &
@@ -1150,36 +1147,6 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         field           =this%mfz_lev_lat                                    )
-      call append_field(this%fields                                          , &
-        name            ='ptfx'                                              , &
-        long_name       ='Zonal flux of pt'                                  , &
-        units           ='K m s-1'                                           , &
-        loc             ='lon'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%ptfx                                           )
-      call append_field(this%fields                                          , &
-        name            ='ptfy'                                              , &
-        long_name       ='Meridional flux of pt'                             , &
-        units           ='K m s-1'                                           , &
-        loc             ='lat'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%ptfy                                           )
-      call append_field(this%fields                                          , &
-        name            ='ptfz'                                              , &
-        long_name       ='Vertical flux of pt'                               , &
-        units           ='K m s-1'                                           , &
-        loc             ='lev'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%ptfz                                           )
     end if
     call append_field(this%fields                                            , &
       name              ='mfx_lon'                                           , &
@@ -1188,7 +1155,7 @@ contains
       loc               ='lon'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfx_lon                                        )
     call append_field(this%fields                                            , &
@@ -1198,7 +1165,7 @@ contains
       loc               ='lat'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfy_lat)
     call append_field(this%fields                                            , &
@@ -1208,7 +1175,7 @@ contains
       loc               ='lat'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfx_lat                                        )
     call append_field(this%fields                                            , &
@@ -1218,7 +1185,7 @@ contains
       loc               ='lon'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfy_lon                                        )
     if (.not. advection) then
@@ -1464,11 +1431,11 @@ contains
         long_name       ='Physics tendency of q'                             , &
         units           ='kg kg-1 s-1'                                       , &
         loc             ='cell'                                              , &
-        mesh            =mesh_ptr                                            , &
+        mesh            =mesh                                                , &
         dim4_name       ='tracers'                                           , &
         dim4_size       =ntracers                                            , &
         var4_names      =tracer_names                                        , &
-        halo            =halo_ptr                                            , &
+        halo            =halo                                                , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dqdt_phys                                      )

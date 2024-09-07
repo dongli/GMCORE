@@ -59,6 +59,7 @@ contains
           call tracer_add('moist', dt_adv, 'qi', 'Cloud ice'  , 'kg kg-1')
           call tracer_add('moist', dt_adv, 'qr', 'Rain water' , 'kg kg-1')
           call tracer_add('moist', dt_adv, 'qs', 'Snow water' , 'kg kg-1')
+          call tracer_add('moist', dt_adv, 'one', 'Uniform one test tracer', 'kg kg-1')
         end if
       end select
     end select
@@ -95,6 +96,7 @@ contains
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
         call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
+        tracers(iblk)%q%d(:,:,:,ntracers) = 1.0_r8
       end do
       call latlon_bkg_calc_pt()
     end if

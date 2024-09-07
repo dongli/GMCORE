@@ -460,13 +460,13 @@ contains
       end if
       end associate
     end do
-                    call global_sum(proc%comm_model, tm   )
-    if (idx_qv > 0) call global_sum(proc%comm_model, tqv  )
-                    call global_sum(proc%comm_model, te_ke)
-                    call global_sum(proc%comm_model, te_ie)
-                    call global_sum(proc%comm_model, te_pe)
-                    call global_sum(proc%comm_model, tpe  )
-    if (baroclinic) call global_sum(proc%comm_model, tpt  )
+                    tm    = global_sum(proc%comm_model, tm   )
+    if (idx_qv > 0) tqv   = global_sum(proc%comm_model, tqv  )
+                    te_ke = global_sum(proc%comm_model, te_ke)
+                    te_ie = global_sum(proc%comm_model, te_ie)
+                    te_pe = global_sum(proc%comm_model, te_pe)
+                    tpe   = global_sum(proc%comm_model, tpe  )
+    if (baroclinic) tpt   = global_sum(proc%comm_model, tpt  )
     te = te_ke + te_ie + te_pe
 
     do iblk = 1, size(blocks)

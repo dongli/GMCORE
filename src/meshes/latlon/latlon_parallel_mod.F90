@@ -17,6 +17,7 @@ module latlon_parallel_mod
   use latlon_halo_mod
   use latlon_parallel_types_mod
   use latlon_parallel_zonal_mod
+  use latlon_parallel_global_mod
   use latlon_field_types_mod
 
   implicit none
@@ -37,23 +38,6 @@ module latlon_parallel_mod
     module procedure fill_halo_3d
     module procedure fill_halo_4d
   end interface fill_halo
-
-  interface global_sum
-    module procedure global_sum_0d_r4
-    module procedure global_sum_0d_r8
-  end interface global_sum
-
-  interface global_max
-    module procedure global_max_0d_r4
-    module procedure global_max_0d_r8
-    module procedure global_max_0d_i4
-  end interface global_max
-
-  interface global_min
-    module procedure global_min_0d_r4
-    module procedure global_min_0d_r8
-    module procedure global_min_0d_i4
-  end interface global_min
 
 contains
 
@@ -419,109 +403,5 @@ contains
     call perf_stop('fill_halo_4d')
 
   end subroutine fill_halo_4d
-
-  subroutine global_sum_0d_r4(comm, value)
-
-    integer, intent(in) :: comm
-    real(4), intent(inout) :: value
-
-    integer ierr
-    real(4) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_REAL, MPI_SUM, comm, ierr)
-    value = res
-
-  end subroutine global_sum_0d_r4
-
-  subroutine global_sum_0d_r8(comm, value)
-
-    integer, intent(in) :: comm
-    real(8), intent(inout) :: value
-
-    integer ierr
-    real(8) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_DOUBLE, MPI_SUM, comm, ierr)
-    value = res
-
-  end subroutine global_sum_0d_r8
-
-  subroutine global_max_0d_r4(comm, value)
-
-    integer, intent(in) :: comm
-    real(4), intent(inout) :: value
-
-    integer ierr
-    real(4) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_REAL, MPI_MAX, comm, ierr)
-    value = res
-
-  end subroutine global_max_0d_r4
-
-  subroutine global_max_0d_r8(comm, value)
-
-    integer, intent(in) :: comm
-    real(8), intent(inout) :: value
-
-    integer ierr
-    real(8) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_DOUBLE, MPI_MAX, comm, ierr)
-    value = res
-
-  end subroutine global_max_0d_r8
-
-  subroutine global_max_0d_i4(comm, value)
-
-    integer, intent(in) :: comm
-    integer(4), intent(inout) :: value
-
-    integer ierr
-    integer(4) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_INT, MPI_MAX, comm, ierr)
-    value = res
-
-  end subroutine global_max_0d_i4
-
-  subroutine global_min_0d_r4(comm, value)
-
-    integer, intent(in) :: comm
-    real(4), intent(inout) :: value
-
-    integer ierr
-    real(4) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_REAL, MPI_MIN, comm, ierr)
-    value = res
-
-  end subroutine global_min_0d_r4
-
-  subroutine global_min_0d_r8(comm, value)
-
-    integer, intent(in) :: comm
-    real(8), intent(inout) :: value
-
-    integer ierr
-    real(8) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_DOUBLE, MPI_MIN, comm, ierr)
-    value = res
-
-  end subroutine global_min_0d_r8
-
-  subroutine global_min_0d_i4(comm, value)
-
-    integer, intent(in) :: comm
-    integer(4), intent(inout) :: value
-
-    integer ierr
-    integer(4) res
-
-    call MPI_ALLREDUCE(value, res, 1, MPI_INT, MPI_MIN, comm, ierr)
-    value = res
-
-  end subroutine global_min_0d_i4
 
 end module latlon_parallel_mod

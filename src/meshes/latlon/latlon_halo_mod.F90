@@ -6,6 +6,15 @@
 ! GMCORE is distributed in the hope that it will be useful, but WITHOUT ANY
 ! WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
+! Description:
+!
+!   This module setups the halo exchange pattern, and defines the MPI data types
+!   for latter halo filling.
+!
+! Author:
+!
+!   - Li Dong <dongli@lasg.iap.ac.cn>
+! ==============================================================================
 
 module latlon_halo_mod
 

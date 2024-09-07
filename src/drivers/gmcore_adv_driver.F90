@@ -130,7 +130,7 @@ contains
           end do
         end do
       end do
-      call global_sum(proc%comm_model, qm)
+      qm = global_sum(proc%comm_model, qm)
       call log_add_diag('dmg', qm)
       do l = 1, ntracers
         qm = 0
@@ -141,7 +141,7 @@ contains
             end do
           end do
         end do
-        call global_sum(proc%comm_model, qm)
+        qm = global_sum(proc%comm_model, qm)
         call log_add_diag('qm' // to_str(l), qm)
       end do
       end associate

@@ -657,11 +657,9 @@ contains
       end do
     end if
 
-    call average_run(dmg, dmg_lon)
-    call fill_halo(dmg_lon)
-    call average_run(dmg, dmg_lat)
-    call fill_halo(dmg_lat)
-    call interp_run(dmg, dmg_vtx)
+    call average_run(dmg, dmg_lon); call fill_halo(dmg_lon)
+    call average_run(dmg, dmg_lat); call fill_halo(dmg_lat)
+    call interp_run (dmg, dmg_vtx)
     end associate
 
     call perf_stop('calc_dmg')
@@ -1093,19 +1091,20 @@ contains
 
     call perf_start('calc_grad_ptf')
 
-    associate (mesh    => block%filter_mesh, &
-               u_lon   => dstate%u_lon     , & ! in
-               v_lat   => dstate%v_lat     , & ! in
-               mfx_lon => block%aux%mfx_lon, & ! in
-               mfy_lat => block%aux%mfy_lat, & ! in
-               mfz_lev => block%aux%mfz_lev, & ! in
-               dmg     => dstate%dmg       , & ! in
-               pt      => dstate%pt        , & ! in
-               ptfx    => block%aux%ptfx   , & ! out
-               ptfy    => block%aux%ptfy   , & ! out
-               ptfz    => block%aux%ptfz   , & ! out
-               dpt     => dtend%dpt        )   ! out
+    associate (mesh    => block%filter_mesh      , &
+               u_lon   => dstate%u_lon           , & ! in
+               v_lat   => dstate%v_lat           , & ! in
+               mfx_lon => block%aux%mfx_lon      , & ! in
+               mfy_lat => block%aux%mfy_lat      , & ! in
+               mfz_lev => block%aux%mfz_lev      , & ! in
+               dmg     => dstate%dmg             , & ! in
+               pt      => dstate%pt              , & ! in
+               ptfx    => block%adv_batch_pt%qmfx, & ! out
+               ptfy    => block%adv_batch_pt%qmfy, & ! out
+               ptfz    => block%adv_batch_pt%qmfz, & ! out
+               dpt     => dtend%dpt              )   ! out
     call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=mfz_lev, m=dmg, dt=dt)
+    call swift_prepare(block%adv_batch_pt, dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
     call div_operator(ptfx, ptfy, dpt)
     call adv_fill_vhalo(pt, no_negvals=.true.)

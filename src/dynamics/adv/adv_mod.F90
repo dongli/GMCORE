@@ -40,9 +40,12 @@ module adv_mod
   public adv_fill_vhalo
   public adv_set_wind
   public adv_accum_wind
+  public adv_calc_mass_hflx
   public adv_calc_tracer_hflx
   public adv_calc_tracer_vflx
   public adv_batch_type
+
+  public swift_prepare
 
   public upwind1
   public upwind3
@@ -273,11 +276,14 @@ contains
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
           associate (batch => block%adv_batches(m))
+          call swift_prepare(batch, dt_adv)
           do l = 1, block%adv_batches(m)%ntracers
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
             associate (m_old => batch%m   , & ! in
                        q_old => q_new     , & ! borrowed array
+                       mxy   => batch%bg%m, & ! work array
+                       qxy   => q_new     , & ! work array
                        qmfx  => batch%qmfx, & ! work array
                        qmfy  => batch%qmfy, & ! work array
                        qmfz  => batch%qmfz)   ! work array
@@ -288,17 +294,17 @@ contains
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  q_new%d(i,j,k) = (m_old%d(i,j,k) * q_old%d(i,j,k) - dt_adv * dqdt%d(i,j,k)) / m_new%d(i,j,k)
+                  qxy%d(i,j,k) = (m_old%d(i,j,k) * q_old%d(i,j,k) - dt_adv * dqdt%d(i,j,k)) / mxy%d(i,j,k)
                 end do
               end do
             end do
             ! Calculate vertical tracer mass flux.
-            call adv_fill_vhalo(q_new, no_negvals=.true.)
-            call adv_calc_tracer_vflx(block%adv_batches(m), q_new, qmfz)
+            call adv_fill_vhalo(qxy, no_negvals=.true.)
+            call adv_calc_tracer_vflx(block%adv_batches(m), qxy, qmfz)
             do k = mesh%full_kds, mesh%full_kde
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  q_new%d(i,j,k) = q_new%d(i,j,k) - dt_adv * (qmfz%d(i,j,k+1) - qmfz%d(i,j,k)) / m_new%d(i,j,k)
+                  q_new%d(i,j,k) = (mxy%d(i,j,k) * qxy%d(i,j,k) - dt_adv * (qmfz%d(i,j,k+1) - qmfz%d(i,j,k))) / m_new%d(i,j,k)
                 end do
               end do
             end do

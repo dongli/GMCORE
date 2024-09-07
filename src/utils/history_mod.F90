@@ -278,6 +278,9 @@ contains
     call add_fields('h1', blocks(1)%dtend    %fields)
     call add_fields('h1', blocks(1)%static   %fields)
     call add_fields('h1', blocks(1)%aux      %fields)
+    call add_fields('h1', blocks(1)%adv_batch_bg%fields)
+    call add_fields('h1', blocks(1)%adv_batch_pt%fields)
+    call add_fields('h1', blocks(1)%adv_batch_nh%fields)
     if (physics_suite /= 'N/A' .or. physics_suite /= '') then
       do i = 1, ntracers
         call fiona_add_var('h1', 'd' // trim(tracer_names(i)) // '_phys', long_name='Physics tendency of ' // tracer_long_names(i), &
@@ -323,6 +326,9 @@ contains
       call write_fields('h1', mesh, dtend %fields)
       call write_fields('h1', mesh, static%fields)
       call write_fields('h1', mesh, aux   %fields)
+      call write_fields('h1', mesh, blocks(iblk)%adv_batch_bg%fields)
+      call write_fields('h1', mesh, blocks(iblk)%adv_batch_pt%fields)
+      call write_fields('h1', mesh, blocks(iblk)%adv_batch_nh%fields)
       end associate
     end do
 

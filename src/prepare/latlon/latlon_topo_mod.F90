@@ -196,8 +196,7 @@ contains
       end do
       call fill_halo(gzs)
     end do
-    wgt = maxval(gzs%d / g)
-    call global_max(proc%comm_model, wgt)
+    wgt = global_max(proc%comm_model, maxval(gzs%d / g))
     if (proc%is_root()) call log_notice('Maximum zs is ' // to_str(wgt, 10) // '.')
     call calc_zs_slope(gzs, dzsdx, dzsdy)
     call gzs_f%clear()
@@ -223,8 +222,7 @@ contains
 
     associate (mesh => gzs%mesh, halo => gzs%halo)
     ! Do Laplacian damping on target grid with terrain slope larger than a threshold.
-    max_slope = max(dzsdx%absmax(), dzsdy%absmax())
-    call global_max(proc%comm_model, max_slope)
+    max_slope = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))
     if (proc%is_root()) call log_notice('Maximum topography slope is ' // to_str(max_slope, 'F10.8') // '.')
     topo_smooth_coef = 1.0e6_r8
     topo_smooth_order = 2
@@ -307,8 +305,7 @@ contains
     call g2%clear()
     call fx%clear()
     call fy%clear()
-    max_slope = max(dzsdx%absmax(), dzsdy%absmax())
-    call global_max(proc%comm_model, max_slope)
+    max_slope = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))
     if (proc%is_root()) call log_notice('Maximum topography slope is ' // to_str(max_slope, 'F10.8') // '.')
     end associate
 

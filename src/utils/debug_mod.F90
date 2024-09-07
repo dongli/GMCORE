@@ -122,11 +122,8 @@ contains
     ks = merge(field%mesh%full_kds, field%mesh%half_kds, field%full_lev)
     ke = merge(field%mesh%full_kde, field%mesh%half_kde, field%full_lev)
 
-    min_val = minval(field%d(is:ie,js:je,ks:ke))
-    max_val = maxval(field%d(is:ie,js:je,ks:ke))
-
-    call global_min(proc%comm_model, min_val)
-    call global_max(proc%comm_model, max_val)
+    min_val = global_min(proc%comm_model, minval(field%d(is:ie,js:je,ks:ke)))
+    max_val = global_max(proc%comm_model, maxval(field%d(is:ie,js:je,ks:ke)))
 
     if (proc%is_root()) write(6, *) trim(field%name), min_val, max_val
 

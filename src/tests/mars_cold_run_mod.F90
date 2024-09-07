@@ -62,8 +62,7 @@ contains
           ps = ps + mgs%d(i,j) * mesh%area_cell(j)
         end do
       end do
-      call global_sum(proc%comm_model, ps)
-      ps = ps / global_mesh%total_area
+      ps = global_sum(proc%comm_model, ps) / global_mesh%total_area
       ! Scale mgs to get area-weighted mean value 701 hPa.
       mgs%d = mgs%d * ps0 / ps
       call fill_halo(mgs)

@@ -45,6 +45,8 @@ module ffsl_mod
   public ffsl_calc_tracer_hflx_swift
   public ffsl_calc_tracer_vflx
 
+  public swift_prepare
+
   interface
     subroutine hflx_mass_interface(batch, u, u_frac, v, mx, my, mfx, mfy, dt)
       import  adv_batch_type, latlon_field3d_type, r8
@@ -83,13 +85,15 @@ module ffsl_mod
       type(latlon_field3d_type), intent(inout) :: mfz
       real(r8), intent(in) :: dt
     end subroutine vflx_mass_interface
-    subroutine vflx_tracer_interface(batch, w, w_frac, m, mfz, dt)
+    subroutine vflx_tracer_interface(batch, m, cflz, mfz, mfz_frac, q, qmfz, dt)
       import adv_batch_type, latlon_field3d_type, r8
       type(adv_batch_type     ), intent(inout) :: batch
-      type(latlon_field3d_type), intent(in   ) :: w
-      type(latlon_field3d_type), intent(in   ) :: w_frac
       type(latlon_field3d_type), intent(in   ) :: m
-      type(latlon_field3d_type), intent(inout) :: mfz
+      type(latlon_field3d_type), intent(in   ) :: cflz
+      type(latlon_field3d_type), intent(in   ) :: mfz
+      type(latlon_field3d_type), intent(in   ) :: mfz_frac
+      type(latlon_field3d_type), intent(in   ) :: q
+      type(latlon_field3d_type), intent(inout) :: qmfz
       real(r8), intent(in) :: dt
     end subroutine vflx_tracer_interface
   end interface
@@ -327,29 +331,35 @@ contains
 
   end subroutine ffsl_calc_mass_hflx_swift
 
-  subroutine swift_hflx_connector(batch, m, mfx, mfy, mx, my, cflx, cfly, mfx_frac, dt)
+  subroutine swift_prepare(batch, dt)
 
     type(adv_batch_type), intent(inout) :: batch
-    type(latlon_field3d_type), intent(in) :: m
-    type(latlon_field3d_type), intent(in) :: mfx
-    type(latlon_field3d_type), intent(in) :: mfy
-    type(latlon_field3d_type), intent(inout) :: mx
-    type(latlon_field3d_type), intent(inout) :: my
-    type(latlon_field3d_type), intent(inout) :: cflx
-    type(latlon_field3d_type), intent(inout) :: cfly
-    type(latlon_field3d_type), intent(inout) :: mfx_frac
     real(r8), intent(in), optional :: dt
 
     integer ks, ke, i, j, k
     real(r8) dt_opt
 
-    call perf_start('swift_hflx_connector')
+    if (batch%scheme_h /= 'ffsl') return
+    
+    call perf_start('swift_prepare')
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    associate (mesh  => batch%mesh, &
-               dmxdt => batch%qx  , & ! borrowed array
-               dmydt => batch%qy  )   ! borrowed array
+    associate (mesh     => batch%mesh       , &
+               m        => batch%m          , & ! in
+               mx       => batch%bg%qx      , & ! borrowed array
+               my       => batch%bg%qy      , & ! borrowed array
+               mxy      => batch%bg%m       , & ! borrowed array
+               mfx      => batch%mfx        , & ! in
+               mfy      => batch%mfy        , & ! in
+               mfz      => batch%mfz        , & ! in
+               cflx     => batch%bg%cflx    , & ! borrowed array
+               cfly     => batch%bg%cfly    , & ! borrowed array
+               cflz     => batch%cflz       , & ! work array
+               mfx_frac => batch%bg%mfx_frac, & ! borrowed array
+               mfz_frac => batch%mfz_frac   , & ! work array
+               dmxdt    => batch%qx         , & ! borrowed array
+               dmydt    => batch%qy         )   ! borrowed array
     ks = merge(mesh%full_kds, mesh%half_kds, batch%loc(1:3) /= 'lev')
     ke = merge(mesh%full_kde, mesh%half_kde, batch%loc(1:3) /= 'lev')
     ! Calculate new mx and my from final mfx and mfy.
@@ -368,11 +378,19 @@ contains
     ! Update cflx, cfly and mfx_frac for tracer advection.
     ! NOTE: Swap mx and my.
     call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
+    do k = ks, ke
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          mxy%d(i,j,k) = m%d(i,j,k) - dt_opt * (dmxdt%d(i,j,k) + dmydt%d(i,j,k))
+        end do
+      end do
+    end do
+    call batch%calc_cflz_tracer(mxy, mfz, cflz, mfz_frac, dt_opt)
     end associate
 
-    call perf_stop('swift_hflx_connector')
+    call perf_stop('swift_prepare')
 
-  end subroutine swift_hflx_connector
+  end subroutine swift_prepare
 
   subroutine ffsl_calc_tracer_hflx_swift(batch, q, qmfx, qmfy, dt)
 
@@ -411,8 +429,6 @@ contains
                qmfy0       => batch%qmfy0      , & ! out
                dqmxdt      => batch%qx         , & ! borrowed array
                dqmydt      => batch%qy         )   ! borrowed array
-    ! FIXME: This should only run once for each batch.
-    call swift_hflx_connector(batch, m, mfx, mfy, mx, my, cflx_my, cfly_mx, mfx_my_frac, dt_opt)
     ! Run inner advective operators.
     call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
     call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
@@ -491,7 +507,12 @@ contains
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    call vflx_tracer(batch, batch%mfz, batch%mfz_frac, q, qmfz, dt_opt)
+    associate (m        => batch%bg%m    , & ! in
+               cflz     => batch%cflz    , & ! in
+               mfz      => batch%mfz     , & ! in
+               mfz_frac => batch%mfz_frac)   ! in
+    call vflx_tracer(batch, m, cflz, mfz, mfz_frac, q, qmfz, dt_opt)
+    end associate
 
     call perf_stop('ffsl_calc_tracer_vflx')
 
@@ -687,9 +708,11 @@ contains
 
   end subroutine vflx_ppm_mass
 
-  subroutine vflx_ppm_tracer(batch, mfz, mfz_frac, q, qmfz, dt)
+  subroutine vflx_ppm_tracer(batch, m, cflz, mfz, mfz_frac, q, qmfz, dt)
 
     type(adv_batch_type     ), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in   ) :: m
+    type(latlon_field3d_type), intent(in   ) :: cflz
     type(latlon_field3d_type), intent(in   ) :: mfz
     type(latlon_field3d_type), intent(in   ) :: mfz_frac
     type(latlon_field3d_type), intent(in   ) :: q
@@ -699,9 +722,7 @@ contains
     integer i, j, k, ku, ci
     real(r8) cf, qr
 
-    associate (mesh => q%mesh    , &
-               m    => batch%m   , & ! in
-               cflz => batch%cflz)   ! in
+    associate (mesh => q%mesh)
     select case (batch%loc)
     case ('cell')
       do k = mesh%half_kds + 1, mesh%half_kde - 1

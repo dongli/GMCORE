@@ -25,6 +25,8 @@ module latlon_field_types_mod
   use const_mod
   use latlon_mesh_mod
   use latlon_halo_mod
+  use latlon_parallel_types_mod
+  use latlon_parallel_global_mod
 
   implicit none
 
@@ -69,6 +71,7 @@ module latlon_field_types_mod
     procedure :: init   => latlon_field2d_init
     procedure :: clear  => latlon_field2d_clear
     procedure :: copy   => latlon_field2d_copy
+    procedure :: sum    => latlon_field2d_sum
     procedure :: absmax => latlon_field2d_absmax
     procedure, private :: latlon_field2d_link_2d
     procedure, private :: latlon_field2d_link_3d
@@ -83,6 +86,8 @@ module latlon_field_types_mod
     procedure :: clear => latlon_field3d_clear
     procedure :: copy  => latlon_field3d_copy
     procedure :: add   => latlon_field3d_add
+    procedure :: min   => latlon_field3d_min
+    procedure :: max   => latlon_field3d_max
     procedure, private :: latlon_field3d_link_3d
     procedure, private :: latlon_field3d_link_4d
     generic :: link => latlon_field3d_link_3d, latlon_field3d_link_4d
@@ -212,6 +217,21 @@ contains
     end do
 
   end subroutine latlon_field2d_copy
+
+  real(r8) function latlon_field2d_sum(this) result(res)
+
+    class(latlon_field2d_type), intent(in) :: this
+
+    integer is, ie, js, je
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+
+    res = global_sum(proc%comm_model, sum(this%d(is:ie,js:je)))
+
+  end function latlon_field2d_sum
 
   pure real(r8) function latlon_field2d_absmax(this) result(res)
 
@@ -486,6 +506,40 @@ contains
     end do
 
   end subroutine latlon_field3d_add
+
+  real(r8) function latlon_field3d_min(this) result(res)
+
+    class(latlon_field3d_type), intent(in) :: this
+
+    integer is, ie, js, je, ks, ke
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+    ks = merge(this%mesh%full_kds, this%mesh%half_kds, this%full_lev)
+    ke = merge(this%mesh%full_kde, this%mesh%half_kde, this%full_lev)
+
+    res = global_min(proc%comm_model, minval(this%d(is:ie,js:je,ks:ke)))
+
+  end function latlon_field3d_min
+
+  real(r8) function latlon_field3d_max(this) result(res)
+
+    class(latlon_field3d_type), intent(in) :: this
+
+    integer is, ie, js, je, ks, ke
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+    ks = merge(this%mesh%full_kds, this%mesh%half_kds, this%full_lev)
+    ke = merge(this%mesh%full_kde, this%mesh%half_kde, this%full_lev)
+
+    res = global_max(proc%comm_model, maxval(this%d(is:ie,js:je,ks:ke)))
+
+  end function latlon_field3d_max
 
   subroutine latlon_field3d_link_3d(this, other)
 

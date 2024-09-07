@@ -194,7 +194,7 @@ contains
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,   &
                                       host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id)
         case (south, north)
-          lon_hw = 0 ! We don't need diagonal halo for arrays on the filter_mesh.
+          lon_hw = 1 ! NOTE: We only exchange 1 grid in diagonal directions on the filter_mesh.
           call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,    &
                                       host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
                                       at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)

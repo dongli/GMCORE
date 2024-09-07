@@ -98,6 +98,7 @@ contains
       mfz               =mfz        , &
       m                 =dmg_lev    , &
       dt                =dt         )
+    call swift_prepare(block%adv_batch_nh, dt)
     call div_operator(mfx_lev_lon, mfy_lev_lat, dmf_lev)
     end associate
 
