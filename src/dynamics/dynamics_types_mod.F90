@@ -284,8 +284,8 @@ contains
         long_name       ='Modified potential temperature'                    , &
         units           ='K'                                                 , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%pt                                             , &
@@ -594,8 +594,8 @@ contains
         long_name       ='Dynamic tendency of mgs'                           , &
         units           ='Pa s-1'                                            , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmgs                                           )
