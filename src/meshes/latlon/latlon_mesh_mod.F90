@@ -182,6 +182,10 @@ contains
       this%half_lat(j) = this%start_lat + (j - 0.5d0) * this%dlat
     end do
 
+    ! Prevent floating point error.
+    if (this%has_south_pole()) this%full_lat(j) = -pi05
+    if (this%has_north_pole()) this%full_lat(j) =  pi05
+
     do i = this%full_ims, this%full_ime
       this%full_lon_deg(i) = this%full_lon(i) * deg
       this%full_cos_lon(i) = cos(this%full_lon(i))
