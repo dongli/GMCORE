@@ -550,8 +550,6 @@ contains
         dtend%update_pt  = .true.
       else
         call calc_grad_mf         (block, star_dstate)
-        call calc_coriolis        (block, star_dstate, dtend, dt)
-        call calc_grad_ke         (block, star_dstate, dtend, dt)
 
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
