@@ -1167,7 +1167,7 @@ contains
       halo              =halo                                                , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
-      field             =this%mfy_lat)
+      field             =this%mfy_lat                                        )
     call append_field(this%fields                                            , &
       name              ='mfx_lat'                                           , &
       long_name         ='Zonal mass flux'                                   , &

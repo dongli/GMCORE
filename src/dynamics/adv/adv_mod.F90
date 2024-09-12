@@ -263,15 +263,17 @@ contains
     integer iblk, i, j, k, l, m, idx
     type(latlon_field3d_type) q_new
 
+    real(r8) qmin, qmax
+
     if (.not. allocated(blocks(1)%adv_batches)) return
 
     call adv_accum_wind(old)
 
     do iblk = 1, size(blocks)
-      associate (block     => blocks(iblk)                  , &
-                 mesh      => blocks(iblk)%filter_mesh      , &
-                 m_new     => blocks(iblk)%dstate(new)%dmg, & ! in
-                 dqdt      => blocks(iblk)%aux%pv           )   ! borrowed array
+      associate (block => blocks(iblk)                , &
+                 mesh  => blocks(iblk)%filter_mesh    , &
+                 m_new => blocks(iblk)%dstate(new)%dmg, & ! in
+                 dqdt  => blocks(iblk)%aux%pv         )   ! borrowed array
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
@@ -308,6 +310,11 @@ contains
                 end do
               end do
             end do
+            if (tracer_names(idx) == 'one') then
+              qmin = q_new%min()
+              qmax = q_new%max()
+              if (proc%is_root()) print *, qmin, qmax
+            end if
             call fill_halo(q_new)
             end associate
           end do

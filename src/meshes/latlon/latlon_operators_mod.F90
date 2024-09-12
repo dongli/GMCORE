@@ -35,6 +35,11 @@ module latlon_operators_mod
   public div_operator
   public curl_operator
 
+  interface div_operator
+    module procedure div_operator_2d
+    module procedure div_operator_3d
+  end interface div_operator
+
 contains
 
   subroutine divx_operator(fx, divx)
@@ -116,7 +121,60 @@ contains
 
   end subroutine divy_operator
 
-  subroutine div_operator(fx, fy, div, with_halo)
+
+  subroutine div_operator_2d(fx, fy, div, with_halo)
+
+    type(latlon_field2d_type), intent(in   ) :: fx
+    type(latlon_field2d_type), intent(in   ) :: fy
+    type(latlon_field2d_type), intent(inout) :: div
+    logical, intent(in), optional :: with_halo
+
+    real(r8) work(div%mesh%full_ids:div%mesh%full_ide)
+    real(r8) pole
+    integer i, j, is, ie, js, je
+
+    associate (mesh => div%mesh)
+    is = mesh%full_ids
+    ie = mesh%full_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
+    js = mesh%full_jds_no_pole
+    je = mesh%full_jde_no_pole; if (present(with_halo)) je = merge(je + 1, je, with_halo)
+    do j = js, je
+      do i = is, ie
+        div%d(i,j) = ((                    &
+          fx%d(i,j) - fx%d(i-1,j)          &
+        ) * mesh%le_lon(j) + (             &
+          fy%d(i,j  ) * mesh%le_lat(j  ) - &
+          fy%d(i,j-1) * mesh%le_lat(j-1)   &
+        )) / mesh%area_cell(j)
+      end do
+    end do
+    if (mesh%has_south_pole()) then
+      j = mesh%full_jds
+      do i = mesh%full_ids, mesh%full_ide
+        work(i) = fy%d(i,j)
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+      do i = mesh%full_ids, mesh%full_ide
+        div%d(i,j) = pole
+      end do
+    end if
+    if (mesh%has_north_pole()) then
+      j = mesh%full_jde
+      do i = mesh%full_ids, mesh%full_ide
+        work(i) = fy%d(i,j-1)
+      end do
+      call zonal_sum(proc%zonal_circle, work, pole)
+      pole = pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+      do i = mesh%full_ids, mesh%full_ide
+        div%d(i,j) = -pole
+      end do
+    end if
+    end associate
+
+  end subroutine div_operator_2d
+
+  subroutine div_operator_3d(fx, fy, div, with_halo)
 
     type(latlon_field3d_type), intent(in   ) :: fx
     type(latlon_field3d_type), intent(in   ) :: fy
@@ -178,7 +236,7 @@ contains
     end if
     end associate
 
-  end subroutine div_operator
+  end subroutine div_operator_3d
 
   subroutine curl_operator(fx, fy, curl, with_halo)
 
