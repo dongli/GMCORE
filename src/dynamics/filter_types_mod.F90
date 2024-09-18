@@ -43,6 +43,16 @@ module filter_types_mod
     final :: filter_final
   end type filter_type
 
+  interface
+    subroutine weight_interface(width, ngrid, w)
+      real(8), intent(in) :: width
+      integer, intent(in) :: ngrid
+      real(8), intent(out) :: w(:)
+    end subroutine weight_interface
+  end interface
+
+  procedure(weight_interface), pointer :: filter_weight => null()
+
 contains
 
   subroutine gaussian_weight(width, ngrid, w)
@@ -73,6 +83,8 @@ contains
     integer j, n
 
     call this%clear()
+
+    filter_weight => gaussian_weight
 
     this%mesh => mesh
     allocate(this%width_lon(mesh%full_jms:mesh%full_jme)); this%width_lon = 0
@@ -109,12 +121,12 @@ contains
     case ('big_filter')
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         if (this%ngrid_lon(j) > 1) then
-          call gaussian_weight(this%width_lon(j), this%ngrid_lon(j), this%wgt_lon(:,j))
+          call filter_weight(this%width_lon(j), this%ngrid_lon(j), this%wgt_lon(:,j))
         end if
       end do
       do j = mesh%half_jds, mesh%half_jde
         if (this%ngrid_lat(j) > 1) then
-          call gaussian_weight(this%width_lat(j), this%ngrid_lat(j), this%wgt_lat(:,j))
+          call filter_weight(this%width_lat(j), this%ngrid_lat(j), this%wgt_lat(:,j))
         end if
       end do
     case ('small_filter')
@@ -124,7 +136,7 @@ contains
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lon(j) = w
           this%ngrid_lon(j) = min(n, this%ngrid_lon(j))
-          call gaussian_weight(this%width_lon(j), this%ngrid_lon(j), this%wgt_lon(:,j))
+          call filter_weight(this%width_lon(j), this%ngrid_lon(j), this%wgt_lon(:,j))
         end if
       end do
       do j = mesh%half_jds, mesh%half_jde
@@ -133,7 +145,7 @@ contains
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lat(j) = w
           this%ngrid_lat(j) = min(n, this%ngrid_lat(j))
-          call gaussian_weight(this%width_lat(j), this%ngrid_lat(j), this%wgt_lat(:,j))
+          call filter_weight(this%width_lat(j), this%ngrid_lat(j), this%wgt_lat(:,j))
         end if
       end do
     case default

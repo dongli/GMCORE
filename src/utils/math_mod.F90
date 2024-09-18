@@ -5,6 +5,7 @@ module math_mod
 
   private
 
+  public factorial
   public norm_vector
   public cross_product
   public det
@@ -31,6 +32,18 @@ module math_mod
   end interface exp_two_values
 
 contains
+
+  recursive integer function factorial(n) result(res)
+
+    integer, intent(in) :: n
+
+    if (n == 0) then
+      res = 1
+    else
+      res = n * factorial(n - 1)
+    end if
+
+  end function factorial
 
   pure function norm_vector(x) result(res)
 

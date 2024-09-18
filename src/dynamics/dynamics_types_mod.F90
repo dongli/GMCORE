@@ -251,7 +251,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =filter_mesh                                         , &
         halo            =filter_halo                                         , &
-        output          =merge('h0', 'h1', advection)                        , &
+        output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )
     else
@@ -262,7 +262,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =merge('h0', 'h1', advection)                        , &
+        output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )
     end if
