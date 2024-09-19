@@ -356,7 +356,7 @@ contains
   subroutine calc_mfz(block, dstate, dtend, dt)
 
     type(block_type), intent(inout) :: block
-    type(dstate_type), intent(inout) :: dstate
+    type(dstate_type), intent(in) :: dstate
     type(dtend_type), intent(in) :: dtend
     real(r8), intent(in) :: dt
 

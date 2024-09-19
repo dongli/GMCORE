@@ -230,7 +230,7 @@ contains
                  mfx   => blocks(iblk)%adv_batch_bg%mfx, & ! work array
                  mfy   => blocks(iblk)%adv_batch_bg%mfy, & ! work array
                  mfz   => blocks(iblk)%adv_batch_bg%mfz, & ! work array
-                 dmdt  => blocks(iblk)%aux%pv          )   ! borrowed array
+                 dmdt  => blocks(iblk)%adv_batch_bg%qx )   ! borrowed array
       call adv_calc_mass_hflx(batch, m_old, mfx, mfy, dt_opt)
       call div_operator(mfx, mfy, dmdt)
       do k = mesh%full_kds, mesh%full_kde
@@ -272,8 +272,7 @@ contains
     do iblk = 1, size(blocks)
       associate (block => blocks(iblk)                , &
                  mesh  => blocks(iblk)%filter_mesh    , &
-                 m_new => blocks(iblk)%dstate(new)%dmg, & ! in
-                 dqdt  => blocks(iblk)%aux%pv         )   ! borrowed array
+                 m_new => blocks(iblk)%dstate(new)%dmg)   ! in
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
@@ -284,6 +283,7 @@ contains
             call q_new%link(tracers(iblk)%q, idx)
             associate (m_old => batch%m   , & ! in
                        q_old => q_new     , & ! borrowed array
+                       dqdt  => batch%qx  , & ! borrowed array
                        mxy   => batch%bg%m, & ! work array
                        qxy   => q_new     , & ! work array
                        qmfx  => batch%qmfx, & ! work array

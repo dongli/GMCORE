@@ -249,8 +249,8 @@ contains
         long_name       ='Dry-air weight'                                    , &
         units           ='Pa'                                                , &
         loc             ='cell'                                              , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )

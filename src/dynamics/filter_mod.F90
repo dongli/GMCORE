@@ -56,7 +56,7 @@ contains
     end select
 
     do j = js, je
-      if (ngrid(j) > 1) then
+      if (ngrid(j) >= 3) then
         n  = ngrid(j)
         hn = (n - 1) / 2
         do i = is, ie
@@ -119,7 +119,7 @@ contains
 
     do k = ks, ke
       do j = js, je
-        if (ngrid(j) > 1) then
+        if (ngrid(j) >= 3) then
           n  = ngrid(j)
           hn = (n - 1) / 2
           do i = is, ie
@@ -168,7 +168,7 @@ contains
 
     do k = ks, ke
       do j = js, je
-        if (ngrid(j) > 1) then
+        if (ngrid(j) >= 3) then
           n  = ngrid(j)
           hn = (n - 1) / 2
           do i = is, ie
