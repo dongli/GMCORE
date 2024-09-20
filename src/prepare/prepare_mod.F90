@@ -96,7 +96,7 @@ contains
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
         call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
-        tracers(iblk)%q%d(:,:,:,ntracers) = 1.0_r8
+        if (ntracers > 0) tracers(iblk)%q%d(:,:,:,ntracers) = 1.0_r8
       end do
       call latlon_bkg_calc_pt()
     end if

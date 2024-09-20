@@ -163,11 +163,6 @@ contains
                dvdt   => dtend%dv  )
     if (baroclinic) then
       if (dtend%update_mgs) then
-        ! ----------------------------------------------------------------------
-        call perf_start('filter_dmgsdt')
-        call filter_run(block%big_filter, dmgsdt)
-        call perf_stop('filter_dmgsdt')
-        ! ----------------------------------------------------------------------
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             new_dstate%mgs%d(i,j) = old_dstate%mgs%d(i,j) + dt * dmgsdt%d(i,j)
@@ -197,11 +192,6 @@ contains
       end if
     else
       if (dtend%update_gz) then
-        ! ----------------------------------------------------------------------
-        call perf_start('filter_dgzdt')
-        call filter_run(block%big_filter, dgzdt)
-        call perf_stop('filter_dgzdt')
-        ! ----------------------------------------------------------------------
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
