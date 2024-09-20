@@ -701,17 +701,17 @@ contains
     end if
     if (this%step == this%nstep) then
       ! This is the end step.
-      this%u   %d = (this%u  %d + u  %d) / this%nstep
-      this%v   %d = (this%v  %d + v  %d) / this%nstep
-      this%mfx %d = (this%mfx%d + mfx%d) / this%nstep
-      this%mfy %d = (this%mfy%d + mfy%d) / this%nstep
+      this%u%d = (this%u%d + u%d) / this%nstep
+      this%v%d = (this%v%d + v%d) / this%nstep
+      call this%mfx%add(mfx, with_halo=.true.); this%mfx%d = this%mfx%d / this%nstep
+      call this%mfy%add(mfy, with_halo=.true.); this%mfy%d = this%mfy%d / this%nstep
       if (present(mfz)) this%mfz%d = (this%mfz%d + mfz%d) / this%nstep
     else
       ! Accumulating.
-      this%u  %d = this%u  %d + u  %d
-      this%v  %d = this%v  %d + v  %d
-      this%mfx%d = this%mfx%d + mfx%d
-      this%mfy%d = this%mfy%d + mfy%d
+      this%u%d = this%u%d + u%d
+      this%v%d = this%v%d + v%d
+      call this%mfx%add(mfx, with_halo=.true.)
+      call this%mfy%add(mfy, with_halo=.true.)
       if (present(mfz)) this%mfz%d = this%mfz%d + mfz%d
     end if
     this%step = this%step + 1

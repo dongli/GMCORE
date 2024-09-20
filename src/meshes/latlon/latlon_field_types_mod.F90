@@ -418,36 +418,70 @@ contains
 
   end subroutine latlon_field3d_clear
 
-  subroutine latlon_field3d_copy(this, other)
+  subroutine latlon_field3d_copy(this, other, with_halo)
 
     class(latlon_field3d_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
 
+    logical with_halo_opt
     integer i, j, k, is, ie, js, je, ks, ke
 
     if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
 
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
     select case (this%loc)
     case ('cell')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lon')
-      is = this%mesh%half_ids; ie = this%mesh%half_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lat')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%half_jds; je = this%mesh%half_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lev')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%half_kms; ke = this%mesh%half_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      end if
     case ('vtx')
-      is = this%mesh%half_ids; ie = this%mesh%half_ide
-      js = this%mesh%half_jds; je = this%mesh%half_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case default
       call log_error('Unhandled branch in latlon_field3d_copy!', __FILE__, __LINE__)
     end select
@@ -462,37 +496,70 @@ contains
 
   end subroutine latlon_field3d_copy
 
-  subroutine latlon_field3d_add(this, other)
+  subroutine latlon_field3d_add(this, other, with_halo)
 
     class(latlon_field3d_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
 
-
+    logical with_halo_opt
     integer i, j, k, is, ie, js, je, ks, ke
 
     if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
 
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
     select case (this%loc)
     case ('cell')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lon')
-      is = this%mesh%half_ids; ie = this%mesh%half_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lat')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%half_jds; je = this%mesh%half_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case ('lev')
-      is = this%mesh%full_ids; ie = this%mesh%full_ide
-      js = this%mesh%full_jds; je = this%mesh%full_jde
-      ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%half_kms; ke = this%mesh%half_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      end if
     case ('vtx')
-      is = this%mesh%half_ids; ie = this%mesh%half_ide
-      js = this%mesh%half_jds; je = this%mesh%half_jde
-      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
     case default
       call log_error('Unhandled branch in latlon_field3d_add!', __FILE__, __LINE__)
     end select
