@@ -65,7 +65,7 @@ module namelist_mod
   character(30)   :: mp_scheme            = 'N/A'
   character(30)   :: pbl_scheme           = 'N/A'
   character(256)  :: cam_namelist_path    = 'N/A'
-  logical         :: filter_ptend         = .false.
+  logical         :: filter_ptend         = .true.
 
   character(256)  :: gmcore_data_dir      = 'N/A'
 

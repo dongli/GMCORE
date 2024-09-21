@@ -274,6 +274,9 @@ contains
               end do
             end do
           end if
+          if (filter_ptend) then
+            call filter_run(block%big_filter, dqdt, m)
+          end if
         end if
       end do
       end associate

@@ -1431,11 +1431,11 @@ contains
         long_name       ='Physics tendency of q'                             , &
         units           ='kg kg-1 s-1'                                       , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
+        mesh            =mesh_ptr                                            , &
+        halo            =halo_ptr                                            , &
         dim4_name       ='tracers'                                           , &
         dim4_size       =ntracers                                            , &
         var4_names      =tracer_names                                        , &
-        halo            =halo                                                , &
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dqdt_phys                                      )
