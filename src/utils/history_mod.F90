@@ -213,6 +213,12 @@ contains
       call fiona_output('h0', 'Ls', curr_time%solar_longitude() * deg)
     end select
 
+    if (.not. advection) then
+      call fiona_output('h0', 'tm' , blocks(1)%dstate(itime)%tm )
+      call fiona_output('h0', 'te' , blocks(1)%dstate(itime)%te )
+      call fiona_output('h0', 'tpe', blocks(1)%dstate(itime)%tpe)
+    end if
+
     if (first_call .or. time_has_alert('h0_new_file')) then
       call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
       call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
