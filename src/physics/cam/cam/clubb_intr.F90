@@ -1091,7 +1091,9 @@ contains
     end if
 
     ! Print configurable CLUBB flags
-    call print_clubb_config_flags_api(iulog, clubb_config_flags)
+    if (masterproc) then
+      call print_clubb_config_flags_api(iulog, clubb_config_flags)
+    end if
 
     ! ----------------------------------------------------------------- !
     ! Set-up HB diffusion.  Only initialized to diagnose PBL depth      !

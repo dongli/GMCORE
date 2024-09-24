@@ -114,7 +114,7 @@ contains
       obliqr=obliqr    , &
       lambm0=lambm0    , &
       mvelpp=mvelpp    , &
-      log_print=.true. )
+      log_print=proc%is_root())
 
     comp_comm(1) = proc%comm_model
     comp_comm_iam(1) = proc%id_model

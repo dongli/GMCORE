@@ -405,10 +405,10 @@ contains
     pio_ioformat = shr_pio_getioformat(atm_id)
 
     if (masterproc) then
-       write(iulog,*)' '
-       write(iulog,*)'Initialize PIO subsystem:'
-       write(iulog,*)'  iotype  = ', pio_iotype
-       write(iulog,*)'  ioformat  = ', pio_ioformat
+      write(iulog, *) ' '
+      write(iulog, *) 'Initialize PIO subsystem:'
+      write(iulog, *) '  iotype   = ', pio_iotype
+      write(iulog, *) '  ioformat = ', pio_ioformat
     end if
 
   end subroutine init_pio_subsystem

@@ -2877,10 +2877,7 @@ contains
 
   end subroutine initialize_clubb_config_flags_type_api
 
-  !================================================================================================
-  ! print_clubb_config_flags: Prints the clubb_config_flags
-  !================================================================================================
-  subroutine print_clubb_config_flags_api( iunit, clubb_config_flags ) ! In
+  subroutine print_clubb_config_flags_api(iunit, clubb_config_flags)
 
     use model_flags, only: &
       clubb_config_flags_type, &          ! Type
@@ -2888,14 +2885,13 @@ contains
 
     implicit none
 
-    ! Input variables
     integer, intent(in) :: &
       iunit ! The file to write to
 
     type(clubb_config_flags_type), intent(in) :: &
       clubb_config_flags ! Derived type holding all configurable CLUBB flags
 
-    call print_clubb_config_flags( iunit, clubb_config_flags ) ! In
+    call print_clubb_config_flags(iunit, clubb_config_flags)
 
   end subroutine print_clubb_config_flags_api
 

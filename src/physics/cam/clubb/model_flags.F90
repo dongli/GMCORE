@@ -659,71 +659,56 @@ module model_flags
     return
   end subroutine initialize_clubb_config_flags_type
 
-!===============================================================================
-  subroutine print_clubb_config_flags( iunit, clubb_config_flags )
-
-! Description:
-!   Prints the clubb_config_flags.
-
-! References:
-!   None
-!-------------------------------------------------------------------------------
+  subroutine print_clubb_config_flags(iunit, clubb_config_flags)
 
     implicit none
 
-    ! Input variables
     integer, intent(in) :: &
       iunit ! The file to write to
 
     type(clubb_config_flags_type), intent(in) :: &
       clubb_config_flags ! Derived type holding all configurable CLUBB flags
 
-!-----------------------------------------------------------------------
-    ! Begin code
+    write(iunit, *) "l_use_precip_frac            = ", clubb_config_flags%l_use_precip_frac
+    write(iunit, *) "l_predict_upwp_vpwp          = ", clubb_config_flags%l_predict_upwp_vpwp
+    write(iunit, *) "l_min_wp2_from_corr_wx       = ", clubb_config_flags%l_min_wp2_from_corr_wx
+    write(iunit, *) "l_min_xp2_from_corr_wx       = ", clubb_config_flags%l_min_xp2_from_corr_wx
+    write(iunit, *) "l_C2_cloud_frac              = ", clubb_config_flags%l_C2_cloud_frac
+    write(iunit, *) "l_diffuse_rtm_and_thlm       = ", clubb_config_flags%l_diffuse_rtm_and_thlm
+    write(iunit, *) "l_stability_correct_Kh_N2_zm = ", clubb_config_flags%l_stability_correct_Kh_N2_zm
+    write(iunit, *) "l_calc_thlp2_rad             = ", clubb_config_flags%l_calc_thlp2_rad
+    write(iunit, *) "l_upwind_wpxp_ta             = ", clubb_config_flags%l_upwind_wpxp_ta
+    write(iunit, *) "l_upwind_xpyp_ta             = ", clubb_config_flags%l_upwind_xpyp_ta
+    write(iunit, *) "l_upwind_xm_ma               = ", clubb_config_flags%l_upwind_xm_ma
+    write(iunit, *) "l_uv_nudge                   = ", clubb_config_flags%l_uv_nudge
+    write(iunit, *) "l_rtm_nudge                  = ", clubb_config_flags%l_rtm_nudge
+    write(iunit, *) "l_tke_aniso                  = ", clubb_config_flags%l_tke_aniso
+    write(iunit, *) "l_vert_avg_closure           = ", clubb_config_flags%l_vert_avg_closure
+    write(iunit, *) "l_trapezoidal_rule_zt        = ", clubb_config_flags%l_trapezoidal_rule_zt
+    write(iunit, *) "l_trapezoidal_rule_zm        = ", clubb_config_flags%l_trapezoidal_rule_zm
+    write(iunit, *) "l_call_pdf_closure_twice     = ", clubb_config_flags%l_call_pdf_closure_twice
+    write(iunit, *) "l_standard_term_ta           = ", clubb_config_flags%l_standard_term_ta
+    write(iunit, *) "l_use_cloud_cover            = ", clubb_config_flags%l_use_cloud_cover
+    write(iunit, *) "l_diagnose_correlations      = ", clubb_config_flags%l_diagnose_correlations
+    write(iunit, *) "l_calc_w_corr                = ", clubb_config_flags%l_calc_w_corr
+    write(iunit, *) "l_const_Nc_in_cloud          = ", clubb_config_flags%l_const_Nc_in_cloud
+    write(iunit, *) "l_fix_w_chi_eta_correlations = ", clubb_config_flags%l_fix_w_chi_eta_correlations
+    write(iunit, *) "l_stability_correct_tau_zm   = ", clubb_config_flags%l_stability_correct_tau_zm
+    write(iunit, *) "l_damp_wp2_using_em          = ", clubb_config_flags%l_damp_wp2_using_em
+    write(iunit, *) "l_do_expldiff_rtm_thlm       = ", clubb_config_flags%l_do_expldiff_rtm_thlm
+    write(iunit, *) "l_Lscale_plume_centered      = ", clubb_config_flags%l_Lscale_plume_centered
+    write(iunit, *) "l_diag_Lscale_from_tau       = ", clubb_config_flags%l_diag_Lscale_from_tau
+    write(iunit, *) "l_use_ice_latent             = ", clubb_config_flags%l_use_ice_latent
+    write(iunit, *) "l_use_C7_Richardson          = ", clubb_config_flags%l_use_C7_Richardson
+    write(iunit, *) "l_use_C11_Richardson         = ", clubb_config_flags%l_use_C11_Richardson
+    write(iunit, *) "l_brunt_vaisala_freq_moist   = ", clubb_config_flags%l_brunt_vaisala_freq_moist
+    write(iunit, *) "l_use_thvm_in_bv_freq        = ", clubb_config_flags%l_use_thvm_in_bv_freq
+    write(iunit, *) "l_rcm_supersat_adj           = ", clubb_config_flags%l_rcm_supersat_adj
+    write(iunit, *) "l_single_C2_Skw              = ", clubb_config_flags%l_single_C2_Skw
+    write(iunit, *) "l_damp_wp3_Skw_squared       = ", clubb_config_flags%l_damp_wp3_Skw_squared
+    write(iunit, *) "l_prescribed_avg_deltaz      = ", clubb_config_flags%l_prescribed_avg_deltaz
+    write(iunit, *) "l_update_pressure            = ", clubb_config_flags%l_update_pressure
 
-    write(iunit,*) "l_use_precip_frac = ", clubb_config_flags%l_use_precip_frac
-    write(iunit,*) "l_predict_upwp_vpwp = ", clubb_config_flags%l_predict_upwp_vpwp
-    write(iunit,*) "l_min_wp2_from_corr_wx = ", clubb_config_flags%l_min_wp2_from_corr_wx
-    write(iunit,*) "l_min_xp2_from_corr_wx = ", clubb_config_flags%l_min_xp2_from_corr_wx
-    write(iunit,*) "l_C2_cloud_frac = ", clubb_config_flags%l_C2_cloud_frac
-    write(iunit,*) "l_diffuse_rtm_and_thlm = ", clubb_config_flags%l_diffuse_rtm_and_thlm
-    write(iunit,*) "l_stability_correct_Kh_N2_zm = ", &
-                   clubb_config_flags%l_stability_correct_Kh_N2_zm
-    write(iunit,*) "l_calc_thlp2_rad = ", clubb_config_flags%l_calc_thlp2_rad
-    write(iunit,*) "l_upwind_wpxp_ta = ", clubb_config_flags%l_upwind_wpxp_ta
-    write(iunit,*) "l_upwind_xpyp_ta = ", clubb_config_flags%l_upwind_xpyp_ta
-    write(iunit,*) "l_upwind_xm_ma = ", clubb_config_flags%l_upwind_xm_ma
-    write(iunit,*) "l_uv_nudge = ", clubb_config_flags%l_uv_nudge
-    write(iunit,*) "l_rtm_nudge = ", clubb_config_flags%l_rtm_nudge
-    write(iunit,*) "l_tke_aniso = ", clubb_config_flags%l_tke_aniso
-    write(iunit,*) "l_vert_avg_closure = ", clubb_config_flags%l_vert_avg_closure
-    write(iunit,*) "l_trapezoidal_rule_zt = ", clubb_config_flags%l_trapezoidal_rule_zt
-    write(iunit,*) "l_trapezoidal_rule_zm = ", clubb_config_flags%l_trapezoidal_rule_zm
-    write(iunit,*) "l_call_pdf_closure_twice = ", clubb_config_flags%l_call_pdf_closure_twice
-    write(iunit,*) "l_standard_term_ta = ", clubb_config_flags%l_standard_term_ta
-    write(iunit,*) "l_use_cloud_cover = ", clubb_config_flags%l_use_cloud_cover
-    write(iunit,*) "l_diagnose_correlations = ", clubb_config_flags%l_diagnose_correlations
-    write(iunit,*) "l_calc_w_corr = ", clubb_config_flags%l_calc_w_corr
-    write(iunit,*) "l_const_Nc_in_cloud = ", clubb_config_flags%l_const_Nc_in_cloud
-    write(iunit,*) "l_fix_w_chi_eta_correlations = ", &
-                   clubb_config_flags%l_fix_w_chi_eta_correlations
-    write(iunit,*) "l_stability_correct_tau_zm = ", clubb_config_flags%l_stability_correct_tau_zm
-    write(iunit,*) "l_damp_wp2_using_em = ", clubb_config_flags%l_damp_wp2_using_em
-    write(iunit,*) "l_do_expldiff_rtm_thlm = ", clubb_config_flags%l_do_expldiff_rtm_thlm
-    write(iunit,*) "l_Lscale_plume_centered = ", clubb_config_flags%l_Lscale_plume_centered
-    write(iunit,*) "l_diag_Lscale_from_tau = ", clubb_config_flags%l_diag_Lscale_from_tau
-    write(iunit,*) "l_use_ice_latent = ", clubb_config_flags%l_use_ice_latent
-    write(iunit,*) "l_use_C7_Richardson = ", clubb_config_flags%l_use_C7_Richardson
-    write(iunit,*) "l_use_C11_Richardson = ", clubb_config_flags%l_use_C11_Richardson
-    write(iunit,*) "l_brunt_vaisala_freq_moist = ", clubb_config_flags%l_brunt_vaisala_freq_moist
-    write(iunit,*) "l_use_thvm_in_bv_freq = ", clubb_config_flags%l_use_thvm_in_bv_freq
-    write(iunit,*) "l_rcm_supersat_adj = ", clubb_config_flags%l_rcm_supersat_adj
-    write(iunit,*) "l_single_C2_Skw = ", clubb_config_flags%l_single_C2_Skw
-    write(iunit,*) "l_damp_wp3_Skw_squared = ", clubb_config_flags%l_damp_wp3_Skw_squared
-    write(iunit,*) "l_prescribed_avg_deltaz = ", clubb_config_flags%l_prescribed_avg_deltaz
-    write(iunit,*) "l_update_pressure = ", clubb_config_flags%l_update_pressure
-
-    return
   end subroutine print_clubb_config_flags
 
 end module model_flags

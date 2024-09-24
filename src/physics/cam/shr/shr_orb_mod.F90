@@ -37,17 +37,12 @@ MODULE shr_orb_mod
   ! this is be set by calling set_constant_zenith_angle_deg()
   real   (SHR_KIND_R8) :: constant_zenith_angle_deg = -1  ! constant, uniform zneith angle [degrees]
 
-  !===============================================================================
 CONTAINS
-  !===============================================================================
 
   SUBROUTINE set_constant_zenith_angle_deg(angle_deg)
     real(SHR_KIND_R8),intent(in) :: angle_deg
     constant_zenith_angle_deg = angle_deg
   END SUBROUTINE set_constant_zenith_angle_deg
-
-  !=======================================================================
-  !=======================================================================
 
   real(SHR_KIND_R8) pure FUNCTION shr_orb_cosz(jday,lat,lon,declin,dt_avg,uniform_angle)
 
@@ -232,10 +227,7 @@ CONTAINS
 
   end function shr_orb_avg_cosz
 
-  !===============================================================================
-
-  SUBROUTINE shr_orb_params( iyear_AD , eccen  , obliq , mvelp     ,     &
-       &               obliqr   , lambm0 , mvelpp, log_print )
+  SUBROUTINE shr_orb_params(iyear_AD, eccen, obliq, mvelp, obliqr, lambm0, mvelpp, log_print)
 
     !-------------------------------------------------------------------------------
     !
