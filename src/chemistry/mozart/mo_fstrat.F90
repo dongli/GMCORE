@@ -435,7 +435,6 @@ contains
     !--------------------------------------------------------------------
     !	... local variables
     !--------------------------------------------------------------------
-    integer, parameter :: zlower = pver
     real(r8), parameter    :: synoz_thres = 100.e-9_r8      ! synoz threshold
     real(r8), parameter    :: o3rad_relax = 0.5_r8*86400._r8 ! 1/2 day relaxation constant
     real(r8), parameter    :: synoz_relax = 2._r8*86400._r8 ! 2 day relaxation constant
@@ -445,14 +444,14 @@ contains
     integer  ::  astat
     integer  ::  kmax(ncol)
     integer  ::  levrelax
-    integer  ::  kl(ncol,zlower)
-    integer  ::  ku(ncol,zlower)
+    integer  ::  kl(ncol,pver)
+    integer  ::  ku(ncol,pver)
     real(r8) ::  vmrrelax
     real(r8) ::  fac_relax
     real(r8) ::  pinterp
     real(r8) ::  nox_ubc, xno, xno2, rno
     real(r8) ::  dels
-    real(r8) ::  delp(ncol,zlower)
+    real(r8) ::  delp(ncol,pver)
     real(r8) ::  pint_vals(2)
     real(r8), allocatable :: table_ox(:)
     logical  ::  found_trop
@@ -485,8 +484,8 @@ contains
     !--------------------------------------------------------
     !	... setup the pressure interpolation
     !--------------------------------------------------------
-    do k = 1,zlower
-       do i = 1,ncol
+    do k = 1, pver
+       do i = 1, ncol
           if( pmid(i,k) <= ub_plevs(1) ) then
              kl(i,k) = 1
              ku(i,k) = 1
@@ -682,12 +681,12 @@ contains
           end if
        end do level_loop2
 
-       has_synoz : if( synoz_ndx > 0 ) then
-          if ( synoz_ndx > 0 .and. table_synoz_ndx > 0 ) then
+       has_synoz : if (synoz_ndx > 0) then
+          if (synoz_ndx > 0 .and. table_synoz_ndx > 0) then
              fac_relax = 1._r8 - exp( -real(dtime) / synoz_strat_relax )
-             do k = 1,pver
+             do k = 1, pver
                 m = table_synoz_ndx
-                if ( synoz_region(i,k,lchnk) > 0._r8 ) then
+                if (synoz_region(i,k,lchnk) > 0) then
                    pint_vals(1) = mr_ub(i,m,last,kl(i,k),lchnk) &
                         + delp(i,k) &
                         * (mr_ub(i,m,last,ku(i,k),lchnk) &
@@ -729,9 +728,9 @@ contains
           ! 	... O3RAD is relaxed to climatology in the stratosphere
           !           (done above) and OX in the troposphere
           !--------------------------------------------------------
-          if( o3rad_ndx > 0 .and. ox_ndx > 0 ) then
-             fac_relax = 1._r8 - exp( -real(dtime) / o3rad_relax )
-             do k = levrelax+1,pver
+          if (o3rad_ndx > 0 .and. ox_ndx > 0) then
+             fac_relax = 1 - exp(-real(dtime) / o3rad_relax)
+             do k = levrelax + 1, pver
                 vmr(i,k,o3rad_ndx) = vmr(i,k,o3rad_ndx) &
                      + (vmr(i,k,ox_ndx) - vmr(i,k,o3rad_ndx)) * fac_relax
              end do
@@ -800,18 +799,17 @@ contains
     !--------------------------------------------------------------------
     !	... local variables
     !--------------------------------------------------------------------
-    integer, parameter :: zlower = pver
 
     integer  ::  m, last, next, i, k, k1
     integer  ::  kmax(ncol)
     integer  ::  levrelax
-    integer  ::  kl(ncol,zlower)
-    integer  ::  ku(ncol,zlower)
+    integer  ::  kl(ncol,pver)
+    integer  ::  ku(ncol,pver)
     real(r8) ::  vmrrelax
     real(r8) ::  fac_relax
     real(r8) ::  pinterp
     real(r8) ::  dels
-    real(r8) ::  delp(ncol,zlower)
+    real(r8) ::  delp(ncol,pver)
     real(r8) ::  pint_vals(2)
     logical  ::  found_trop
 
@@ -842,8 +840,8 @@ contains
        !--------------------------------------------------------
        !	... setup the pressure interpolation
        !--------------------------------------------------------
-       do k = 1,zlower
-          do i = 1,ncol
+       do k = 1, pver
+          do i = 1, ncol
              if( pmid(i,k) <= ub_plevs(1) ) then
                 kl(i,k) = 1
                 ku(i,k) = 1

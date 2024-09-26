@@ -3,7 +3,7 @@ module dyn_grid
   use const_mod           , only: rad, radius
   use shr_kind_mod        , only: r8 => shr_kind_r8
   use pmgrid              , only: plon, plat, plev, plevp
-  use ref_pres            , only: ref_pres_init
+  use ref_pres            , only: ref_pres_init, ref_pres_final
   use cam_grid_support    , only: horiz_coord_t, iMap, horiz_coord_create, &
                                   cam_grid_register, cam_grid_attribute_register
   use cam_history_support , only: add_vert_coord
@@ -48,10 +48,6 @@ contains
     integer(iMap), pointer :: grid_map(:,:)
     integer is, ie, js, je, i, j, k, ind
     real(r8), allocatable :: p(:), p_lev(:)
-
-    if (global_mesh%full_nlev /= PLEV) then
-      call log_error('Macro PLEV is not equal to ' // to_str(global_mesh%full_nlev) // '!', pid=proc%id_model)
-    end if
 
     plon  = global_mesh%full_nlon
     plat  = global_mesh%full_nlat
@@ -98,6 +94,8 @@ contains
   end subroutine dyn_grid_init
 
   subroutine dyn_grid_final()
+
+    call ref_pres_final()
 
   end subroutine dyn_grid_final
 

@@ -32,46 +32,50 @@ module camsrfexch
   !---------------------------------------------------------------------------
 
   type cam_out_t
-    integer  :: lchnk                        ! chunk index
-    integer  :: ncol                         ! number of columns in chunk
-    real(r8) :: tbot    (pcols)              ! bot level temperature
-    real(r8) :: zbot    (pcols)              ! bot level height above surface
-    real(r8) :: topo    (pcols)              ! surface topographic height (m)
-    real(r8) :: ubot    (pcols)              ! bot level u wind
-    real(r8) :: vbot    (pcols)              ! bot level v wind
-    real(r8) :: qbot    (pcols,PCNST)        ! bot level specific humidity
-    real(r8) :: pbot    (pcols)              ! bot level pressure
-    real(r8) :: rho     (pcols)              ! bot level density
-    real(r8) :: netsw   (pcols)              !
-    real(r8) :: flwds   (pcols)              !
-    real(r8) :: precsc  (pcols)              !
-    real(r8) :: precsl  (pcols)              !
-    real(r8) :: precc   (pcols)              !
-    real(r8) :: precl   (pcols)              !
-    real(r8) :: soll    (pcols)              !
-    real(r8) :: sols    (pcols)              !
-    real(r8) :: solld   (pcols)              !
-    real(r8) :: solsd   (pcols)              !
-    real(r8) :: thbot   (pcols)              !
-    real(r8) :: co2prog (pcols)              ! prognostic co2
-    real(r8) :: co2diag (pcols)              ! diagnostic co2
-    real(r8) :: psl     (pcols)
-    real(r8) :: bcphiwet(pcols)              ! wet deposition of hydrophilic black carbon
-    real(r8) :: bcphidry(pcols)              ! dry deposition of hydrophilic black carbon
-    real(r8) :: bcphodry(pcols)              ! dry deposition of hydrophobic black carbon
-    real(r8) :: ocphiwet(pcols)              ! wet deposition of hydrophilic organic carbon
-    real(r8) :: ocphidry(pcols)              ! dry deposition of hydrophilic organic carbon
-    real(r8) :: ocphodry(pcols)              ! dry deposition of hydrophobic organic carbon
-    real(r8) :: dstwet1 (pcols)              ! wet deposition of dust (bin1)
-    real(r8) :: dstdry1 (pcols)              ! dry deposition of dust (bin1)
-    real(r8) :: dstwet2 (pcols)              ! wet deposition of dust (bin2)
-    real(r8) :: dstdry2 (pcols)              ! dry deposition of dust (bin2)
-    real(r8) :: dstwet3 (pcols)              ! wet deposition of dust (bin3)
-    real(r8) :: dstdry3 (pcols)              ! dry deposition of dust (bin3)
-    real(r8) :: dstwet4 (pcols)              ! wet deposition of dust (bin4)
-    real(r8) :: dstdry4 (pcols)              ! dry deposition of dust (bin4)
-    real(r8), pointer :: nhx_nitrogen_flx(:) ! nitrogen deposition fluxes (kgN/m2/s)
-    real(r8), pointer :: noy_nitrogen_flx(:) ! nitrogen deposition fluxes (kgN/m2/s)
+    integer lchnk
+    integer ncol
+    real(r8), allocatable, dimension(:  ) :: tbot                       ! bot level temperature
+    real(r8), allocatable, dimension(:  ) :: zbot                       ! bot level height above surface
+    real(r8), allocatable, dimension(:  ) :: topo                       ! surface topographic height (m)
+    real(r8), allocatable, dimension(:  ) :: ubot                       ! bot level u wind
+    real(r8), allocatable, dimension(:  ) :: vbot                       ! bot level v wind
+    real(r8), allocatable, dimension(:,:) :: qbot                       ! bot level specific humidity
+    real(r8), allocatable, dimension(:  ) :: pbot                       ! bot level pressure
+    real(r8), allocatable, dimension(:  ) :: rho                        ! bot level density
+    real(r8), allocatable, dimension(:  ) :: netsw                      !
+    real(r8), allocatable, dimension(:  ) :: flwds                      !
+    real(r8), allocatable, dimension(:  ) :: precsc                     !
+    real(r8), allocatable, dimension(:  ) :: precsl                     !
+    real(r8), allocatable, dimension(:  ) :: precc                      !
+    real(r8), allocatable, dimension(:  ) :: precl                      !
+    real(r8), allocatable, dimension(:  ) :: soll                       !
+    real(r8), allocatable, dimension(:  ) :: sols                       !
+    real(r8), allocatable, dimension(:  ) :: solld                      !
+    real(r8), allocatable, dimension(:  ) :: solsd                      !
+    real(r8), allocatable, dimension(:  ) :: thbot                      !
+    real(r8), allocatable, dimension(:  ) :: co2prog                    ! prognostic co2
+    real(r8), allocatable, dimension(:  ) :: co2diag                    ! diagnostic co2
+    real(r8), allocatable, dimension(:  ) :: psl     
+    real(r8), allocatable, dimension(:  ) :: bcphiwet                   ! wet deposition of hydrophilic black carbon
+    real(r8), allocatable, dimension(:  ) :: bcphidry                   ! dry deposition of hydrophilic black carbon
+    real(r8), allocatable, dimension(:  ) :: bcphodry                   ! dry deposition of hydrophobic black carbon
+    real(r8), allocatable, dimension(:  ) :: ocphiwet                   ! wet deposition of hydrophilic organic carbon
+    real(r8), allocatable, dimension(:  ) :: ocphidry                   ! dry deposition of hydrophilic organic carbon
+    real(r8), allocatable, dimension(:  ) :: ocphodry                   ! dry deposition of hydrophobic organic carbon
+    real(r8), allocatable, dimension(:  ) :: dstwet1                    ! wet deposition of dust (bin1)
+    real(r8), allocatable, dimension(:  ) :: dstdry1                    ! dry deposition of dust (bin1)
+    real(r8), allocatable, dimension(:  ) :: dstwet2                    ! wet deposition of dust (bin2)
+    real(r8), allocatable, dimension(:  ) :: dstdry2                    ! dry deposition of dust (bin2)
+    real(r8), allocatable, dimension(:  ) :: dstwet3                    ! wet deposition of dust (bin3)
+    real(r8), allocatable, dimension(:  ) :: dstdry3                    ! dry deposition of dust (bin3)
+    real(r8), allocatable, dimension(:  ) :: dstwet4                    ! wet deposition of dust (bin4)
+    real(r8), allocatable, dimension(:  ) :: dstdry4                    ! dry deposition of dust (bin4)
+    real(r8), pointer    , dimension(:  ) :: nhx_nitrogen_flx => null() ! nitrogen deposition fluxes (kgN/m2/s)
+    real(r8), pointer    , dimension(:  ) :: noy_nitrogen_flx => null() ! nitrogen deposition fluxes (kgN/m2/s)
+  contains
+    procedure :: init  => cam_out_init
+    procedure :: clear => cam_out_clear
+    final cam_out_final
   end type cam_out_t
 
   !---------------------------------------------------------------------------
@@ -79,49 +83,241 @@ module camsrfexch
   !---------------------------------------------------------------------------
 
   type cam_in_t
-    integer  :: lchnk                             ! chunk index
-    integer  :: ncol                              ! number of active columns
-    real(r8) :: asdir           (pcols)           ! albedo: shortwave, direct
-    real(r8) :: asdif           (pcols)           ! albedo: shortwave, diffuse
-    real(r8) :: aldir           (pcols)           ! albedo: longwave, direct
-    real(r8) :: aldif           (pcols)           ! albedo: longwave, diffuse
-    real(r8) :: lwup            (pcols)           ! longwave up radiative flux
-    real(r8) :: lhf             (pcols)           ! latent heat flux
-    real(r8) :: shf             (pcols)           ! sensible heat flux
-    real(r8) :: wsx             (pcols)           ! surface u-stress (N)
-    real(r8) :: wsy             (pcols)           ! surface v-stress (N)
-    real(r8) :: tref            (pcols)           ! ref height surface air temp
-    real(r8) :: qref            (pcols)           ! ref height specific humidity
-    real(r8) :: u10             (pcols)           ! 10m wind speed
-    real(r8) :: ugust_out       (pcols)           ! gustiness added
-    real(r8) :: u10_with_gust   (pcols)           ! 10m wind speed with gusts added
-    real(r8) :: ts              (pcols)           ! merged surface temp
-    real(r8) :: sst             (pcols)           ! sea surface temp
-    real(r8) :: snowhland       (pcols)           ! snow depth (liquid water equivalent) over land
-    real(r8) :: snowhice        (pcols)           ! snow depth over ice
-    real(r8) :: fco2_lnd        (pcols)           ! co2 flux from lnd
-    real(r8) :: fco2_ocn        (pcols)           ! co2 flux from ocn
-    real(r8) :: fdms            (pcols)           ! dms flux
-    real(r8) :: landfrac        (pcols)           ! land area fraction
-    real(r8) :: icefrac         (pcols)           ! sea-ice areal fraction
-    real(r8) :: ocnfrac         (pcols)           ! ocean areal fraction
-    real(r8) :: cflx            (pcols,PCNST)     ! constituent flux (emissions)
-    real(r8) :: ustar           (pcols)           ! atm/ocn saved version of ustar
-    real(r8) :: re              (pcols)           ! atm/ocn saved version of re
-    real(r8) :: ssq             (pcols)           ! atm/ocn saved version of ssq
-    real(r8), pointer, dimension(:)   :: ram1     ! aerodynamical resistance (s/m) (pcols)
-    real(r8), pointer, dimension(:)   :: fv       ! friction velocity (m/s) (pcols)
-    real(r8), pointer, dimension(:)   :: soilw    ! volumetric soil water (m3/m3)
-    real(r8), pointer, dimension(:,:) :: depvel   ! deposition velocities
-    real(r8), pointer, dimension(:,:) :: dstflx   ! dust fluxes
-    real(r8), pointer, dimension(:,:) :: meganflx ! MEGAN fluxes
-    real(r8), pointer, dimension(:,:) :: fireflx  ! wild fire emissions
-    real(r8), pointer, dimension(:)   :: fireztop ! wild fire emissions vert distribution top
+    integer lchnk
+    integer ncol
+    real(r8), allocatable, dimension(:  ) :: asdir              ! albedo: shortwave, direct
+    real(r8), allocatable, dimension(:  ) :: asdif              ! albedo: shortwave, diffuse
+    real(r8), allocatable, dimension(:  ) :: aldir              ! albedo: longwave, direct
+    real(r8), allocatable, dimension(:  ) :: aldif              ! albedo: longwave, diffuse
+    real(r8), allocatable, dimension(:  ) :: lwup               ! longwave up radiative flux
+    real(r8), allocatable, dimension(:  ) :: lhf                ! latent heat flux
+    real(r8), allocatable, dimension(:  ) :: shf                ! sensible heat flux
+    real(r8), allocatable, dimension(:  ) :: wsx                ! surface u-stress (N)
+    real(r8), allocatable, dimension(:  ) :: wsy                ! surface v-stress (N)
+    real(r8), allocatable, dimension(:  ) :: tref               ! ref height surface air temp
+    real(r8), allocatable, dimension(:  ) :: qref               ! ref height specific humidity
+    real(r8), allocatable, dimension(:  ) :: u10                ! 10m wind speed
+    real(r8), allocatable, dimension(:  ) :: ugust_out          ! gustiness added
+    real(r8), allocatable, dimension(:  ) :: u10_with_gust      ! 10m wind speed with gusts added
+    real(r8), allocatable, dimension(:  ) :: ts                 ! merged surface temp
+    real(r8), allocatable, dimension(:  ) :: sst                ! sea surface temp
+    real(r8), allocatable, dimension(:  ) :: snowhland          ! snow depth (liquid water equivalent) over land
+    real(r8), allocatable, dimension(:  ) :: snowhice           ! snow depth over ice
+    real(r8), allocatable, dimension(:  ) :: fco2_lnd           ! co2 flux from lnd
+    real(r8), allocatable, dimension(:  ) :: fco2_ocn           ! co2 flux from ocn
+    real(r8), allocatable, dimension(:  ) :: fdms               ! dms flux
+    real(r8), allocatable, dimension(:  ) :: landfrac           ! land area fraction
+    real(r8), allocatable, dimension(:  ) :: icefrac            ! sea-ice areal fraction
+    real(r8), allocatable, dimension(:  ) :: ocnfrac            ! ocean areal fraction
+    real(r8), allocatable, dimension(:,:) :: cflx               ! constituent flux (emissions)
+    real(r8), allocatable, dimension(:  ) :: ustar              ! atm/ocn saved version of ustar
+    real(r8), allocatable, dimension(:  ) :: re                 ! atm/ocn saved version of re
+    real(r8), allocatable, dimension(:  ) :: ssq                ! atm/ocn saved version of ssq
+    real(r8), pointer    , dimension(:  ) :: ram1     => null() ! aerodynamical resistance (s/m) (pcols)
+    real(r8), pointer    , dimension(:  ) :: fv       => null() ! friction velocity (m/s) (pcols)
+    real(r8), pointer    , dimension(:  ) :: soilw    => null() ! volumetric soil water (m3/m3)
+    real(r8), pointer    , dimension(:,:) :: depvel   => null() ! deposition velocities
+    real(r8), pointer    , dimension(:,:) :: dstflx   => null() ! dust fluxes
+    real(r8), pointer    , dimension(:,:) :: meganflx => null() ! MEGAN fluxes
+    real(r8), pointer    , dimension(:,:) :: fireflx  => null() ! wild fire emissions
+    real(r8), pointer    , dimension(:  ) :: fireztop => null() ! wild fire emissions vert distribution top
+  contains
+    procedure :: init  => cam_in_init
+    procedure :: clear => cam_in_clear
+    final cam_in_final
   end type cam_in_t
 
 contains
 
-  subroutine hub2atm_alloc( cam_in )
+  subroutine cam_out_init(this)
+
+    class(cam_out_t), intent(inout) :: this
+
+    call this%clear()
+
+    allocate(this%tbot    (pcols      ))
+    allocate(this%zbot    (pcols      ))
+    allocate(this%topo    (pcols      ))
+    allocate(this%ubot    (pcols      ))
+    allocate(this%vbot    (pcols      ))
+    allocate(this%qbot    (pcols,PCNST))
+    allocate(this%pbot    (pcols      ))
+    allocate(this%rho     (pcols      ))
+    allocate(this%netsw   (pcols      ))
+    allocate(this%flwds   (pcols      ))
+    allocate(this%precsc  (pcols      ))
+    allocate(this%precsl  (pcols      ))
+    allocate(this%precc   (pcols      ))
+    allocate(this%precl   (pcols      ))
+    allocate(this%soll    (pcols      ))
+    allocate(this%sols    (pcols      ))
+    allocate(this%solld   (pcols      ))
+    allocate(this%solsd   (pcols      ))
+    allocate(this%thbot   (pcols      ))
+    allocate(this%co2prog (pcols      ))
+    allocate(this%co2diag (pcols      ))
+    allocate(this%psl     (pcols      ))
+    allocate(this%bcphiwet(pcols      ))
+    allocate(this%bcphidry(pcols      ))
+    allocate(this%bcphodry(pcols      ))
+    allocate(this%ocphiwet(pcols      ))
+    allocate(this%ocphidry(pcols      ))
+    allocate(this%ocphodry(pcols      ))
+    allocate(this%dstwet1 (pcols      ))
+    allocate(this%dstdry1 (pcols      ))
+    allocate(this%dstwet2 (pcols      ))
+    allocate(this%dstdry2 (pcols      ))
+    allocate(this%dstwet3 (pcols      ))
+    allocate(this%dstdry3 (pcols      ))
+    allocate(this%dstwet4 (pcols      ))
+    allocate(this%dstdry4 (pcols      ))
+
+  end subroutine cam_out_init
+
+  subroutine cam_out_clear(this)
+
+    class(cam_out_t), intent(inout) :: this
+
+    if (allocated(this%tbot    )) deallocate(this%tbot    )
+    if (allocated(this%zbot    )) deallocate(this%zbot    )
+    if (allocated(this%topo    )) deallocate(this%topo    )
+    if (allocated(this%ubot    )) deallocate(this%ubot    )
+    if (allocated(this%vbot    )) deallocate(this%vbot    )
+    if (allocated(this%qbot    )) deallocate(this%qbot    )
+    if (allocated(this%pbot    )) deallocate(this%pbot    )
+    if (allocated(this%rho     )) deallocate(this%rho     )
+    if (allocated(this%netsw   )) deallocate(this%netsw   )
+    if (allocated(this%flwds   )) deallocate(this%flwds   )
+    if (allocated(this%precsc  )) deallocate(this%precsc  )
+    if (allocated(this%precsl  )) deallocate(this%precsl  )
+    if (allocated(this%precc   )) deallocate(this%precc   )
+    if (allocated(this%precl   )) deallocate(this%precl   )
+    if (allocated(this%soll    )) deallocate(this%soll    )
+    if (allocated(this%sols    )) deallocate(this%sols    )
+    if (allocated(this%solld   )) deallocate(this%solld   )
+    if (allocated(this%solsd   )) deallocate(this%solsd   )
+    if (allocated(this%thbot   )) deallocate(this%thbot   )
+    if (allocated(this%co2prog )) deallocate(this%co2prog )
+    if (allocated(this%co2diag )) deallocate(this%co2diag )
+    if (allocated(this%psl     )) deallocate(this%psl     )
+    if (allocated(this%bcphiwet)) deallocate(this%bcphiwet)
+    if (allocated(this%bcphidry)) deallocate(this%bcphidry)
+    if (allocated(this%bcphodry)) deallocate(this%bcphodry)
+    if (allocated(this%ocphiwet)) deallocate(this%ocphiwet)
+    if (allocated(this%ocphidry)) deallocate(this%ocphidry)
+    if (allocated(this%ocphodry)) deallocate(this%ocphodry)
+    if (allocated(this%dstwet1 )) deallocate(this%dstwet1 )
+    if (allocated(this%dstdry1 )) deallocate(this%dstdry1 )
+    if (allocated(this%dstwet2 )) deallocate(this%dstwet2 )
+    if (allocated(this%dstdry2 )) deallocate(this%dstdry2 )
+    if (allocated(this%dstwet3 )) deallocate(this%dstwet3 )
+    if (allocated(this%dstdry3 )) deallocate(this%dstdry3 )
+    if (allocated(this%dstwet4 )) deallocate(this%dstwet4 )
+    if (allocated(this%dstdry4 )) deallocate(this%dstdry4 )
+
+    if (associated(this%nhx_nitrogen_flx)) deallocate(this%nhx_nitrogen_flx)
+    if (associated(this%noy_nitrogen_flx)) deallocate(this%noy_nitrogen_flx)
+
+  end subroutine cam_out_clear
+
+  subroutine cam_out_final(this)
+
+    type(cam_out_t), intent(inout) :: this
+
+    call this%clear()
+
+  end subroutine cam_out_final
+
+  subroutine cam_in_init(this)
+
+    class(cam_in_t), intent(inout) :: this
+
+    call this%clear()
+
+    allocate(this%asdir        (pcols      ))
+    allocate(this%asdif        (pcols      ))
+    allocate(this%aldir        (pcols      ))
+    allocate(this%aldif        (pcols      ))
+    allocate(this%lwup         (pcols      ))
+    allocate(this%lhf          (pcols      ))
+    allocate(this%shf          (pcols      ))
+    allocate(this%wsx          (pcols      ))
+    allocate(this%wsy          (pcols      ))
+    allocate(this%tref         (pcols      ))
+    allocate(this%qref         (pcols      ))
+    allocate(this%u10          (pcols      ))
+    allocate(this%ugust_out    (pcols      ))
+    allocate(this%u10_with_gust(pcols      ))
+    allocate(this%ts           (pcols      ))
+    allocate(this%sst          (pcols      ))
+    allocate(this%snowhland    (pcols      ))
+    allocate(this%snowhice     (pcols      ))
+    allocate(this%fco2_lnd     (pcols      ))
+    allocate(this%fco2_ocn     (pcols      ))
+    allocate(this%fdms         (pcols      ))
+    allocate(this%landfrac     (pcols      ))
+    allocate(this%icefrac      (pcols      ))
+    allocate(this%ocnfrac      (pcols      ))
+    allocate(this%cflx         (pcols,PCNST))
+    allocate(this%ustar        (pcols      ))
+    allocate(this%re           (pcols      ))
+    allocate(this%ssq          (pcols      ))
+
+  end subroutine cam_in_init
+
+  subroutine cam_in_clear(this)
+
+    class(cam_in_t), intent(inout) :: this
+
+    if (allocated(this%asdir        )) deallocate(this%asdir        )
+    if (allocated(this%asdif        )) deallocate(this%asdif        )
+    if (allocated(this%aldir        )) deallocate(this%aldir        )
+    if (allocated(this%aldif        )) deallocate(this%aldif        )
+    if (allocated(this%lwup         )) deallocate(this%lwup         )
+    if (allocated(this%lhf          )) deallocate(this%lhf          )
+    if (allocated(this%shf          )) deallocate(this%shf          )
+    if (allocated(this%wsx          )) deallocate(this%wsx          )
+    if (allocated(this%wsy          )) deallocate(this%wsy          )
+    if (allocated(this%tref         )) deallocate(this%tref         )
+    if (allocated(this%qref         )) deallocate(this%qref         )
+    if (allocated(this%u10          )) deallocate(this%u10          )
+    if (allocated(this%ugust_out    )) deallocate(this%ugust_out    )
+    if (allocated(this%u10_with_gust)) deallocate(this%u10_with_gust)
+    if (allocated(this%ts           )) deallocate(this%ts           )
+    if (allocated(this%sst          )) deallocate(this%sst          )
+    if (allocated(this%snowhland    )) deallocate(this%snowhland    )
+    if (allocated(this%snowhice     )) deallocate(this%snowhice     )
+    if (allocated(this%fco2_lnd     )) deallocate(this%fco2_lnd     )
+    if (allocated(this%fco2_ocn     )) deallocate(this%fco2_ocn     )
+    if (allocated(this%fdms         )) deallocate(this%fdms         )
+    if (allocated(this%landfrac     )) deallocate(this%landfrac     )
+    if (allocated(this%icefrac      )) deallocate(this%icefrac      )
+    if (allocated(this%ocnfrac      )) deallocate(this%ocnfrac      )
+    if (allocated(this%cflx         )) deallocate(this%cflx         )
+    if (allocated(this%ustar        )) deallocate(this%ustar        )
+    if (allocated(this%re           )) deallocate(this%re           )
+    if (allocated(this%ssq          )) deallocate(this%ssq          )
+
+    if (associated(this%ram1        )) deallocate(this%ram1         )
+    if (associated(this%fv          )) deallocate(this%fv           )
+    if (associated(this%soilw       )) deallocate(this%soilw        )
+    if (associated(this%depvel      )) deallocate(this%depvel       )
+    if (associated(this%dstflx      )) deallocate(this%dstflx       )
+    if (associated(this%meganflx    )) deallocate(this%meganflx     )
+    if (associated(this%fireflx     )) deallocate(this%fireflx      )
+    if (associated(this%fireztop    )) deallocate(this%fireztop     )
+
+  end subroutine cam_in_clear
+
+  subroutine cam_in_final(this)
+
+    type(cam_in_t), intent(inout) :: this
+
+    call this%clear()
+
+  end subroutine cam_in_final
+
+  subroutine hub2atm_alloc(cam_in)
 
     ! Allocate space for the surface to atmosphere data type. And initialize the values.
 
@@ -142,16 +338,7 @@ contains
     end if
 
     do c = begchunk, endchunk
-      nullify(cam_in(c)%ram1)
-      nullify(cam_in(c)%fv)
-      nullify(cam_in(c)%soilw)
-      nullify(cam_in(c)%depvel)
-      nullify(cam_in(c)%dstflx)
-      nullify(cam_in(c)%meganflx)
-      nullify(cam_in(c)%fireflx)
-      nullify(cam_in(c)%fireztop)
-    end do
-    do c = begchunk, endchunk
+      call cam_in(c)%init()
       if (active_Sl_ram1) then
         allocate(cam_in(c)%ram1(pcols), stat=ierror)
         if (ierror /= 0) call endrun(sub // ': allocation error ram1')
@@ -255,6 +442,7 @@ contains
     end if
 
     do c = begchunk,endchunk
+      call cam_out(c)%init()
       cam_out(c)%lchnk    = c
       cam_out(c)%ncol     = get_ncols_p(c)
       cam_out(c)%tbot     = 0
@@ -294,9 +482,6 @@ contains
       cam_out(c)%dstdry4  = 0
       cam_out(c)%dstwet4  = 0
 
-      nullify(cam_out(c)%nhx_nitrogen_flx)
-      nullify(cam_out(c)%noy_nitrogen_flx)
-
       if (active_Faxa_nhx) then
         allocate(cam_out(c)%nhx_nitrogen_flx(pcols), stat=ierror)
         if (ierror /= 0) call endrun(sub // ': allocation error nhx_nitrogen_flx')
@@ -329,32 +514,6 @@ contains
     integer c
 
     if (associated(cam_in)) then
-      do c = begchunk, endchunk
-        if (associated(cam_in(c)%ram1)) then
-          deallocate(cam_in(c)%ram1)
-          nullify(cam_in(c)%ram1)
-        end if
-        if (associated(cam_in(c)%fv)) then
-          deallocate(cam_in(c)%fv)
-          nullify(cam_in(c)%fv)
-        end if
-        if (associated(cam_in(c)%soilw)) then
-          deallocate(cam_in(c)%soilw)
-          nullify(cam_in(c)%soilw)
-        end if
-        if (associated(cam_in(c)%dstflx)) then
-          deallocate(cam_in(c)%dstflx)
-          nullify(cam_in(c)%dstflx)
-        end if
-        if (associated(cam_in(c)%meganflx)) then
-          deallocate(cam_in(c)%meganflx)
-          nullify(cam_in(c)%meganflx)
-        end if
-        if (associated(cam_in(c)%depvel)) then
-          deallocate(cam_in(c)%depvel)
-          nullify(cam_in(c)%depvel)
-        end if
-      end do
       deallocate(cam_in)
     end if
     nullify(cam_in)

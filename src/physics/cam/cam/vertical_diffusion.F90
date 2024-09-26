@@ -81,6 +81,7 @@ module vertical_diffusion
   public vd_readnl
   public vd_register                                   ! Register multi-time-level variables with physics buffer
   public vertical_diffusion_init                       ! Initialization
+  public vertical_diffusion_final
   public vertical_diffusion_ts_init                    ! Time step initialization (only used for upper boundary condition)
   public vertical_diffusion_tend                       ! Full vertical diffusion routine
 
@@ -246,7 +247,7 @@ contains
     use cam_history       , only: addfld, add_default, horiz_only
     use cam_history       , only: register_vector_field
     use eddy_diff_cam     , only: eddy_diff_init
-    use hb_diff           , only: init_hb_diff
+    use hb_diff           , only: hb_diff_init
     use molec_diff        , only: init_molec_diff
     use diffusion_solver  , only: init_vdiff, new_fieldlist_vdiff, vdiff_select
     use constituents      , only: cnst_get_ind, cnst_get_type_byind, cnst_name, cnst_get_molec_byind
@@ -373,7 +374,7 @@ contains
       call eddy_diff_init(pbuf2d, ntop_eddy, nbot_eddy)
     case ('HB', 'HBR', 'SPCAM_sam1mom')
       if (masterproc) write(iulog,*) 'vertical_diffusion_init: eddy_diffusivity scheme:  Holtslag and Boville'
-      call init_hb_diff(gravit, cpair, ntop_eddy, nbot_eddy, pref_mid, karman, eddy_scheme)
+      call hb_diff_init(gravit, cpair, ntop_eddy, nbot_eddy, pref_mid, karman, eddy_scheme)
       call addfld('HB_ri', (/'lev'/), 'A', 'no', 'Richardson Number (HB Scheme), I')
     case ('CLUBB_SGS')
       do_pbl_diags = .true.
@@ -584,6 +585,21 @@ contains
     end if
 
   end subroutine vertical_diffusion_init
+
+  subroutine vertical_diffusion_final()
+
+    use eddy_diff_cam
+    use hb_diff
+
+    select case (eddy_scheme)
+    case ('diag_TKE', 'SPCAM_m2005')
+      call eddy_diff_final()
+    case ('HB', 'HBR', 'SPCAM_sam1mom')
+      call hb_diff_final()
+    case ('CLUBB_SGS')
+    end select
+
+  end subroutine vertical_diffusion_final
 
   subroutine vertical_diffusion_ts_init( pbuf2d, state )
 

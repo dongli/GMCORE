@@ -479,7 +479,7 @@
 
    logical                           :: lq(pcnst)
 
-   type(unicon_out_t) :: unicon_out
+   type(unicon_out_t) unicon_out
 
    ! ----------------------- !
    ! Main Computation Begins !
@@ -653,18 +653,17 @@
       call outfld( 'PRECSH' , precc  , pcols, lchnk )
 
 
-   case('UNICON')
+    case('UNICON')
+      icwmr = 0
 
-      icwmr = 0.0_r8
-
-      call unicon_cam_tend(ztodt, state, cam_in, &
-                           pbuf, ptend_loc, unicon_out)
+      call unicon_out%init()
+      call unicon_cam_tend(ztodt, state, cam_in, pbuf, ptend_loc, unicon_out)
 
       cmfmc2(:ncol,:) = unicon_out%cmfmc(:ncol,:)
-      qc2(:ncol,:)    = unicon_out%rqc(:ncol,:)
-      rliq2(:ncol)    = unicon_out%rliq(:ncol)
-      cnt2(:ncol)     = unicon_out%cnt(:ncol)
-      cnb2(:ncol)     = unicon_out%cnb(:ncol)
+      qc2   (:ncol,:) = unicon_out%rqc  (:ncol,:)
+      rliq2 (:ncol)   = unicon_out%rliq (:ncol)
+      cnt2  (:ncol)   = unicon_out%cnt  (:ncol)
+      cnb2  (:ncol)   = unicon_out%cnb  (:ncol)
 
       ! ------------------------------------------------- !
       ! Convective fluxes of 'sl' and 'qt' in energy unit !
@@ -672,10 +671,10 @@
 
       cmfsl(:ncol,:) = unicon_out%slflx(:ncol,:)
       cmflq(:ncol,:) = unicon_out%qtflx(:ncol,:) * latvap
+      call unicon_out%clear()
 
-      call outfld( 'PRECSH' , precc  , pcols, lchnk )
-
-   end select
+      call outfld('PRECSH', precc, pcols, lchnk)
+    end select
 
    ! --------------------------------------------------------!
    ! Calculate fractional occurance of shallow convection    !

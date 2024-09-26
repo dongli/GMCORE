@@ -967,7 +967,7 @@ contains
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
     use modal_aero_deposition, only: set_srf_wetdep
-    use wetdep,                only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
+    use wetdep,                only: wetdepa_v2, wetdep_inputs_t
     use modal_aero_data
     use modal_aero_calcsize,   only: modal_aero_calcsize_sub
     use modal_aero_wateruptake,only: modal_aero_wateruptake_dr
@@ -1064,7 +1064,7 @@ contains
 
     real(r8), pointer :: fracis(:,:,:)   ! fraction of transported species that are insoluble
 
-    type(wetdep_inputs_t) :: dep_inputs
+    type(wetdep_inputs_t) dep_inputs
 
     real(r8) :: dcondt_resusp3d(2*pcnst,pcols, pver)
 
@@ -1091,7 +1091,8 @@ contains
 
     if (nwetdep<1) return
 
-    call wetdep_inputs_set( state, pbuf, dep_inputs )
+    call dep_inputs%init()
+    call dep_inputs%set(state, pbuf)
 
     call pbuf_get_field(pbuf, dgnumwet_idx,       dgnumwet, start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )
     call pbuf_get_field(pbuf, qaerwat_idx,        qaerwat,  start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )

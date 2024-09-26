@@ -555,7 +555,7 @@ contains
   !=============================================================================
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
-    use wetdep,        only : wetdepa_v1, wetdep_inputs_set, wetdep_inputs_t
+    use wetdep,        only : wetdepa_v1, wetdep_inputs_t
     use dust_model,    only : dust_names
     use seasalt_model, only : sslt_names=>seasalt_names
 
@@ -596,7 +596,7 @@ contains
 
     real(r8), pointer :: fracis(:,:,:)   ! fraction of transported species that are insoluble
 
-    type(wetdep_inputs_t) :: dep_inputs  ! obj that contains inputs to wetdepa routine
+    type(wetdep_inputs_t) dep_inputs  ! obj that contains inputs to wetdepa routine
 
     if (nwetdep<1) return
 
@@ -604,7 +604,8 @@ contains
 
     call physics_ptend_init(ptend, state%psetcols, 'aero_model_wetdep', lq=wetdep_lq)
 
-    call wetdep_inputs_set( state, pbuf, dep_inputs )
+    call dep_inputs%init()
+    call dep_inputs%set(state, pbuf)
 
     lchnk = state%lchnk
     ncol  = state%ncol

@@ -34,6 +34,7 @@ module rayleigh_friction
   
   public rayleigh_friction_readnl
   public rayleigh_friction_init
+  public rayleigh_friction_final
   public rayleigh_friction_tend
 
   ! Namelist variables
@@ -46,7 +47,7 @@ module rayleigh_friction
   real(r8) krange                 ! range of rayleigh friction profile 
   real(r8) tau0                   ! approximate value of decay time at model top
   real(r8) otau0                  ! inverse of tau0
-  real(r8) otau(pver)             ! inverse decay time versus vertical level
+  real(r8), allocatable :: otau(:)! inverse decay time versus vertical level
 
   ! We apply a profile of the form otau0 * [1 + tanh (x)] / 2 , where
   ! x = (k0 - k) / krange. The default is for x to equal 2 at k=1, meaning
@@ -109,10 +110,9 @@ contains
     real(r8) x
     integer k
 
-    !-----------------------------------------------------------------------
-    ! Compute tau array
-    !-----------------------------------------------------------------------
+    call rayleigh_friction_final()
 
+    ! Compute tau array
     krange = raykrange
     if (raykrange == 0) krange = (rayk0 - 1) / 2.0_r8
 
@@ -120,6 +120,7 @@ contains
     otau0 = 0
     if (tau0 /= 0) otau0 = 1.0_r8 / tau0
 
+    allocate(otau(pver))
     do k = 1, pver
       x = (rayk0 - k) / krange
       otau(k) = otau0 * (1 + tanh(x)) / 2.0_r8
@@ -137,6 +138,12 @@ contains
     end if
 
   end subroutine rayleigh_friction_init
+
+  subroutine rayleigh_friction_final()
+
+    if (allocated(otau)) deallocate(otau)
+
+  end subroutine rayleigh_friction_final
   
   subroutine rayleigh_friction_tend(ztodt, state, ptend)
 

@@ -33,7 +33,8 @@ module hb_diff
   save
 
   ! Public interfaces
-  public init_hb_diff
+  public hb_diff_init
+  public hb_diff_final
   public compute_hb_diff
   public pblintd
   !
@@ -57,79 +58,80 @@ module hb_diff
 
   ! Pbl constants set using values from other parts of code
 
-  real(r8) :: cpair      ! Specific heat of dry air
-  real(r8) :: g          ! Gravitational acceleration
-  real(r8) :: ml2(pverp) ! Mixing lengths squared
-  real(r8) :: vk         ! Von Karman's constant
-  real(r8) :: ccon       ! fak * sffrac * vk
+  real(r8) cpair                  ! Specific heat of dry air
+  real(r8) g                      ! Gravitational acceleration
+  real(r8) vk                     ! Von Karman's constant
+  real(r8) ccon                   ! fak * sffrac * vk
+  real(r8), allocatable :: ml2(:) ! Mixing lengths squared
 
-  integer :: npbl       ! Maximum number of levels in pbl from surface
-  integer :: ntop_turb  ! Top level to which turbulent vertical diffusion is applied.
-  integer :: nbot_turb  ! Bottom level to which turbulent vertical diff is applied.
+  integer npbl       ! Maximum number of levels in pbl from surface
+  integer ntop_turb  ! Top level to which turbulent vertical diffusion is applied.
+  integer nbot_turb  ! Bottom level to which turbulent vertical diff is applied.
 
-!===============================================================================
-CONTAINS
-!===============================================================================
+contains
 
-subroutine init_hb_diff(gravx, cpairx, ntop_eddy, nbot_eddy, pref_mid, &
-                        vkx, eddy_scheme)
+  subroutine hb_diff_init(gravx, cpairx, ntop_eddy, nbot_eddy, pref_mid, vkx, eddy_scheme)
 
-   !----------------------------------------------------------------------- 
-   ! 
-   ! Initialize time independent variables of turbulence/pbl package.
-   ! 
-   !-----------------------------------------------------------------------
+    !----------------------------------------------------------------------- 
+    !
+    ! Initialize time independent variables of turbulence/pbl package.
+    !
+    !-----------------------------------------------------------------------
 
-   !------------------------------Arguments--------------------------------
-   real(r8), intent(in) :: gravx     ! acceleration of gravity
-   real(r8), intent(in) :: cpairx    ! specific heat of dry air
-   real(r8), intent(in) :: pref_mid(pver)! reference pressures at midpoints
-   real(r8), intent(in) :: vkx       ! Von Karman's constant
-   integer, intent(in)  :: ntop_eddy ! Top level to which eddy vert diff is applied.
-   integer, intent(in)  :: nbot_eddy ! Bottom level to which eddy vert diff is applied.
-   character(len=16),  intent(in) :: eddy_scheme
+    real(r8), intent(in) :: gravx     ! acceleration of gravity
+    real(r8), intent(in) :: cpairx    ! specific heat of dry air
+    real(r8), intent(in) :: pref_mid(pver)! reference pressures at midpoints
+    real(r8), intent(in) :: vkx       ! Von Karman's constant
+    integer, intent(in)  :: ntop_eddy ! Top level to which eddy vert diff is applied.
+    integer, intent(in)  :: nbot_eddy ! Bottom level to which eddy vert diff is applied.
+    character(16),  intent(in) :: eddy_scheme
 
-   !---------------------------Local workspace-----------------------------
-   integer :: k                     ! vertical loop index
-   !-----------------------------------------------------------------------
+    integer k
 
-   ! Basic constants
-   cpair = cpairx
-   g     = gravx
-   vk    = vkx
-   ccon  = fak*sffrac*vk
-   ntop_turb = ntop_eddy
-   nbot_turb = nbot_eddy
+    call hb_diff_final()
 
-   ! Set the square of the mixing lengths.
-   ml2(ntop_turb) = 0._r8
-   do k = ntop_turb+1, nbot_turb
+    allocate(ml2(pverp))
+
+    cpair     = cpairx
+    g         = gravx
+    vk        = vkx
+    ccon      = fak*sffrac*vk
+    ntop_turb = ntop_eddy
+    nbot_turb = nbot_eddy
+
+    ! Set the square of the mixing lengths.
+    ml2(ntop_turb) = 0
+    do k = ntop_turb+1, nbot_turb
       ml2(k) = 30.0_r8**2                 ! HB scheme: length scale = 30m  
-      if  ( eddy_scheme .eq. 'HBR' ) then      
-         ml2(k) = 1.0_r8**2               ! HBR scheme: length scale = 1m  
+      if (eddy_scheme == 'HBR') then      
+        ml2(k) = 1.0_r8**2                ! HBR scheme: length scale = 1m  
       end if
-   end do
-   ml2(nbot_turb+1) = 0._r8
+    end do
+    ml2(nbot_turb+1) = 0
 
-   ! Limit pbl height to regions below 400 mb
-   ! npbl = max number of levels (from bottom) in pbl
+    ! Limit pbl height to regions below 400 mb
+    ! npbl = max number of levels (from bottom) in pbl
 
-   npbl = 0
-   do k=nbot_turb,ntop_turb,-1
+    npbl = 0
+    do k = nbot_turb, ntop_turb, -1
       if (pref_mid(k) >= pblmaxp) then
          npbl = npbl + 1
       end if
-   end do
-   npbl = max(npbl,1)
+    end do
+    npbl = max(npbl, 1)
 
-   if (masterproc) then
-      write(iulog,*)'INIT_HB_DIFF: PBL height will be limited to bottom ',npbl, &
-         ' model levels. Top is ',pref_mid(pverp-npbl),' pascals'
-   end if
+    if (masterproc) then
+      write(iulog, *)'INIT_HB_DIFF: PBL height will be limited to bottom ', npbl, &
+         ' model levels. Top is ', pref_mid(pverp-npbl), ' Pa.'
+    end if
 
-end subroutine init_hb_diff
+  end subroutine hb_diff_init
 
-!===============================================================================
+  subroutine hb_diff_final()
+
+    if (allocated(ml2)) deallocate(ml2)
+
+  end subroutine hb_diff_final
 
   subroutine compute_hb_diff(lchnk, ncol,            &
        th      ,t       ,q       ,z       ,zi      , &

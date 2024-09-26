@@ -762,7 +762,7 @@ contains
     !  From CAM libraries
     use cam_history,            only: addfld, add_default, horiz_only
     use ref_pres,               only: pref_mid
-    use hb_diff,                only: init_hb_diff
+    use hb_diff,                only: hb_diff_init
     use rad_constituents,       only: rad_cnst_get_info, rad_cnst_get_mode_num_idx, rad_cnst_get_mam_mmr_idx
     use cam_abortutils,         only: endrun
 
@@ -1104,7 +1104,7 @@ contains
     ntop_eddy = 1    ! if >1, must be <= nbot_molec
     nbot_eddy = pver ! currently always pver
 
-    call init_hb_diff(gravit, cpair, ntop_eddy, nbot_eddy, pref_mid, karman, eddy_scheme)
+    call hb_diff_init(gravit, cpair, ntop_eddy, nbot_eddy, pref_mid, karman, eddy_scheme)
 
     ! ----------------------------------------------------------------- !
     ! Add output fields for the history files

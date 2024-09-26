@@ -955,10 +955,13 @@ contains
 
   subroutine phys_final(phys_state, phys_tend, pbuf2d)
 
-    use physics_buffer, only: physics_buffer_desc, pbuf_deallocate
-    use chemistry,      only: chem_final
-    use carma_intr,     only: carma_final
-    use wv_saturation,  only: wv_sat_final
+    use physics_buffer
+    use chemistry
+    use carma_intr
+    use wv_saturation
+    use vertical_diffusion
+    use aoa_tracers
+    use rayleigh_friction
     !-----------------------------------------------------------------------
     !
     ! Purpose:
@@ -979,6 +982,9 @@ contains
     call chem_final()
     call carma_final()
     call wv_sat_final()
+    call vertical_diffusion_final()
+    call aoa_tracers_final()
+    call rayleigh_friction_final()
 
   end subroutine phys_final
 
@@ -1122,6 +1128,7 @@ contains
     ! get nstep and zero array for energy checker
     zero = 0
     nstep = get_nstep()
+    call tracerint%init()
     call check_tracers_init(state, tracerint)
 
     ! Check if latent heat flux exceeds the total moisture content of the

@@ -21,6 +21,7 @@ module aoa_tracers
   public :: aoa_tracers_implements_cnst  ! true if named constituent is implemented by this package
   public :: aoa_tracers_init_cnst        ! initialize constituent field
   public :: aoa_tracers_init             ! initialize history fields, datasets
+  public :: aoa_tracers_final
   public :: aoa_tracers_timestep_init    ! place to perform per timestep initialization
   public :: aoa_tracers_timestep_tend    ! calculate tendencies
   public :: aoa_tracers_readnl           ! read namelist options
@@ -66,7 +67,7 @@ module aoa_tracers
   ! Troposphere and Stratosphere. J. Atmos. Sci., 57, 673-699.
   ! doi: http://dx.doi.org/10.1175/1520-0469(2000)057<0673:TDOGAI>2.0.CO;2
 
-  real(r8) :: qrel_vert(pver)  ! = -7._r8*log(pref_mid_norm(k)) + vert_offset
+  real(r8), allocatable :: qrel_vert(:)  ! = -7._r8*log(pref_mid_norm(k)) + vert_offset
 
 !===============================================================================
 contains
@@ -227,13 +228,18 @@ contains
        call add_default (src_names(m),  1, ' ')
     end do
 
-    do k = 1,pver
+    allocate(qrel_vert(pver))
+    do k = 1, pver
        qrel_vert(k) = -7._r8*log(pref_mid_norm(k)) + vert_offset
     enddo
 
   end subroutine aoa_tracers_init
 
-!===============================================================================
+  subroutine aoa_tracers_final()
+
+    if (allocated(qrel_vert)) deallocate(qrel_vert)
+
+  end subroutine aoa_tracers_final
 
   subroutine aoa_tracers_timestep_init( phys_state )
     !-----------------------------------------------------------------------

@@ -28,7 +28,6 @@ module mo_photo
   save
 
   real(r8), parameter :: kg2g = 1.e3_r8
-  integer, parameter  :: pverm = pver - 1
 
   integer ::  jno_ndx
   integer ::  jonitr_ndx
@@ -1332,21 +1331,21 @@ secant_in_bounds : &
     !    	... form integrated tau from top down
     !---------------------------------------------------------
     above_tau(1) = 0._r8
-    do k = 1,pverm
+    do k = 1, pver - 1
        above_tau(k+1) = del_tau(k) + above_tau(k)
     end do
     !---------------------------------------------------------
     !    	... form integrated tau from bottom up
     !---------------------------------------------------------
     below_tau(pver) = 0._r8
-    do k = pverm,1,-1
+    do k = pver - 1, 1, -1
        below_tau(k) = del_tau(k+1) + below_tau(k+1)
     end do
     !---------------------------------------------------------
     !	... form vertically averaged cloud cover above and below
     !---------------------------------------------------------
     above_cld(1) = 0._r8
-    do k = 1,pverm
+    do k = 1, pver - 1
        above_cld(k+1) = clouds(k) * del_tau(k) + above_cld(k)
     end do
     do k = 2,pver
@@ -1357,10 +1356,10 @@ secant_in_bounds : &
        end if
     end do
     below_cld(pver) = 0._r8
-    do k = pverm,1,-1
+    do k = pver - 1, 1, -1
        below_cld(k) = clouds(k+1) * del_tau(k+1) + below_cld(k+1)
     end do
-    do k = pverm,1,-1
+    do k = pver - 1, 1, -1
        if( below_tau(k) /= 0._r8 ) then
           below_cld(k) = below_cld(k) / below_tau(k)
        else
@@ -1373,14 +1372,14 @@ secant_in_bounds : &
     where( above_cld(2:pver) /= 0._r8 )
        above_tau(2:pver) = above_tau(2:pver) / above_cld(2:pver)
     end where
-    where( below_cld(:pverm) /= 0._r8 )
-       below_tau(:pverm) = below_tau(:pverm) / below_cld(:pverm)
+    where( below_cld(:pver-1) /= 0._r8 )
+       below_tau(:pver-1) = below_tau(:pver-1) / below_cld(:pver-1)
     end where
     where( above_tau(2:pver) < 5._r8 )
        above_cld(2:pver) = 0._r8
     end where
-    where( below_tau(:pverm) < 5._r8 )
-       below_cld(:pverm) = 0._r8
+    where( below_tau(:pver-1) < 5._r8 )
+       below_cld(:pver-1) = 0._r8
     end where
     !---------------------------------------------------------
     !	... form transmission factors

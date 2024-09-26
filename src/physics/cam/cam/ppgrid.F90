@@ -1,44 +1,41 @@
 
 module ppgrid
 
-!-----------------------------------------------------------------------
-!
-! Purpose:
-! Initialize physics grid resolution parameters
-!  for a chunked data structure
-!
-! Author:
-!
-!-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !
+  ! Purpose:
+  ! Initialize physics grid resolution parameters
+  !  for a chunked data structure
+  !
+  ! Author:
+  !
+  !-----------------------------------------------------------------------
 
   implicit none
-  private
-  save
 
-  public begchunk
-  public endchunk
-  public pcols
-  public psubcols
-  public pver
-  public pverp
+  ! Grid point resolution parameters
+  integer pcols      ! number of columns (max)
+  integer psubcols   ! number of sub-columns (max)
+  integer pver       ! number of vertical levels
+  integer pverp      ! pver + 1
 
+  ! start, end indices for chunks owned by a given MPI task
+  ! (set in phys_grid_init).
+  integer :: begchunk =  0
+  integer :: endchunk = -1
 
-! Grid point resolution parameters
+contains
 
-   integer pcols      ! number of columns (max)
-   integer psubcols   ! number of sub-columns (max)
-   integer pver       ! number of vertical levels
-   integer pverp      ! pver + 1
+  subroutine ppgrid_init(pcols_in, pver_in)
 
-   parameter (pcols     = PCOLS)
-   parameter (psubcols  = PSUBCOLS)
-   parameter (pver      = PLEV)
-   parameter (pverp     = pver + 1  )
-!
-! start, end indices for chunks owned by a given MPI task
-! (set in phys_grid_init).
-!
-   integer :: begchunk = 0            !
-   integer :: endchunk = -1           !
+    integer, intent(in) :: pcols_in
+    integer, intent(in) :: pver_in
+    
+    pcols    = pcols_in
+    psubcols = 1
+    pver     = pver_in
+    pverp    = pver + 1
+
+  end subroutine ppgrid_init
 
 end module ppgrid

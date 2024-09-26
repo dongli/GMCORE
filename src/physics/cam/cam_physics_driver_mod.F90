@@ -23,12 +23,12 @@ module cam_physics_driver_mod
   use physics_buffer    , only: physics_buffer_desc, pbuf_get_chunk
   use physpkg           , only: phys_register, phys_init, phys_run1, phys_run2, phys_final
   use physconst         , only: cappa, cpair, gravit
-  use ppgrid            , only: begchunk, endchunk, pcols, pver, pverp
+  use ppgrid
   use qneg_module       , only: qneg3
   use constituents      , only: pcnst, cnst_name, cnst_longname, cnst_get_type_byind, qmin
   use chem_surfvals     , only: chem_surfvals_init
   use air_composition   , only: air_composition_init
-  use camsrfexch        , only: cam_out_t, cam_in_t, hub2atm_alloc, atm2hub_alloc, cam_export
+  use camsrfexch
   use runtime_opts      , only: read_namelist
   use shr_cal_mod       , only: shr_cal_gregorian
   use shr_pio_mod       , only: shr_pio_init1, shr_pio_init2
@@ -154,6 +154,7 @@ contains
     ! FIXME: Read initial data for CAM physics.
     ! call cam_initfiles_open()
 
+    call ppgrid_init(maxval(mesh(:)%ncol), mesh(1)%nlev)
     call dyn_grid_init()
     call phys_grid_init()
     call phys_register()
@@ -344,6 +345,8 @@ contains
     call dyn_grid_final()
     call dyn_final()
     call cam_physics_objects_final()
+    call atm2hub_deallocate(cam_out)
+    call hub2atm_deallocate(cam_in)
 
     if (allocated(icol_map)) deallocate(icol_map)
 
