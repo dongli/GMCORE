@@ -1196,7 +1196,7 @@ contains
         loc             ='vtx'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          ='h0'                                                , &
+        output          =merge('h0', '  ', baroclinic)                       , &
         restart         =.false.                                             , &
         field           =this%vor                                            )
     end if
@@ -1207,7 +1207,7 @@ contains
       loc               ='vtx'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
-      output            =''                                                  , &
+      output            =merge('h0', '  ', .not. baroclinic)                 , &
       restart           =.false.                                             , &
       field             =this%pv                                             , &
       halo_cross_pole   =.true.                                              )

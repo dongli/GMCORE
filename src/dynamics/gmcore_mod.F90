@@ -250,6 +250,7 @@ contains
           end do
         end if
         call dstate%c2a(block%aux%u, block%aux%v)
+        call calc_div(block, dstate)
         end associate
       end do
     end if
