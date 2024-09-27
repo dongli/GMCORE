@@ -96,7 +96,7 @@ contains
       dx = mesh%de_lon(j)
       dy = mesh%le_lon(j)
       if (dx > 0) then
-        w = filter_coef_a * dy / dx * (filter_coef_b * (tanh(90 - abs(mesh%full_lat_deg(j))) - 1) + 1)
+        w = filter_coef_a * dy / dx
         w = max(filter_min_width, w)
         n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
         this%width_lon(j) = w
@@ -107,7 +107,7 @@ contains
       dx = merge(mesh%de_lon(j+1), mesh%de_lon(j), mesh%half_lat(j) < 0)
       dy = merge(mesh%le_lon(j+1), mesh%le_lon(j), mesh%half_lat(j) < 0)
       if (dx > 0) then
-        w = filter_coef_a * dy / dx * (filter_coef_b * (tanh(90 - abs(mesh%half_lat_deg(j))) - 1) + 1)
+        w = filter_coef_a * dy / dx
         w = max(filter_min_width, w)
         n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
         this%width_lat(j) = w
@@ -132,7 +132,7 @@ contains
     case ('small_filter')
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         if (this%ngrid_lon(j) > 1) then
-          w = filter_coef_c * this%width_lon(j)
+          w = this%width_lon(j) * exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%full_lat_deg(j)))
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lon(j) = w
           this%ngrid_lon(j) = min(n, this%ngrid_lon(j))
@@ -141,7 +141,7 @@ contains
       end do
       do j = mesh%half_jds, mesh%half_jde
         if (this%ngrid_lat(j) > 1) then
-          w = filter_coef_c * this%width_lat(j)
+          w = this%width_lat(j) * exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%half_lat_deg(j)))
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lat(j) = w
           this%ngrid_lat(j) = min(n, this%ngrid_lat(j))

@@ -283,6 +283,23 @@ contains
 
     real(8) w
 
+    if (x0 > x1) then
+      if (x > x0) then
+        res = val1
+        return
+      else if (x < x1) then
+        res = val2
+        return
+      end if
+    else
+      if (x < x0) then
+        res = val1
+        return
+      else if (x > x1) then
+        res = val2
+        return
+      end if
+    end if
     w = exp((x - x0)**2 * log(eps) / (x1 - x0)**2)
     res = w * val1 + (1 - w) * val2
 
