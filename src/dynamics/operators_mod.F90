@@ -703,7 +703,7 @@ contains
       end do
     end do
     ! --------------------------------------------------------------------------
-    call filter_run_vector(block%small_filter, mfx_lon, mfy_lat)
+    call filter_run_vector(block%small_filter, mfx_lon, mfy_lat, block%dtend%du, block%dtend%dv)
     call fill_halo(mfx_lon, east_halo=.false., south_halo=.false.)
     call fill_halo(mfy_lat, west_halo=.false., north_halo=.false.)
     do k = mesh%full_kds, mesh%full_kde

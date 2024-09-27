@@ -190,11 +190,13 @@ contains
 
   end subroutine filter_run_4d
 
-  subroutine filter_run_vector(filter, x_lon, y_lat)
+  subroutine filter_run_vector(filter, x_lon, y_lat, x_lon_save, y_lat_save)
 
     type(filter_type        ), intent(in   ) :: filter
     type(latlon_field3d_type), intent(inout) :: x_lon
     type(latlon_field3d_type), intent(inout) :: y_lat
+    type(latlon_field3d_type), intent(inout) :: x_lon_save
+    type(latlon_field3d_type), intent(inout) :: y_lat_save
 
     real(r8) xs (filter%mesh%full_ims:filter%mesh%full_ime)
     real(r8) ys (filter%mesh%full_ims:filter%mesh%full_ime)
@@ -205,6 +207,9 @@ contains
     call fill_halo(x_lon, south_halo=.false.)
     call fill_halo(y_lat, north_halo=.false.)
 
+    x_lon_save%d = x_lon%d
+    y_lat_save%d = y_lat%d
+
     associate (mesh => filter%mesh)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
@@ -214,10 +219,10 @@ contains
           hn = (n - 1) / 2
           ! Transform onto polar plane.
           do i = mesh%half_ids - hn, mesh%half_ide + hn
-            y_lon = mesh%tg_wgt_lon(1,j) * (y_lat%d(i,j-1,k) + y_lat%d(i+1,j-1,k)) + &
-                    mesh%tg_wgt_lon(2,j) * (y_lat%d(i,j  ,k) + y_lat%d(i+1,j  ,k))
-            xs(i) = -s * x_lon%d(i,j,k) * mesh%half_sin_lon(i) - y_lon * mesh%half_cos_lon(i)
-            ys(i) =  s * x_lon%d(i,j,k) * mesh%half_cos_lon(i) - y_lon * mesh%half_sin_lon(i)
+            y_lon = mesh%tg_wgt_lon(1,j) * (y_lat_save%d(i,j-1,k) + y_lat_save%d(i+1,j-1,k)) + &
+                    mesh%tg_wgt_lon(2,j) * (y_lat_save%d(i,j  ,k) + y_lat_save%d(i+1,j  ,k))
+            xs(i) = -s * x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) - y_lon * mesh%half_cos_lon(i)
+            ys(i) =  s * x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) - y_lon * mesh%half_sin_lon(i)
           end do
           do i = mesh%half_ids, mesh%half_ide
             tmp(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
@@ -240,10 +245,10 @@ contains
           hn = (n - 1) / 2
           ! Transform onto polar plane.
           do i = mesh%full_ids - hn, mesh%full_ide + hn
-            x_lat = mesh%tg_wgt_lat(1,j) * (x_lon%d(i-1,j  ,k) + x_lon%d(i,j  ,k)) + &
-                    mesh%tg_wgt_lat(2,j) * (x_lon%d(i-1,j+1,k) + x_lon%d(i,j+1,k))
-            xs(i) = -s * x_lat * mesh%full_sin_lon(i) - y_lat%d(i,j,k) * mesh%full_cos_lon(i)
-            ys(i) =  s * x_lat * mesh%full_cos_lon(i) - y_lat%d(i,j,k) * mesh%full_sin_lon(i)
+            x_lat = mesh%tg_wgt_lat(1,j) * (x_lon_save%d(i-1,j  ,k) + x_lon_save%d(i,j  ,k)) + &
+                    mesh%tg_wgt_lat(2,j) * (x_lon_save%d(i-1,j+1,k) + x_lon_save%d(i,j+1,k))
+            xs(i) = -s * x_lat * mesh%full_sin_lon(i) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i)
+            ys(i) =  s * x_lat * mesh%full_cos_lon(i) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i)
           end do
           do i = mesh%full_ids, mesh%full_ide
             tmp(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
