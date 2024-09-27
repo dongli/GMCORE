@@ -21,6 +21,7 @@ module filter_mod
 
   public filter_type
   public filter_run
+  public filter_run_vector
 
   interface filter_run
     module procedure filter_run_2d
@@ -188,5 +189,79 @@ contains
     call perf_stop('filter_run_4d')
 
   end subroutine filter_run_4d
+
+  subroutine filter_run_vector(filter, x_lon, y_lat)
+
+    type(filter_type        ), intent(in   ) :: filter
+    type(latlon_field3d_type), intent(inout) :: x_lon
+    type(latlon_field3d_type), intent(inout) :: y_lat
+
+    real(r8) xs (filter%mesh%full_ims:filter%mesh%full_ime)
+    real(r8) ys (filter%mesh%full_ims:filter%mesh%full_ime)
+    real(r8) tmp(filter%mesh%full_ids:filter%mesh%full_ide)
+    real(r8) s, y_lon, x_lat
+    integer i, j, k, n, hn
+
+    call fill_halo(x_lon, south_halo=.false.)
+    call fill_halo(y_lat, north_halo=.false.)
+
+    associate (mesh => filter%mesh)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        if (filter%ngrid_lon(j) >= 3) then
+          s = sign(1.0_r8, mesh%full_lat(j))
+          n  = filter%ngrid_lon(j)
+          hn = (n - 1) / 2
+          ! Transform onto polar plane.
+          do i = mesh%half_ids - hn, mesh%half_ide + hn
+            y_lon = mesh%tg_wgt_lon(1,j) * (y_lat%d(i,j-1,k) + y_lat%d(i+1,j-1,k)) + &
+                    mesh%tg_wgt_lon(2,j) * (y_lat%d(i,j  ,k) + y_lat%d(i+1,j  ,k))
+            xs(i) = -s * x_lon%d(i,j,k) * mesh%half_sin_lon(i) - y_lon * mesh%half_cos_lon(i)
+            ys(i) =  s * x_lon%d(i,j,k) * mesh%half_cos_lon(i) - y_lon * mesh%half_sin_lon(i)
+          end do
+          do i = mesh%half_ids, mesh%half_ide
+            tmp(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
+          end do
+          xs(mesh%full_ids:mesh%full_ide) = tmp
+          do i = mesh%half_ids, mesh%half_ide
+            tmp(i) = sum(filter%wgt_lon(:n,j) * ys(i-hn:i+hn))
+          end do
+          ys(mesh%full_ids:mesh%full_ide) = tmp
+          ! Transform back.
+          do i = mesh%half_ids, mesh%half_ide
+            x_lon%d(i,j,k) = s * (-xs(i) * mesh%half_sin_lon(i) + ys(i) * mesh%half_cos_lon(i))
+          end do
+        end if
+      end do
+      do j = mesh%half_jds, mesh%half_jde
+        if (filter%ngrid_lat(j) >= 3) then
+          s = sign(1.0_r8, mesh%half_lat(j))
+          n  = filter%ngrid_lat(j)
+          hn = (n - 1) / 2
+          ! Transform onto polar plane.
+          do i = mesh%full_ids - hn, mesh%full_ide + hn
+            x_lat = mesh%tg_wgt_lat(1,j) * (x_lon%d(i-1,j  ,k) + x_lon%d(i,j  ,k)) + &
+                    mesh%tg_wgt_lat(2,j) * (x_lon%d(i-1,j+1,k) + x_lon%d(i,j+1,k))
+            xs(i) = -s * x_lat * mesh%full_sin_lon(i) - y_lat%d(i,j,k) * mesh%full_cos_lon(i)
+            ys(i) =  s * x_lat * mesh%full_cos_lon(i) - y_lat%d(i,j,k) * mesh%full_sin_lon(i)
+          end do
+          do i = mesh%full_ids, mesh%full_ide
+            tmp(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
+          end do
+          xs(mesh%full_ids:mesh%full_ide) = tmp
+          do i = mesh%full_ids, mesh%full_ide
+            tmp(i) = sum(filter%wgt_lat(:n,j) * ys(i-hn:i+hn))
+          end do
+          ys(mesh%full_ids:mesh%full_ide) = tmp
+          ! Transform back.
+          do i = mesh%full_ids, mesh%full_ide
+            y_lat%d(i,j,k) = -xs(i) * mesh%full_cos_lon(i) - ys(i) * mesh%full_sin_lon(i)
+          end do
+        end if
+      end do
+    end do
+    end associate
+
+  end subroutine filter_run_vector
 
 end module filter_mod
