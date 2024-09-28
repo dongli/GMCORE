@@ -12,6 +12,7 @@ module math_mod
   public math_inv_matrix
   public tridiag_thomas
   public exp_two_values
+  public tanh_two_values
   public swap_two_values
   public round_robin
   public gamma_dist
@@ -30,6 +31,10 @@ module math_mod
     module procedure exp_two_values_r4
     module procedure exp_two_values_r8
   end interface exp_two_values
+
+  interface tanh_two_values
+    module procedure tanh_two_values_r8
+  end interface tanh_two_values
 
 contains
 
@@ -304,6 +309,18 @@ contains
     res = w * val1 + (1 - w) * val2
 
   end function exp_two_values_r8
+
+  pure real(8) function tanh_two_values_r8(c, val1, val2, x0, x) result(res)
+
+    real(8), intent(in) :: c
+    real(8), intent(in) :: val1
+    real(8), intent(in) :: val2
+    real(8), intent(in) :: x0
+    real(8), intent(in) :: x
+
+    res = val1 + (val2 - val1) * (tanh(c * (x - x0)) + 1) / 2
+
+  end function tanh_two_values_r8
 
   subroutine swap_two_values(x, y)
 
