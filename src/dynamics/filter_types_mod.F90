@@ -132,7 +132,7 @@ contains
     case ('small_filter')
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         if (this%ngrid_lon(j) > 1) then
-          w = this%width_lon(j) * exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%full_lat_deg(j)))
+          w = this%width_lon(j) *  filter_coef_b ! exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%full_lat_deg(j)))
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lon(j) = w
           this%ngrid_lon(j) = min(n, this%ngrid_lon(j))
@@ -141,7 +141,7 @@ contains
       end do
       do j = mesh%half_jds, mesh%half_jde
         if (this%ngrid_lat(j) > 1) then
-          w = this%width_lat(j) * exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%half_lat_deg(j)))
+          w = this%width_lat(j) * filter_coef_b ! exp_two_values(filter_coef_b, filter_coef_c, filter_lat1, filter_lat2, abs(mesh%half_lat_deg(j)))
           n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
           this%width_lat(j) = w
           this%ngrid_lat(j) = min(n, this%ngrid_lat(j))
