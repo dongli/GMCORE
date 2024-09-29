@@ -221,20 +221,20 @@ contains
           do i = mesh%half_ids - hn, mesh%half_ide + hn
             y_lon = mesh%tg_wgt_lon(1,j) * (y_lat_save%d(i,j-1,k) + y_lat_save%d(i+1,j-1,k)) + &
                     mesh%tg_wgt_lon(2,j) * (y_lat_save%d(i,j  ,k) + y_lat_save%d(i+1,j  ,k))
-            xs(i) = -s * x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) - y_lon * mesh%half_cos_lon(i)
-            ys(i) =  s * x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) - y_lon * mesh%half_sin_lon(i)
+            xs(i) = s * (-x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_cos_lon(i) / mesh%full_sin_lat(j)**2)
+            ys(i) = s * ( x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_sin_lon(i) / mesh%full_sin_lat(j)**2)
           end do
           do i = mesh%half_ids, mesh%half_ide
             tmp(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
           end do
-          xs(mesh%full_ids:mesh%full_ide) = tmp
+          xs(mesh%half_ids:mesh%half_ide) = tmp
           do i = mesh%half_ids, mesh%half_ide
             tmp(i) = sum(filter%wgt_lon(:n,j) * ys(i-hn:i+hn))
           end do
-          ys(mesh%full_ids:mesh%full_ide) = tmp
+          ys(mesh%half_ids:mesh%half_ide) = tmp
           ! Transform back.
           do i = mesh%half_ids, mesh%half_ide
-            x_lon%d(i,j,k) = s * (-xs(i) * mesh%half_sin_lon(i) + ys(i) * mesh%half_cos_lon(i))
+            x_lon%d(i,j,k) = -s * mesh%full_sin_lat(j) * (mesh%half_sin_lon(i) * xs(i) - mesh%half_cos_lon(i) * ys(i))
           end do
         end if
       end do
@@ -247,8 +247,8 @@ contains
           do i = mesh%full_ids - hn, mesh%full_ide + hn
             x_lat = mesh%tg_wgt_lat(1,j) * (x_lon_save%d(i-1,j  ,k) + x_lon_save%d(i,j  ,k)) + &
                     mesh%tg_wgt_lat(2,j) * (x_lon_save%d(i-1,j+1,k) + x_lon_save%d(i,j+1,k))
-            xs(i) = -s * x_lat * mesh%full_sin_lon(i) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i)
-            ys(i) =  s * x_lat * mesh%full_cos_lon(i) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i)
+            xs(i) = s * (-x_lat * mesh%full_sin_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i) / mesh%half_sin_lat(j)**2)
+            ys(i) = s * ( x_lat * mesh%full_cos_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i) / mesh%half_sin_lat(j)**2)
           end do
           do i = mesh%full_ids, mesh%full_ide
             tmp(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
@@ -260,7 +260,7 @@ contains
           ys(mesh%full_ids:mesh%full_ide) = tmp
           ! Transform back.
           do i = mesh%full_ids, mesh%full_ide
-            y_lat%d(i,j,k) = -xs(i) * mesh%full_cos_lon(i) - ys(i) * mesh%full_sin_lon(i)
+            y_lat%d(i,j,k) = -s * mesh%half_sin_lat(j)**2 * (mesh%full_cos_lon(i) * xs(i) + mesh%full_sin_lon(i) * ys(i))
           end do
         end if
       end do
