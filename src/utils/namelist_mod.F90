@@ -133,8 +133,8 @@ module namelist_mod
   ! Filter settings
   real(r8)        :: filter_coef_a        = 2.0_r8
   real(r8)        :: filter_coef_b        = 0.32_r8
-  real(r8)        :: filter_coef_c        = 0.01_r8
-  real(r8)        :: filter_lat0          = 79
+  real(r8)        :: filter_coef_c        = 0.30_r8
+  real(r8)        :: filter_lat0          = 80
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 4.0_r8
 

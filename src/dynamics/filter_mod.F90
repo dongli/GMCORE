@@ -214,54 +214,68 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         if (filter%ngrid_lon(j) >= 3) then
-          s = sign(1.0_r8, mesh%full_lat(j))
           n  = filter%ngrid_lon(j)
           hn = (n - 1) / 2
-          ! Transform onto polar plane.
-          do i = mesh%half_ids - hn, mesh%half_ide + hn
-            y_lon = mesh%tg_wgt_lon(1,j) * (y_lat_save%d(i,j-1,k) + y_lat_save%d(i+1,j-1,k)) + &
-                    mesh%tg_wgt_lon(2,j) * (y_lat_save%d(i,j  ,k) + y_lat_save%d(i+1,j  ,k))
-            xs(i) = s * (-x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_cos_lon(i) / mesh%full_sin_lat(j)**2)
-            ys(i) = s * ( x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_sin_lon(i) / mesh%full_sin_lat(j)**2)
-          end do
-          do i = mesh%half_ids, mesh%half_ide
-            tmp(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
-          end do
-          xs(mesh%half_ids:mesh%half_ide) = tmp
-          do i = mesh%half_ids, mesh%half_ide
-            tmp(i) = sum(filter%wgt_lon(:n,j) * ys(i-hn:i+hn))
-          end do
-          ys(mesh%half_ids:mesh%half_ide) = tmp
-          ! Transform back.
-          do i = mesh%half_ids, mesh%half_ide
-            x_lon%d(i,j,k) = -s * mesh%full_sin_lat(j) * (mesh%half_sin_lon(i) * xs(i) - mesh%half_cos_lon(i) * ys(i))
-          end do
+          if (abs(mesh%full_lat(j)) < 45) then
+            do i = mesh%half_ids, mesh%half_ide
+              tmp(i) = sum(filter%wgt_lon(:n,j) * x_lon%d(i-hn:i+hn,j,k))
+            end do
+            x_lon%d(mesh%half_ids:mesh%half_ide,j,k) = tmp
+          else
+            s = sign(1.0_r8, mesh%full_lat(j))
+            ! Transform onto polar plane.
+            do i = mesh%half_ids - hn, mesh%half_ide + hn
+              y_lon = mesh%tg_wgt_lon(1,j) * (y_lat_save%d(i,j-1,k) + y_lat_save%d(i+1,j-1,k)) + &
+                      mesh%tg_wgt_lon(2,j) * (y_lat_save%d(i,j  ,k) + y_lat_save%d(i+1,j  ,k))
+              xs(i) = s * (-x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_cos_lon(i) / mesh%full_sin_lat(j)**2)
+              ys(i) = s * ( x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_sin_lon(i) / mesh%full_sin_lat(j)**2)
+            end do
+            do i = mesh%half_ids, mesh%half_ide
+              tmp(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
+            end do
+            xs(mesh%half_ids:mesh%half_ide) = tmp
+            do i = mesh%half_ids, mesh%half_ide
+              tmp(i) = sum(filter%wgt_lon(:n,j) * ys(i-hn:i+hn))
+            end do
+            ys(mesh%half_ids:mesh%half_ide) = tmp
+            ! Transform back.
+            do i = mesh%half_ids, mesh%half_ide
+              x_lon%d(i,j,k) = -s * mesh%full_sin_lat(j) * (mesh%half_sin_lon(i) * xs(i) - mesh%half_cos_lon(i) * ys(i))
+            end do
+          end if
         end if
       end do
       do j = mesh%half_jds, mesh%half_jde
         if (filter%ngrid_lat(j) >= 3) then
-          s = sign(1.0_r8, mesh%half_lat(j))
           n  = filter%ngrid_lat(j)
           hn = (n - 1) / 2
-          ! Transform onto polar plane.
-          do i = mesh%full_ids - hn, mesh%full_ide + hn
-            x_lat = mesh%tg_wgt_lat(1,j) * (x_lon_save%d(i-1,j  ,k) + x_lon_save%d(i,j  ,k)) + &
-                    mesh%tg_wgt_lat(2,j) * (x_lon_save%d(i-1,j+1,k) + x_lon_save%d(i,j+1,k))
-            xs(i) = s * (-x_lat * mesh%full_sin_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i) / mesh%half_sin_lat(j)**2)
-            ys(i) = s * ( x_lat * mesh%full_cos_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i) / mesh%half_sin_lat(j)**2)
-          end do
-          do i = mesh%full_ids, mesh%full_ide
-            tmp(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
-          end do
-          xs(mesh%full_ids:mesh%full_ide) = tmp
-          do i = mesh%full_ids, mesh%full_ide
-            tmp(i) = sum(filter%wgt_lat(:n,j) * ys(i-hn:i+hn))
-          end do
-          ys(mesh%full_ids:mesh%full_ide) = tmp
-          ! Transform back.
-          do i = mesh%full_ids, mesh%full_ide
-            y_lat%d(i,j,k) = -s * mesh%half_sin_lat(j)**2 * (mesh%full_cos_lon(i) * xs(i) + mesh%full_sin_lon(i) * ys(i))
-          end do
+          if (abs(mesh%half_lat(j)) < 45) then
+            do i = mesh%full_ids, mesh%full_ide
+              tmp(i) = sum(filter%wgt_lat(:n,j) * y_lat%d(i-hn:i+hn,j,k))
+            end do
+            y_lat%d(mesh%full_ids:mesh%full_ide,j,k) = tmp
+          else
+            s = sign(1.0_r8, mesh%half_lat(j))
+            ! Transform onto polar plane.
+            do i = mesh%full_ids - hn, mesh%full_ide + hn
+              x_lat = mesh%tg_wgt_lat(1,j) * (x_lon_save%d(i-1,j  ,k) + x_lon_save%d(i,j  ,k)) + &
+                      mesh%tg_wgt_lat(2,j) * (x_lon_save%d(i-1,j+1,k) + x_lon_save%d(i,j+1,k))
+              xs(i) = s * (-x_lat * mesh%full_sin_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i) / mesh%half_sin_lat(j)**2)
+              ys(i) = s * ( x_lat * mesh%full_cos_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i) / mesh%half_sin_lat(j)**2)
+            end do
+            do i = mesh%full_ids, mesh%full_ide
+              tmp(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
+            end do
+            xs(mesh%full_ids:mesh%full_ide) = tmp
+            do i = mesh%full_ids, mesh%full_ide
+              tmp(i) = sum(filter%wgt_lat(:n,j) * ys(i-hn:i+hn))
+            end do
+            ys(mesh%full_ids:mesh%full_ide) = tmp
+            ! Transform back.
+            do i = mesh%full_ids, mesh%full_ide
+              y_lat%d(i,j,k) = -s * mesh%half_sin_lat(j)**2 * (mesh%full_cos_lon(i) * xs(i) + mesh%full_sin_lon(i) * ys(i))
+            end do
+          end if
         end if
       end do
     end do
