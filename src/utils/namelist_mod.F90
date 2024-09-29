@@ -132,9 +132,7 @@ module namelist_mod
 
   ! Filter settings
   real(r8)        :: filter_coef_a        = 2.0_r8
-  real(r8)        :: filter_coef_b        = 0.32_r8
-  real(r8)        :: filter_coef_c        = 0.30_r8
-  real(r8)        :: filter_lat0          = 80
+  real(r8)        :: filter_coef_b        = 0.30_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 4.0_r8
 
@@ -267,8 +265,6 @@ module namelist_mod
     time_scheme               , &
     filter_coef_a             , &
     filter_coef_b             , &
-    filter_coef_c             , &
-    filter_lat0               , &
     filter_gauss_sigma        , &
     filter_min_width          , &
     physics_suite             , &
@@ -407,8 +403,6 @@ contains
       write(*, *) 'pdc_type            = ', to_str(pdc_type)
       write(*, *) 'filter_coef_a       = ', filter_coef_a
       write(*, *) 'filter_coef_b       = ', filter_coef_b
-      write(*, *) 'filter_coef_c       = ', filter_coef_c
-      write(*, *) 'filter_lat0         = ', filter_lat0
       write(*, *) 'filter_gauss_sigma  = ', filter_gauss_sigma
       write(*, *) 'filter_min_width    = ', filter_min_width
       write(*, *) 'filter_ptend        = ', to_str(filter_ptend)
