@@ -13,7 +13,6 @@
 module mars_nasa_objects_mod
 
   use physics_mesh_mod
-  use mars_nasa_const_mod
   use mars_nasa_physics_types_mod
 
   implicit none

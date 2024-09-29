@@ -16,7 +16,7 @@ module mars_nasa_namelist_mod
   use flogger
   use string
   use process_mod
-  use mars_nasa_const_mod
+  use mars_nasa_const_mod, only: r8, rho_ice, ice_thresh_kgm2
 
   implicit none
 
