@@ -130,10 +130,10 @@ contains
     ! Each process calculate lon_hw from its big_filter%ngrid_lat(:) and big_filter%ngrid_lon(:).
     lon_hw = global_mesh%lon_hw
     do j = blocks(1)%mesh%half_jds, blocks(1)%mesh%half_jde
-      lon_hw = max(lon_hw, (blocks(1)%big_filter%ngrid_lat(j) - 1) / 2 + 1)
+      lon_hw = max(lon_hw, (blocks(1)%big_filter%ngrid_lat(j) - 1) / 2)
     end do
     do j = blocks(1)%mesh%full_jds, blocks(1)%mesh%full_jde
-      lon_hw = max(lon_hw, (blocks(1)%big_filter%ngrid_lon(j) - 1) / 2 + 1)
+      lon_hw = max(lon_hw, (blocks(1)%big_filter%ngrid_lon(j) - 1) / 2)
     end do
     lon_hw = max(lon_hw, global_mesh%lon_hw)
 
