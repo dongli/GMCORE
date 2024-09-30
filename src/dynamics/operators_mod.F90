@@ -695,8 +695,17 @@ contains
         end do
       end do
     end do
-    call filter_run(block%small_filter, mfx_lon)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%half_jds, mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          mfy_lat%d(i,j,k) = dmg_lat%d(i,j,k) * v_lat%d(i,j,k)
+        end do
+      end do
+    end do
+    ! --------------------------------------------------------------------------
+    call filter_run_vector(block%small_filter, mfx_lon, mfy_lat, block%dtend%du, block%dtend%dv)
     call fill_halo(mfx_lon, east_halo=.false., south_halo=.false.)
+    call fill_halo(mfy_lat, west_halo=.false., north_halo=.false.)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
@@ -708,20 +717,12 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          mfy_lat%d(i,j,k) = dmg_lat%d(i,j,k) * v_lat%d(i,j,k)
-        end do
-      end do
-    end do
-    call filter_run(block%small_filter, mfy_lat)
-    call fill_halo(mfy_lat, west_halo=.false., north_halo=.false.)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
           v_lat%d(i,j,k) = mfy_lat%d(i,j,k) / dmg_lat%d(i,j,k)
         end do
       end do
     end do
     call fill_halo(v_lat)
+    ! --------------------------------------------------------------------------
 
     call interp_run(mfx_lon, mfx_lat)
     do k = mesh%full_kds, mesh%full_kde
