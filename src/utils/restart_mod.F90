@@ -51,6 +51,8 @@ module restart_mod
   character(8), parameter ::     lat_dims_2d(3) = ['lon ', 'ilat',         'time']
   character(8), parameter ::     lat_dims_3d(4) = ['lon ', 'ilat', 'lev ', 'time']
   character(8), parameter ::     lev_dims_3d(4) = ['lon ', 'lat ', 'ilev', 'time']
+  character(8), parameter :: lev_lon_dims_3d(4) = ['ilon', 'lat ', 'ilev', 'time']
+  character(8), parameter :: lev_lat_dims_3d(4) = ['lon ', 'ilat', 'ilev', 'time']
 
 contains
 
@@ -137,8 +139,8 @@ contains
       call write_field ('r0', mesh, q)
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
-        if (batch%step /= -1) then
-          if (proc%is_root()) call log_error('Restart advection batch ' // trim(batch%name) // ', but its step is not -1!')
+        if (batch%step /= 0) then
+          if (proc%is_root()) call log_error('Restart advection batch ' // trim(batch%name) // ', but its step is not 0!')
         end if
         call write_fields('r0', mesh, batch%fields)
         end associate
@@ -166,7 +168,7 @@ contains
     character(30) start_time_str
 
     if (restart_file == 'N/A') then
-      call log_error('Parameter restart_file is needed to restart!')
+      call log_error('Parameter restart_file is needed to restart!', pid=proc%id_model)
     end if
 
     if (proc%is_root()) then
@@ -198,7 +200,7 @@ contains
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
         call read_fields('r0', mesh, batch%fields)
-        batch%step = -1
+        batch%step = 0
         end associate
       end do
       end associate
@@ -265,6 +267,12 @@ contains
         call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= vtx_dims_3d(:n), dtype='r8')
       case ('lev')
         call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names= lev_dims_3d(:n), dtype='r8')
+      case ('lev_lon')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=lev_lon_dims_3d(:n), dtype='r8')
+      case ('lev_lat')
+        call fiona_add_var(dtag, field%name, long_name=field%long_name, units=field%units, dim_names=lev_lat_dims_3d(:n), dtype='r8')
+      case default
+        call log_error('Invalid field location ' // trim(field%loc) // '!', pid=proc%id_model)
       end select
     type is (latlon_field4d_type)
       if (.not. field%restart) return
@@ -344,6 +352,16 @@ contains
         is = mesh%half_ids; ie = mesh%half_ide
         js = mesh%half_jds; je = mesh%half_jde
         ks = mesh%full_kds; ke = mesh%full_kde
+      case ('lev_lon')
+        is = mesh%half_ids; ie = mesh%half_ide
+        js = mesh%full_jds; je = mesh%full_jde
+        ks = mesh%half_kds; ke = mesh%half_kde
+      case ('lev_lat')
+        is = mesh%full_ids; ie = mesh%full_ide
+        js = mesh%half_jds; je = mesh%half_jde
+        ks = mesh%half_kds; ke = mesh%half_kde
+      case default
+        call log_error('Invalid field location ' // trim(field%loc) // '!', pid=proc%id_model)
       end select
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
@@ -435,6 +453,16 @@ contains
         is = mesh%half_ids; ie = mesh%half_ide
         js = mesh%half_jds; je = mesh%half_jde
         ks = mesh%full_kds; ke = mesh%full_kde
+      case ('lev_lon')
+        is = mesh%half_ids; ie = mesh%half_ide
+        js = mesh%full_jds; je = mesh%full_jde
+        ks = mesh%half_kds; ke = mesh%half_kde
+      case ('lev_lat')
+        is = mesh%full_ids; ie = mesh%full_ide
+        js = mesh%half_jds; je = mesh%half_jde
+        ks = mesh%half_kds; ke = mesh%half_kde
+      case default
+        call log_error('Invalid field location ' // trim(field%loc) // '!', pid=proc%id_model)
       end select
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]

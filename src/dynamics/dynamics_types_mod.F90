@@ -240,7 +240,7 @@ contains
         mesh            =mesh                                                , &
         halo            =halo                                                , &
         output          ='h1'                                                , &
-        restart         =.false.                                             , &
+        restart         =.true.                                              , &
         field           =this%gz_lev                                         )
     end if
     if (advection) then

@@ -159,7 +159,7 @@ contains
           mesh            =filter_mesh                                         , &
           halo            =filter_halo                                         , &
           output          =merge('h0', '  ', advection)                        , &
-          restart         =.false.                                             , &
+          restart         =.true.                                              , &
           field           =this%m                                              )
       else
         call append_field(this%fields                                          , &
