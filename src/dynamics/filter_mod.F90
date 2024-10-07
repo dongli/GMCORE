@@ -204,6 +204,8 @@ contains
     real(r8) s, y_lon, x_lat
     integer i, j, k, n, hn
 
+    real(r8), parameter :: lat0 = 82
+
     call fill_halo(x_lon, south_halo=.false.)
     call fill_halo(y_lat, north_halo=.false.)
 
@@ -216,7 +218,7 @@ contains
         if (filter%ngrid_lon(j) >= 3) then
           n  = filter%ngrid_lon(j)
           hn = (n - 1) / 2
-          if (abs(mesh%full_lat(j)) < 70) then
+          if (abs(mesh%full_lat_deg(j)) < lat0) then
             do i = mesh%half_ids, mesh%half_ide
               tmp(i) = sum(filter%wgt_lon(:n,j) * x_lon%d(i-hn:i+hn,j,k))
             end do
@@ -249,7 +251,7 @@ contains
         if (filter%ngrid_lat(j) >= 3) then
           n  = filter%ngrid_lat(j)
           hn = (n - 1) / 2
-          if (abs(mesh%half_lat(j)) < 70) then
+          if (abs(mesh%half_lat_deg(j)) < lat0) then
             do i = mesh%full_ids, mesh%full_ide
               tmp(i) = sum(filter%wgt_lat(:n,j) * y_lat%d(i-hn:i+hn,j,k))
             end do
