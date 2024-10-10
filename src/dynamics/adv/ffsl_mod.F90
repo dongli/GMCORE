@@ -507,7 +507,7 @@ contains
 
     dt_opt = batch%dt; if (present(dt)) dt_opt = dt
 
-    associate (m        => batch%bg%m    , & ! in
+    associate (m        => batch%m       , & ! in
                cflz     => batch%cflz    , & ! in
                mfz      => batch%mfz     , & ! in
                mfz_frac => batch%mfz_frac)   ! in
