@@ -688,8 +688,6 @@ contains
     type(latlon_field3d_type), intent(in), optional :: mfz
     real(r8), intent(in), optional :: dt
 
-    integer i, j, k
-
     if (this%step == 0) then
       ! Reset step.
       this%u  %d = 0

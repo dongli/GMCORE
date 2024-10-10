@@ -10,7 +10,7 @@
 module latlon_mesh_mod
 
   use flogger
-  use const_mod, only: pi, pi2, pi05, radius, omega, inf, deg
+  use const_mod, only: pi, pi2, pi05, radius, omega, inf, deg, eps
   use sphere_geometry_mod
 
   implicit none
@@ -208,6 +208,7 @@ contains
       if (this%half_lat(j) >= -pi05 .and. this%half_lat(j) <= pi05) then
         this%half_cos_lat(j) = cos(this%half_lat(j))
         this%half_sin_lat(j) = sin(this%half_lat(j))
+        if (abs(this%half_lat(j)) < eps) this%half_sin_lat(j) = eps
       end if
     end do
 
