@@ -45,6 +45,10 @@ contains
 
     call perf_start('filter_run_2d')
 
+    if (.not. associated(x%mesh, filter%mesh)) then
+      call log_error('x%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
+    end if
+
     call fill_halo(x, south_halo=.false., north_halo=.false.)
 
     is = x%mesh%full_ids
@@ -90,6 +94,10 @@ contains
     integer is, ie, js, je, ks, ke, i, j, k, n, hn
 
     call perf_start('filter_run_3d')
+
+    if (.not. associated(x%mesh, filter%mesh)) then
+      call log_error('x%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
+    end if
 
     call fill_halo(x, south_halo=.false., north_halo=.false.)
 
@@ -156,6 +164,10 @@ contains
 
     call perf_start('filter_run_4d')
 
+    if (.not. associated(x%mesh, filter%mesh)) then
+      call log_error('x%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
+    end if
+
     is = x%mesh%full_ids
     ie = x%mesh%full_ide
     select case (x%loc)
@@ -208,6 +220,13 @@ contains
 
     real(r8), parameter :: lat1 = 85
     real(r8), parameter :: lat2 = 75
+
+    if (.not. associated(x_lon%mesh, filter%mesh)) then
+      call log_error('x_lon%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
+    end if
+    if (.not. associated(y_lat%mesh, filter%mesh)) then
+      call log_error('y_lat%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
+    end if
 
     call fill_halo(x_lon, south_halo=.false.)
     call fill_halo(y_lat, north_halo=.false.)

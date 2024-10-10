@@ -91,7 +91,7 @@ contains
         blocks(iblk)%dstate(itime)%p_lev%d = blocks(iblk)%dstate(itime)%ph_lev%d
       end if
       if (baroclinic    ) call calc_t     (blocks(iblk), blocks(iblk)%dstate(itime))
-      call calc_mf                        (blocks(iblk), blocks(iblk)%dstate(itime), dt, .false.)
+      call calc_mf                        (blocks(iblk), blocks(iblk)%dstate(itime), dt)
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime))
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
@@ -99,6 +99,7 @@ contains
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
       if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
+      if (baroclinic    ) call blocks(iblk)%dstate(itime)%dmg1%copy(blocks(iblk)%dstate(itime)%dmg)
     end do
 
   end subroutine operators_prepare_1
@@ -113,7 +114,7 @@ contains
 
     select case (pass)
     case (all_pass)
-      call calc_mf                        (block, dstate, dt, .true.)
+      call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
       call calc_pv                        (block, dstate)
       call interp_pv                      (block, dstate, dt, substep)
@@ -121,7 +122,7 @@ contains
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
       if (hydrostatic   ) call calc_rhod  (block, dstate)
     case (forward_pass)
-      call calc_mf                        (block, dstate, dt, .true.)
+      call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
       call calc_pv                        (block, dstate)
       call interp_pv                      (block, dstate, dt, substep)
@@ -666,12 +667,11 @@ contains
 
   end subroutine calc_dmg
 
-  subroutine calc_mf(block, dstate, dt, filter_mf)
+  subroutine calc_mf(block, dstate, dt)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
     real(r8), intent(in) :: dt
-    logical, intent(in) :: filter_mf
 
     integer i, j, k
 
@@ -690,40 +690,19 @@ contains
                mfy_lon => block%aux%mfy_lon, & ! out
                mfx_lat => block%aux%mfx_lat)   ! out
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%half_ids, mesh%half_ide
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
+        do i = mesh%half_ids - 1, mesh%half_ide
           mfx_lon%d(i,j,k) = dmg_lon%d(i,j,k) * u_lon%d(i,j,k)
         end do
       end do
     end do
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
+      do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide + 1
           mfy_lat%d(i,j,k) = dmg_lat%d(i,j,k) * v_lat%d(i,j,k)
         end do
       end do
     end do
-    ! --------------------------------------------------------------------------
-    if (filter_mf) then
-      call filter_run_vector(block%small_filter, mfx_lon, mfy_lat, block%dtend%du, block%dtend%dv)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%half_ids, mesh%half_ide
-            u_lon%d(i,j,k) = mfx_lon%d(i,j,k) / dmg_lon%d(i,j,k)
-          end do
-        end do
-      end do
-      call fill_halo(u_lon)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%half_jds, mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            v_lat%d(i,j,k) = mfy_lat%d(i,j,k) / dmg_lat%d(i,j,k)
-          end do
-        end do
-      end do
-      call fill_halo(v_lat)
-    end if
-    ! --------------------------------------------------------------------------
     call fill_halo(mfx_lon, east_halo=.false., south_halo=.false.)
     call fill_halo(mfy_lat, west_halo=.false., north_halo=.false.)
 

@@ -385,7 +385,7 @@ contains
         end do
       end do
     end do
-    call batch%calc_cflz_tracer(mxy, mfz, cflz, mfz_frac, dt_opt)
+    call batch%calc_cflz_tracer(m, mfz, cflz, mfz_frac, dt_opt)
     end associate
 
     call perf_stop('swift_prepare')

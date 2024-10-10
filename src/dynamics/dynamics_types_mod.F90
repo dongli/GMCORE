@@ -34,6 +34,7 @@ module dynamics_types_mod
     type(latlon_field3d_type) gz
     type(latlon_field3d_type) gz_lev
     type(latlon_field3d_type) dmg
+    type(latlon_field3d_type) dmg1
     type(latlon_field3d_type) dmg_lev
     type(latlon_field3d_type) pt
     type(latlon_field3d_type) mg
@@ -265,6 +266,16 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )
+      call append_field(this%fields                                          , &
+        name            ='dmg1'                                              , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dmg1                                           )                                           
     end if
     if (baroclinic .or. advection) then
       call append_field(this%fields                                          , &
@@ -594,21 +605,21 @@ contains
         long_name       ='Dynamic tendency of mgs'                           , &
         units           ='Pa s-1'                                            , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmgs                                           )
     end if
 
-    if (nonhydrostatic .or. .not. baroclinic) then
+    if (.not. baroclinic) then
       call append_field(this%fields                                          , &
         name            ='dgzdt'                                             , &
         long_name       ='Dynamic tendency of gz'                            , &
         units           ='m2 s-2'                                            , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dgz                                            )
@@ -1153,8 +1164,8 @@ contains
       long_name         ='Zonal mass flux'                                   , &
       units             ='Pa m s-1'                                          , &
       loc               ='lon'                                               , &
-      mesh              =filter_mesh                                         , &
-      halo              =filter_halo                                         , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfx_lon                                        )
@@ -1163,8 +1174,8 @@ contains
       long_name         ='Meridional mass flux'                              , &
       units             ='Pa m s-1'                                          , &
       loc               ='lat'                                               , &
-      mesh              =filter_mesh                                         , &
-      halo              =filter_halo                                         , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%mfy_lat                                        )

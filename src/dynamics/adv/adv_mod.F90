@@ -272,7 +272,7 @@ contains
     do iblk = 1, size(blocks)
       associate (block => blocks(iblk)                , &
                  mesh  => blocks(iblk)%filter_mesh    , &
-                 m_new => blocks(iblk)%dstate(new)%dmg)   ! in
+                 m_new => blocks(iblk)%dstate(new)%dmg1)  ! in
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
           if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
