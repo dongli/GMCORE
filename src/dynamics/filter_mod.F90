@@ -168,6 +168,8 @@ contains
       call log_error('x%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
     end if
 
+    call fill_halo(x, i4, south_halo=.false., north_halo=.false.)
+
     is = x%mesh%full_ids
     ie = x%mesh%full_ide
     select case (x%loc)
