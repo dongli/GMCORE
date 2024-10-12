@@ -131,7 +131,8 @@ module namelist_mod
   character(30)   :: time_scheme          = 'wrfrk3'
 
   ! Filter settings
-  real(r8)        :: filter_coef_a        = 2.0_r8
+  real(r8)        :: filter_wave_speed    = 300.0_r8
+  real(r8)        :: filter_coef_a        = 2.5_r8
   real(r8)        :: filter_coef_b        = 0.4_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 4.0_r8
@@ -263,6 +264,7 @@ module namelist_mod
     upwind_order              , &
     upwind_wgt                , &
     time_scheme               , &
+    filter_wave_speed         , &
     filter_coef_a             , &
     filter_coef_b             , &
     filter_gauss_sigma        , &
@@ -401,6 +403,7 @@ contains
       write(*, *) 'dt_phys             = ', to_str(dt_phys, 2)
       write(*, *) 'time_scheme         = ', trim(time_scheme)
       write(*, *) 'pdc_type            = ', to_str(pdc_type)
+      write(*, *) 'filter_wave_speed   = ', filter_wave_speed
       write(*, *) 'filter_coef_a       = ', filter_coef_a
       write(*, *) 'filter_coef_b       = ', filter_coef_b
       write(*, *) 'filter_gauss_sigma  = ', filter_gauss_sigma

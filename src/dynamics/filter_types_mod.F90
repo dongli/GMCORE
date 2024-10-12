@@ -79,7 +79,7 @@ contains
     type(latlon_mesh_type), intent(in), target :: mesh
     character(*), intent(in) :: type
 
-    real(8) dx, dy, w
+    real(8) dx, w
     integer j, n
 
     call this%clear()
@@ -94,9 +94,8 @@ contains
 
     do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
       dx = mesh%de_lon(j)
-      dy = mesh%le_lon(j)
       if (dx > 0) then
-        w = filter_coef_a * dy / dx
+        w = filter_coef_a * filter_wave_speed * dt_dyn / dx * (0.5_r8 * (tanh(90 - abs(mesh%full_lat_deg(j))) - 1) + 1)
         w = max(filter_min_width, w)
         n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
         this%width_lon(j) = w
@@ -105,9 +104,8 @@ contains
     end do
     do j = mesh%half_jds, mesh%half_jde
       dx = merge(mesh%de_lon(j+1), mesh%de_lon(j), mesh%half_lat(j) < 0)
-      dy = merge(mesh%le_lon(j+1), mesh%le_lon(j), mesh%half_lat(j) < 0)
       if (dx > 0) then
-        w = filter_coef_a * dy / dx
+        w = filter_coef_a * filter_wave_speed * dt_dyn / dx * (0.5_r8 * (tanh(90 - abs(mesh%full_lat_deg(j))) - 1) + 1)
         w = max(filter_min_width, w)
         n = ceiling(w); if (mod(n, 2) == 0) n = n + 1; n = max(3, n)
         this%width_lat(j) = w
