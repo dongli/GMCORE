@@ -177,13 +177,13 @@ contains
         call calc_mg (block, new_dstate)
         call calc_dmg(block, new_dstate)
         call calc_ph (block, new_dstate)
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              new_dstate%dmg1%d(i,j,k) = old_dstate%dmg1%d(i,j,k) - dt * (block%aux%dmf%d(i,j,k) + block%aux%mfz_lev%d(i,j,k+1) - block%aux%mfz_lev%d(i,j,k))
-            end do
-          end do
-        end do
+        ! do k = mesh%full_kds, mesh%full_kde
+        !   do j = mesh%full_jds, mesh%full_jde
+        !     do i = mesh%full_ids, mesh%full_ide
+        !       new_dstate%dmg1%d(i,j,k) = old_dstate%dmg1%d(i,j,k) - dt * (block%aux%dmf%d(i,j,k) + block%aux%mfz_lev%d(i,j,k+1) - block%aux%mfz_lev%d(i,j,k))
+        !     end do
+        !   end do
+        ! end do
       end if
 
       if (dtend%update_pt) then
