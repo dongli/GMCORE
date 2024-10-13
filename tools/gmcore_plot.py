@@ -11,10 +11,16 @@ from metpy.interpolate import interpolate_1d
 from metpy.units import units
 
 def vinterp(zi, var, zo):
-	return interpolate_1d(zo, zi, var).squeeze()
+	plev = np.array([zo]) * units.hPa
+	res = interpolate_1d(plev, zi, var)
+	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
+	return res
 
 def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, right_string=None, with_grid=True):
-	ax.set_title(var.long_name)
+	if left_string is not None:
+		ax.set_title(left_string)
+	else:
+		ax.set_title('')
 	var, lon = cutil.add_cyclic_point(var, coord=lon)
 	im = ax.contourf(lon, lat, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels)
 	ax.contour(lon, lat, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=0.2, colors='k')
@@ -24,7 +30,6 @@ def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, ri
 		gl.right_labels = False
 		gl.xformatter = ccrs.cartopy.mpl.gridliner.LONGITUDE_FORMATTER
 		gl.yformatter = ccrs.cartopy.mpl.gridliner.LATITUDE_FORMATTER
-	if left_string is not None: ax.set_title(left_string)
 	cax = make_axes_locatable(ax).append_axes('right', size='5%', pad=0.05, axes_class=plt.Axes)
 	cbar = plt.colorbar(im, cax=cax, orientation='vertical')
 	formatter = ticker.ScalarFormatter(useMathText=True)
