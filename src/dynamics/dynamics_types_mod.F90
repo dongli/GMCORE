@@ -34,7 +34,6 @@ module dynamics_types_mod
     type(latlon_field3d_type) gz
     type(latlon_field3d_type) gz_lev
     type(latlon_field3d_type) dmg
-    type(latlon_field3d_type) dmg1
     type(latlon_field3d_type) dmg_lev
     type(latlon_field3d_type) pt
     type(latlon_field3d_type) mg
@@ -266,16 +265,6 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )
-      call append_field(this%fields                                          , &
-        name            ='dmg1'                                              , &
-        long_name       ='Dry-air weight'                                    , &
-        units           ='Pa'                                                , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          ='h1'                                                , &
-        restart         =.false.                                             , &
-        field           =this%dmg1                                           )                                           
     end if
     if (baroclinic .or. advection) then
       call append_field(this%fields                                          , &

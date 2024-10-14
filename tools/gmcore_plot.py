@@ -17,14 +17,14 @@ def vinterp(zi, var, zo):
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	return res
 
-def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, right_string=None, with_grid=True, font_size=8):
+def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, right_string=None, with_grid=True, font_size=8, add_cyclic_point=False):
 	if left_string is not None:
 		ax.set_title(left_string)
 		# How to set title font size?
 		ax.title.set_fontsize(font_size)
 	else:
 		ax.set_title('')
-	var, lon = cutil.add_cyclic_point(var, coord=lon)
+	if add_cyclic_point: var, lon = cutil.add_cyclic_point(var, coord=lon)
 	im = ax.contourf(lon, lat, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both')
 	ax.contour(lon, lat, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=0.2, colors='k')
 	if with_grid:

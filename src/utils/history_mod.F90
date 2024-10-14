@@ -294,6 +294,9 @@ contains
       end do
     end if
 
+    ! Filter parameters
+    call fiona_add_var('h1', 'fw', long_name='Filter width', units='', dim_names=['lat'])
+
   end subroutine history_setup_h1
 
   subroutine history_write_h1(itime)
@@ -335,6 +338,9 @@ contains
       call write_fields('h1', mesh, blocks(iblk)%adv_batch_bg%fields)
       call write_fields('h1', mesh, blocks(iblk)%adv_batch_pt%fields)
       call write_fields('h1', mesh, blocks(iblk)%adv_batch_nh%fields)
+
+      ! Filter parameters
+      call fiona_output('h1', 'fw', blocks(iblk)%big_filter%width_lon(mesh%full_jds:mesh%full_jde), start=[mesh%full_jds], count=[mesh%full_nlat])
       end associate
     end do
 

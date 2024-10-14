@@ -99,7 +99,6 @@ contains
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
       if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
-      if (baroclinic    ) call blocks(iblk)%dstate(itime)%dmg1%copy(blocks(iblk)%dstate(itime)%dmg)
     end do
 
   end subroutine operators_prepare_1
