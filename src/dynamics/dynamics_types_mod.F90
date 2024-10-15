@@ -209,29 +209,39 @@ contains
       output            ='h1'                                                , &
       restart           =.true.                                              , &
       field             =this%v_lat                                          )
-    call append_field(this%fields                                            , &
-      name              ='gz'                                                , &
-      long_name         ='Geopotential'                                      , &
-      units             ='m2 s-2'                                            , &
-      loc               ='cell'                                              , &
-      mesh              =mesh                                                , &
-      halo              =halo                                                , &
-      output            ='h0'                                                , &
-      restart           =.not. baroclinic                                    , & ! FIXME: Revise this.
-      field             =this%gz                                             )
     if (nonhydrostatic) then
+      call append_field(this%fields                                          , &
+        name            ='gz'                                                , &
+        long_name       ='Geopotential'                                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h0'                                                , &
+        restart         =.not. baroclinic                                    , & ! FIXME: Revise this.
+        field           =this%gz                                             )
       call append_field(this%fields                                          , &
         name            ='gz_lev'                                            , &
         long_name       ='Geopotential'                                      , &
         units           ='m2 s-2'                                            , &
         loc             ='lev'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h0'                                                , &
+        restart         =.true.                                              , &
+        halo_cross_pole =.true.                                              , &
+        field           =this%gz_lev                                         )
+    else
+      call append_field(this%fields                                          , &
+        name            ='gz'                                                , &
+        long_name       ='Geopotential'                                      , &
+        units           ='m2 s-2'                                            , &
+        loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
         output          ='h0'                                                , &
-        restart         =.true.                                              , &
-        field           =this%gz_lev                                         , &
-        halo_cross_pole =.true.                                              )
-    else
+        restart         =.false.                                             , &
+        field           =this%gz                                             )
       call append_field(this%fields                                          , &
         name            ='gz_lev'                                            , &
         long_name       ='Geopotential'                                      , &
@@ -373,15 +383,13 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         field           =this%w                                              )
-    end if
-    if (nonhydrostatic) then
       call append_field(this%fields                                          , &
         name            ='w_lev'                                             , &
         long_name       ='Vertical wind speed'                               , &
         units           ='m s-1'                                             , &
         loc             ='lev'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%w_lev                                          , &
