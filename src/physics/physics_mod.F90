@@ -66,7 +66,7 @@ contains
     real(r8), allocatable :: area(:,:)
 
     if (physics_suite /= 'N/A') then
-      call time_add_alert('phys', seconds=dt_phys)
+      call time_add_alert('phys', seconds=dt_phys/time_scale)
     end if
 
     nblk = size(blocks)

@@ -601,7 +601,7 @@ contains
       this%idx = idx
     end if
 
-    call time_add_alert(batch_name, seconds=dt)
+    call time_add_alert(batch_name, seconds=dt/time_scale)
 
     this%initialized = .true.
 
