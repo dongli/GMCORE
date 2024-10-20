@@ -63,6 +63,8 @@ program gmcore_driver
   call gmcore_init_stage1(namelist_path)
 
   select case (test_case)
+  case ('baroclinic_wave')
+    call baroclinic_wave_test_init()
   case ('mountain_wave')
     call mountain_wave_test_init()
   end select
