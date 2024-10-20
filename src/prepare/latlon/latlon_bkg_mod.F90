@@ -384,7 +384,7 @@ contains
       case ('era5')
         allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_ql(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qc(:,:,k), mesh, q1(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide

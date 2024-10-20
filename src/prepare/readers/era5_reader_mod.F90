@@ -22,7 +22,7 @@ module era5_reader_mod
   real(r8), allocatable, dimension(:,:,:) :: era5_t
   real(r8), allocatable, dimension(:,:,:) :: era5_z
   real(r8), allocatable, dimension(:,:,:) :: era5_qv
-  real(r8), allocatable, dimension(:,:,:) :: era5_ql
+  real(r8), allocatable, dimension(:,:,:) :: era5_qc
   real(r8), allocatable, dimension(:,:,:) :: era5_qi
   real(r8), allocatable, dimension(:,:,:) :: era5_qr
   real(r8), allocatable, dimension(:,:,:) :: era5_qs
@@ -42,7 +42,6 @@ contains
     integer i, j, k, k0
     character(50) time_units
     real(r8) min_lat, max_lat, time_value
-    real(r8) qm1, qm2, qm, tv1, tv2, sum_q_lev, dz, rho
 
     call era5_reader_final()
 
@@ -71,7 +70,7 @@ contains
     call fiona_input_range('era5', 'sp'       , era5_ps , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
     call fiona_input_range('era5', 'zs'       , era5_zs , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
   if (fiona_has_var('era5', 'clwc')) &
-    call fiona_input_range('era5', 'clwc'     , era5_ql , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
+    call fiona_input_range('era5', 'clwc'     , era5_qc , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
   if (fiona_has_var('era5', 'ciwc')) &
     call fiona_input_range('era5', 'ciwc'     , era5_qi , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
   if (fiona_has_var('era5', 'crwc')) &
@@ -92,9 +91,9 @@ contains
     era5_z   = era5_z  / g
     era5_zs  = era5_zs / g
 
-    if (.not. allocated(era5_ql)) then
-      allocate(era5_ql(era5_nlon,era5_nlat,era5_nlev))
-      era5_ql = 0
+    if (.not. allocated(era5_qc)) then
+      allocate(era5_qc(era5_nlon,era5_nlat,era5_nlev))
+      era5_qc = 0
     end if
     if (.not. allocated(era5_qi)) then
       allocate(era5_qi(era5_nlon,era5_nlat,era5_nlev))
@@ -121,7 +120,7 @@ contains
     if (allocated(era5_t  )) deallocate(era5_t  )
     if (allocated(era5_z  )) deallocate(era5_z  )
     if (allocated(era5_qv )) deallocate(era5_qv )
-    if (allocated(era5_ql )) deallocate(era5_ql )
+    if (allocated(era5_qc )) deallocate(era5_qc )
     if (allocated(era5_qi )) deallocate(era5_qi )
     if (allocated(era5_qr )) deallocate(era5_qr )
     if (allocated(era5_qs )) deallocate(era5_qs )
