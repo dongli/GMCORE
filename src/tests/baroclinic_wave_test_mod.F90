@@ -144,7 +144,7 @@ CONTAINS
         do i = mesh%full_ids, mesh%full_ide
           call baroclinic_wave_test(  &
             deep   =0               , &
-            moist  =1               , &
+            moist  =0               , &
             pertt  =0               , &
             X      =1.0d0           , &
             lon    =mesh%full_lon(i), &
