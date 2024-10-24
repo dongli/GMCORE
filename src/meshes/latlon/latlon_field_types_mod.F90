@@ -196,19 +196,30 @@ contains
 
   end subroutine latlon_field2d_clear
 
-  subroutine latlon_field2d_copy(this, other)
+  subroutine latlon_field2d_copy(this, other, with_halo)
 
     class(latlon_field2d_type), intent(inout) :: this
     type(latlon_field2d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
 
+    logical with_halo_opt
     integer i, j, is, ie, js, je
 
     if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
 
-    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
-    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
-    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
-    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    if (with_halo_opt) then
+      is = merge(this%mesh%full_ims, this%mesh%half_ims, this%full_lon)
+      ie = merge(this%mesh%full_ime, this%mesh%half_ime, this%full_lon)
+      js = merge(this%mesh%full_jms, this%mesh%half_jms, this%full_lat)
+      je = merge(this%mesh%full_jme, this%mesh%half_jme, this%full_lat)
+    else
+      is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+      ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+      js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+      je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+    end if
 
     do j = js, je
       do i = is, ie
