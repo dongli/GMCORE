@@ -1204,7 +1204,7 @@ contains
         loc             ='vtx'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =merge('h0', '  ', baroclinic)                       , &
+        output          ='h0'                                                , &
         restart         =.false.                                             , &
         field           =this%vor                                            )
     end if

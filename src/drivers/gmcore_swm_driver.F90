@@ -15,6 +15,7 @@ program gmcore_swm_driver
   use shallow_water_waves_test_mod
   use vortex_erosion_test_mod
   use splash_test_mod
+  use colliding_modons_test_mod
 
   implicit none
 
@@ -38,12 +39,14 @@ program gmcore_swm_driver
 
   call gmcore_init_stage0()
 
-  call gmcore_init_stage1(namelist_path)
-
   select case (test_case)
   case ('splash')
     call splash_test_set_params()
+  case ('colliding_modons')
+    call colliding_modons_test_set_params()
   end select
+
+  call gmcore_init_stage1(namelist_path)
 
   call gmcore_init_stage2(namelist_path)
 
@@ -67,6 +70,8 @@ program gmcore_swm_driver
       set_ic => vortex_erosion_test_set_ic
     case ('splash')
       set_ic => splash_test_set_ic
+    case ('colliding_modons')
+      set_ic => colliding_modons_test_set_ic
     case default
       if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
     end select
