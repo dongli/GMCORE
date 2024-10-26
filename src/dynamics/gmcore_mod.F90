@@ -247,10 +247,12 @@ contains
                 block%dstate(itime)%gz_lev%d(i,j,global_mesh%half_kde) = block%static%gzs%d(i,j)
               end do
             end do
+            call fill_halo(block%dstate(itime)%gz_lev)
           end do
         end if
         call dstate%c2a(block%aux%u, block%aux%v)
         call calc_div(block, dstate)
+        if (baroclinic .and. .not. restart) call block%static%ref_ps%copy(dstate%mgs, with_halo=.true.)
         end associate
       end do
     end if

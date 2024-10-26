@@ -85,6 +85,7 @@ module latlon_field_types_mod
     procedure :: init  => latlon_field3d_init
     procedure :: clear => latlon_field3d_clear
     procedure :: copy  => latlon_field3d_copy
+    procedure :: sum   => latlon_field3d_sum
     procedure :: add   => latlon_field3d_add
     procedure :: min   => latlon_field3d_min
     procedure :: max   => latlon_field3d_max
@@ -506,6 +507,23 @@ contains
     end do
 
   end subroutine latlon_field3d_copy
+
+  real(r8) function latlon_field3d_sum(this) result(res)
+
+    class(latlon_field3d_type), intent(in) :: this
+
+    integer is, ie, js, je, ks, ke
+
+    is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
+    ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
+    js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
+    je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+    ks = merge(this%mesh%full_kds, this%mesh%half_kds, this%full_lev)
+    ke = merge(this%mesh%full_kde, this%mesh%half_kde, this%full_lev)
+
+    res = global_sum(proc%comm_model, sum(this%d(is:ie,js:je,ks:ke)))
+
+  end function latlon_field3d_sum
 
   subroutine latlon_field3d_add(this, other, with_halo)
 

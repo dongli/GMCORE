@@ -69,15 +69,15 @@ contains
 
     allocate(ref_profiles(size(blocks)))
     do iblk = 1, size(blocks)
-      associate (mesh  => blocks(iblk)%mesh         , &
-                 block => blocks(iblk)              , &
-                 mgs   => blocks(iblk)%dstate(1)%mgs, &
-                 pro   => ref_profiles(iblk)        )
+      associate (mesh   => blocks(iblk)%mesh         , &
+                 block  => blocks(iblk)              , &
+                 ref_ps => blocks(iblk)%static%ref_ps, &
+                 pro    => ref_profiles(iblk)        )
       call pro%init(mesh, blocks(iblk)%halo)
       do k = mesh%half_kds, mesh%half_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            p = vert_coord_calc_mg_lev(k, mgs%d(i,j)) / 100
+            p = vert_coord_calc_mg_lev(k, ref_ps%d(i,j)) / 100
             pro%gz_lev%d(i,j,k) = -rd * (a * (p - ps0) + b / (1 + c) * (p**(1 + c) - ps0**(1 + c)))
           end do
         end do
@@ -85,14 +85,14 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
           do i = mesh%full_ids, mesh%full_ide + 1
-            p = vert_coord_calc_mg(k, mgs%d(i,j)) / 100
+            p = vert_coord_calc_mg(k, ref_ps%d(i,j)) / 100
             t = p * (a + b * p**c)
             pro%mg %d(i,j,k) = p * 100
             pro%gz %d(i,j,k) = -rd * (a * (p - ps0) + b / (1 + c) * (p**(1 + c) - ps0**(1 + c)))
             pro%ad %d(i,j,k) = rd * t / (p * 100)
             pro%mpt%d(i,j,k) = dry_potential_temperature(t, pro%mg%d(i,j,k)) * ( &
-              vert_coord_calc_mg_lev(k+1, mgs%d(i,j)) - &
-              vert_coord_calc_mg_lev(k  , mgs%d(i,j))   &
+              vert_coord_calc_mg_lev(k+1, ref_ps%d(i,j)) - &
+              vert_coord_calc_mg_lev(k  , ref_ps%d(i,j))   &
             )
           end do
         end do

@@ -85,7 +85,7 @@ contains
       if (baroclinic    ) call calc_mg    (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_dmg                       (blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_ph    (blocks(iblk), blocks(iblk)%dstate(itime))
-      if (nonhydrostatic) then
+      if (nonhydrostatic .and. .not. restart) then
         ! Set pressure to hydrostatic pressure in the initial condition.
         blocks(iblk)%dstate(itime)%p    %d = blocks(iblk)%dstate(itime)%ph    %d
         blocks(iblk)%dstate(itime)%p_lev%d = blocks(iblk)%dstate(itime)%ph_lev%d
@@ -95,10 +95,12 @@ contains
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime))
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
-      if (baroclinic    ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
+      if ((nonhydrostatic .and. .not. restart) .or. hydrostatic) then
+        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
+        if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
+      end if
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
-      if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
     end do
 
   end subroutine operators_prepare_1

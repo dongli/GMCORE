@@ -416,7 +416,7 @@ contains
         mesh            =mesh                                                , &
         halo            =halo                                                , &
         output          =''                                                  , &
-        restart         =.false.                                             , &
+        restart         =.true.                                              , &
         field           =this%p                                              )
     end if
     if (hydrostatic) then
