@@ -317,7 +317,8 @@ CONTAINS
        call endrun("allocate failed")
     end if
 
-    bfg = transfer(b1,bfg)
+    b1%data = 0
+    bfg = transfer(b1, bfg)
 
 # 124 "/Users/dongli/utils/buffer.F90.in"
   end subroutine buffer_field_allocate_int
@@ -347,7 +348,8 @@ CONTAINS
        call endrun("allocate failed")
     end if
 
-    bfg = transfer(b1,bfg)
+    b1%data = 0
+    bfg = transfer(b1, bfg)
 
 # 124 "/Users/dongli/utils/buffer.F90.in"
   end subroutine buffer_field_allocate_double
@@ -377,7 +379,8 @@ CONTAINS
        call endrun("allocate failed")
     end if
 
-    bfg = transfer(b1,bfg)
+    b1%data = 0
+    bfg = transfer(b1, bfg)
 
 # 124 "/Users/dongli/utils/buffer.F90.in"
   end subroutine buffer_field_allocate_real
