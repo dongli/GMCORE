@@ -54,8 +54,9 @@ def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, ri
 		circle = mpath.Path(verts * radius + center)
 		ax.set_boundary(circle, transform=ax.transAxes)
 
-def plot_time_series(ax, time, var, color='black'):
+def plot_time_series(ax, time, var, ylim=None, color='black'):
 	ax.plot(time, var, '-', color=color)
+	if ylim is not None: ax.set_ylim(ylim)
 	ax.set_title(var.long_name)
 	# locator = mdates.AutoDateLocator(maxticks=4, interval_multiples=True)
 	locator = mdates.DayLocator(interval=60)
