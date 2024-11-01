@@ -69,7 +69,10 @@ contains
       j = j + 1; call regrids(i)%fields(j)%init('v' , 'V wind component', 'm/s'   , 'cell', regrids(i)%mesh)
       j = j + 1; call regrids(i)%fields(j)%init('t' , 'Temperature'     , 'K'     , 'cell', regrids(i)%mesh)
       j = j + 1; call regrids(i)%fields(j)%init('gz', 'Geopotential'    , 'm2 s-2', 'cell', regrids(i)%mesh)
-      if (idx_qv > 0) j = j + 1; call regrids(i)%fields(j)%init('qv', 'Water vapor dry mixing ratio', 'kg kg-1', 'cell', regrids(i)%mesh)
+      if (idx_qv > 0) then
+        j = j + 1
+        call regrids(i)%fields(j)%init('qv', 'Water vapor dry mixing ratio', 'kg kg-1', 'cell', regrids(i)%mesh)
+      end if
       regrids(i)%nfields = j
     end do
 
