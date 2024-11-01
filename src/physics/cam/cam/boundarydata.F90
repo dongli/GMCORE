@@ -52,8 +52,8 @@ module boundarydata
 
 contains
   subroutine boundarydata_init(bndyfilename,phys_state,fieldnames,fieldcnt,bndydata,vertextrap)
-    implicit none    
-    character(len=*),intent(in) :: bndyfilename
+
+    character(*), intent(in) :: bndyfilename
     type(physics_state), intent(in):: phys_state(begchunk:endchunk)
     integer,intent(in) :: fieldcnt
     character(len=*), intent(in) :: fieldnames(fieldcnt)

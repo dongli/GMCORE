@@ -373,198 +373,159 @@
    use wv_saturation,   only : qsat
    use physconst,       only : latice, latvap, rhoh2o
 
-   use spmd_utils, only : iam
-   implicit none
+    use spmd_utils, only : iam
 
-   ! ---------------------- !
-   ! Input-Output Arguments !
-   ! ---------------------- !
-   type(physics_buffer_desc), pointer :: pbuf(:)
-   type(physics_state), intent(in)    :: state                           ! Physics state variables
-   real(r8),            intent(in)    :: ztodt                           ! 2 delta-t  [ s ]
+    real(r8), intent(in   ) :: ztodt                          ! 2 delta-t  [s]
+    real(r8), intent(inout), dimension(pcols,pverp) :: cmfmc  ! Moist deep + shallow convection cloud mass flux [kg/s/m2]
+    real(r8), intent(inout), dimension(pcols,pver ) :: qc     ! dq/dt due to export of cloud water into environment by shallow and deep convection [kg/kg/s]
+    real(r8), intent(  out), dimension(pcols,pver ) :: qc2    ! Same as qc but only from shallow convection scheme
+    real(r8), intent(inout), dimension(pcols      ) :: rliq   ! Vertical integral of qc [ m/s ]
+    real(r8), intent(  out), dimension(pcols      ) :: rliq2  ! Vertically-integrated reserved cloud condensate [ m/s ]
+    type(physics_state), intent(in ) :: state
+    type(physics_ptend), intent(out) :: ptend_all
+    type(physics_buffer_desc), pointer :: pbuf(:)
+    type(cam_in_t),  intent(in) :: cam_in
 
-   type(physics_ptend), intent(out)   :: ptend_all                       ! Indivdual parameterization tendencies
-   real(r8),            intent(out)   :: rliq2(pcols)                    ! Vertically-integrated reserved cloud condensate [ m/s ]
-   real(r8),            intent(out)   :: qc2(pcols,pver)                 ! Same as qc but only from shallow convection scheme
+    integer i, k, m, n, x
+    integer ilon                                                      ! Global longitude index of a column
+    integer ilat                                                      ! Global latitude  index of a column
+    integer lchnk                                                     ! Chunk identifier
+    integer ncol                                                      ! Number of atmospheric columns
+    integer nstep                                                     ! Current time step index
+    integer ixcldice, ixcldliq                                        ! Constituent indices for cloud liquid and ice water.
+    integer ixnumice, ixnumliq                                        ! Constituent indices for cloud liquid and ice number concentration
 
+    real(r8), pointer, dimension(:) :: precc                          ! Shallow convective precipitation (rain+snow) rate at surface [ m/s ]
+    real(r8), pointer, dimension(:) :: snow                           ! Shallow convective snow rate at surface [ m/s ]
+    real(r8), dimension(pcols,pver) :: ftem                           ! Temporary workspace for outfld variables
+    real(r8), dimension(pcols     ) :: cnt2                           ! Top level of shallow convective activity
+    real(r8), dimension(pcols     ) :: cnb2                           ! Bottom level of convective activity
+    real(r8), dimension(pcols     ) :: tpert                          ! PBL perturbation theta
+    real(r8), pointer, dimension(:  ) :: pblh                         ! PBL height [ m ]
+    real(r8), pointer, dimension(:,:) :: qpert                        ! PBL perturbation specific humidity
 
+    ! Temperature tendency from shallow convection (pbuf pointer).
+    real(r8), pointer, dimension(:,:) :: ttend_sh
 
-   real(r8),            intent(inout) :: cmfmc(pcols,pverp)    ! Moist deep + shallow convection cloud mass flux [ kg/s/m2 ]
-   real(r8),            intent(inout) :: qc(pcols,pver)        ! dq/dt due to export of cloud water into environment by shallow
-                                                               ! and deep convection [ kg/kg/s ]
-   real(r8),            intent(inout) :: rliq(pcols)           ! Vertical integral of qc [ m/s ]
+    real(r8), dimension(pcols,pver ) :: ntprprd                          ! Net precip production in layer
+    real(r8), dimension(pcols,pver ) :: ntsnprd                          ! Net snow   production in layer
+    real(r8), dimension(pcols,pver ) :: tend_s_snwprd                    ! Heating rate of snow production
+    real(r8), dimension(pcols,pver ) :: tend_s_snwevmlt                  ! Heating rate of evap/melting of snow
+    real(r8), dimension(pcols,pverp) :: slflx                            ! Shallow convective liquid water static energy flux
+    real(r8), dimension(pcols,pverp) :: qtflx                            ! Shallow convective total water flux
+    real(r8), dimension(pcols,pver ) :: cmfdqs                           ! Shallow convective snow production
+    real(r8), dimension(pcols      ) :: zero                             ! Array of zeros
+    real(r8), dimension(pcols      ) :: cbmf                             ! Shallow cloud base mass flux [ kg/s/m2 ]
+    real(r8), dimension(pcols      ) :: freqsh                           ! Frequency of shallow convection occurence
+    real(r8), dimension(pcols      ) :: pcnt                             ! Top    pressure level of shallow + deep convective activity
+    real(r8), dimension(pcols      ) :: pcnb                             ! Bottom pressure level of shallow + deep convective activity
+    real(r8), dimension(pcols,pverp) :: cmfsl                            ! Convective flux of liquid water static energy
+    real(r8), dimension(pcols,pverp) :: cmflq                            ! Convective flux of total water in energy unit
 
-   type(cam_in_t),      intent(in) :: cam_in
+    real(r8), dimension(pcols,pver) :: ftem_preCu                        ! Saturation vapor pressure after shallow Cu convection
+    real(r8), dimension(pcols,pver) :: tem2                              ! Saturation specific humidity and RH
+    real(r8), dimension(pcols,pver) :: t_preCu                           ! Temperature after shallow Cu convection
+    real(r8), dimension(pcols,pver) :: tten                              ! Temperature tendency after shallow Cu convection
+    real(r8), dimension(pcols,pver) :: rhten                             ! RH tendency after shallow Cu convection
+    real(r8), dimension(pcols,pver) :: iccmr_UW                          ! In-cloud Cumulus LWC+IWC [ kg/m2 ]
+    real(r8), dimension(pcols,pver) :: icwmr_UW                          ! In-cloud Cumulus LWC     [ kg/m2 ]
+    real(r8), dimension(pcols,pver) :: icimr_UW                          ! In-cloud Cumulus IWC     [ kg/m2 ]
+    real(r8), dimension(pcols,pver,pcnst) :: ptend_tracer                ! Tendencies of tracers
+    real(r8), dimension(pcols) :: landfracdum
+    real(r8) sum1, sum2, sum3, pdelx
 
+    real(r8), dimension(pcols,pver) :: sl, qt, slv
+    real(r8), dimension(pcols,pver) :: sl_preCu, qt_preCu, slv_preCu
 
-   ! --------------- !
-   ! Local Variables !
-   ! --------------- !
-   integer  :: i, k, m
-   integer  :: n, x
-   integer  :: ilon                                                      ! Global longitude index of a column
-   integer  :: ilat                                                      ! Global latitude  index of a column
-   integer  :: lchnk                                                     ! Chunk identifier
-   integer  :: ncol                                                      ! Number of atmospheric columns
-   integer  :: nstep                                                     ! Current time step index
-   integer  :: ixcldice, ixcldliq                                        ! Constituent indices for cloud liquid and ice water.
-   integer  :: ixnumice, ixnumliq                                        ! Constituent indices for cloud liquid and ice number concentration
+    type(physics_state) state1                                           ! Locally modify for evaporation to use, not returned
+    type(physics_ptend) ptend_loc                                        ! Local tendency from processes, added up to return as ptend_all
 
-   real(r8),  pointer   :: precc(:)                                      ! Shallow convective precipitation (rain+snow) rate at surface [ m/s ]
-   real(r8),  pointer   :: snow(:)                                       ! Shallow convective snow rate at surface [ m/s ]
+    integer itim_old, ifld
+    real(r8), pointer, dimension(:,:) :: cld
+    real(r8), pointer, dimension(:,:) :: concld
+    real(r8), pointer, dimension(:,:) :: icwmr                           ! In cloud water + ice mixing ratio
+    real(r8), pointer, dimension(:,:) :: rprddp                          ! dq/dt due to deep convective rainout
+    real(r8), pointer, dimension(:,:) :: rprdsh                          ! dq/dt due to deep and shallow convective rainout
+    real(r8), pointer, dimension(:,:) :: evapcsh                         ! Evaporation of shallow convective precipitation >= 0.
+    real(r8), pointer, dimension(:)   :: cnt
+    real(r8), pointer, dimension(:)   :: cnb
+    real(r8), pointer, dimension(:)   :: cush
+    real(r8), pointer, dimension(:,:) :: tke
+    real(r8), pointer, dimension(:,:) :: shfrc
+    real(r8), pointer, dimension(:,:) :: flxprec                          ! Shallow convective-scale flux of precip (rain+snow) at interfaces [ kg/m2/s ]
+    real(r8), pointer, dimension(:,:) :: flxsnow                          ! Shallow convective-scale flux of snow at interfaces [ kg/m2/s ]
+    real(r8), pointer, dimension(:,:) :: sh_cldliq
+    real(r8), pointer, dimension(:,:) :: sh_cldice
 
-   real(r8) :: ftem(pcols,pver)                                          ! Temporary workspace for outfld variables
-   real(r8) :: cnt2(pcols)                                               ! Top level of shallow convective activity
-   real(r8) :: cnb2(pcols)                                               ! Bottom level of convective activity
-   real(r8) :: tpert(pcols)                                              ! PBL perturbation theta
+    real(r8), pointer, dimension(:,:) :: cmfmc2              ! (pcols,pverp) Updraft mass flux by shallow convection [ kg/s/m2 ]
+    real(r8), pointer, dimension(:,:) :: sh_e_ed_ratio       ! (pcols,pver) fer/(fer+fdr) from uwschu
 
-   real(r8), pointer   :: pblh(:)                                        ! PBL height [ m ]
-   real(r8), pointer   :: qpert(:,:)                                     ! PBL perturbation specific humidity
+    logical lq(pcnst)
+    type(unicon_out_t) unicon_out
 
-   ! Temperature tendency from shallow convection (pbuf pointer).
-   real(r8), pointer, dimension(:,:) :: ttend_sh
+    zero  = 0._r8
+    nstep = get_nstep()
+    lchnk = state%lchnk
+    ncol  = state%ncol
 
-   real(r8) :: ntprprd(pcols,pver)                                       ! Net precip production in layer
-   real(r8) :: ntsnprd(pcols,pver)                                       ! Net snow   production in layer
-   real(r8) :: tend_s_snwprd(pcols,pver)                                 ! Heating rate of snow production
-   real(r8) :: tend_s_snwevmlt(pcols,pver)                               ! Heating rate of evap/melting of snow
-   real(r8) :: slflx(pcols,pverp)                                        ! Shallow convective liquid water static energy flux
-   real(r8) :: qtflx(pcols,pverp)                                        ! Shallow convective total water flux
-   real(r8) :: cmfdqs(pcols, pver)                                       ! Shallow convective snow production
-   real(r8) :: zero(pcols)                                               ! Array of zeros
-   real(r8) :: cbmf(pcols)                                               ! Shallow cloud base mass flux [ kg/s/m2 ]
-   real(r8) :: freqsh(pcols)                                             ! Frequency of shallow convection occurence
-   real(r8) :: pcnt(pcols)                                               ! Top    pressure level of shallow + deep convective activity
-   real(r8) :: pcnb(pcols)                                               ! Bottom pressure level of shallow + deep convective activity
-   real(r8) :: cmfsl(pcols,pverp )                                       ! Convective flux of liquid water static energy
-   real(r8) :: cmflq(pcols,pverp )                                       ! Convective flux of total water in energy unit
+    call physics_state_copy(state, state1)
 
-   real(r8) :: ftem_preCu(pcols,pver)                                    ! Saturation vapor pressure after shallow Cu convection
-   real(r8) :: tem2(pcols,pver)                                          ! Saturation specific humidity and RH
-   real(r8) :: t_preCu(pcols,pver)                                       ! Temperature after shallow Cu convection
-   real(r8) :: tten(pcols,pver)                                          ! Temperature tendency after shallow Cu convection
-   real(r8) :: rhten(pcols,pver)                                         ! RH tendency after shallow Cu convection
-   real(r8) :: iccmr_UW(pcols,pver)                                      ! In-cloud Cumulus LWC+IWC [ kg/m2 ]
-   real(r8) :: icwmr_UW(pcols,pver)                                      ! In-cloud Cumulus LWC     [ kg/m2 ]
-   real(r8) :: icimr_UW(pcols,pver)                                      ! In-cloud Cumulus IWC     [ kg/m2 ]
-   real(r8) :: ptend_tracer(pcols,pver,pcnst)                            ! Tendencies of tracers
-   real(r8) :: sum1, sum2, sum3, pdelx
-   real(r8) :: landfracdum(pcols)
+    itim_old   =  pbuf_old_tim_idx()
+    call pbuf_get_field(pbuf, cld_idx        , cld    , start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, concld_idx     , concld , start=[1,1,itim_old], kount=[pcols,pver,1])
+    call pbuf_get_field(pbuf, icwmrsh_idx    , icwmr  )
+    call pbuf_get_field(pbuf, rprddp_idx     , rprddp )
+    call pbuf_get_field(pbuf, rprdsh_idx     , rprdsh )
+    call pbuf_get_field(pbuf, nevapr_shcu_idx, evapcsh)
+    call pbuf_get_field(pbuf, cldtop_idx     , cnt    )
+    call pbuf_get_field(pbuf, cldbot_idx     , cnb    )
+    call pbuf_get_field(pbuf, prec_sh_idx    , precc  )
+    call pbuf_get_field(pbuf, snow_sh_idx    , snow   )
 
-   real(r8), dimension(pcols,pver) :: sl, qt, slv
-   real(r8), dimension(pcols,pver) :: sl_preCu, qt_preCu, slv_preCu
+    if (convect_shallow_use_shfrc()) then
+      call pbuf_get_field(pbuf, shfrc_idx,  shfrc)
+    end if
 
-   type(physics_state) :: state1                                         ! Locally modify for evaporation to use, not returned
-   type(physics_ptend) :: ptend_loc                                      ! Local tendency from processes, added up to return as ptend_all
+    call pbuf_get_field(pbuf, cmfmc_sh_idx,  cmfmc2)
 
-   integer itim_old, ifld
-   real(r8), pointer, dimension(:,:) :: cld
-   real(r8), pointer, dimension(:,:) :: concld
-   real(r8), pointer, dimension(:,:) :: icwmr                            ! In cloud water + ice mixing ratio
-   real(r8), pointer, dimension(:,:) :: rprddp                           ! dq/dt due to deep convective rainout
-   real(r8), pointer, dimension(:,:) :: rprdsh                           ! dq/dt due to deep and shallow convective rainout
-   real(r8), pointer, dimension(:,:) :: evapcsh                          ! Evaporation of shallow convective precipitation >= 0.
-   real(r8), pointer, dimension(:)   :: cnt
-   real(r8), pointer, dimension(:)   :: cnb
-   real(r8), pointer, dimension(:)   :: cush
-   real(r8), pointer, dimension(:,:) :: tke
-   real(r8), pointer, dimension(:,:) :: shfrc
-   real(r8), pointer, dimension(:,:) :: flxprec                          ! Shallow convective-scale flux of precip (rain+snow) at interfaces [ kg/m2/s ]
-   real(r8), pointer, dimension(:,:) :: flxsnow                          ! Shallow convective-scale flux of snow at interfaces [ kg/m2/s ]
-   real(r8), pointer, dimension(:,:) :: sh_cldliq
-   real(r8), pointer, dimension(:,:) :: sh_cldice
+    ! Initialization
+    call cnst_get_ind('CLDLIQ', ixcldliq)
+    call cnst_get_ind('CLDICE', ixcldice)
 
-   real(r8), pointer, dimension(:,:) :: cmfmc2              ! (pcols,pverp) Updraft mass flux by shallow convection [ kg/s/m2 ]
-   real(r8), pointer, dimension(:,:) :: sh_e_ed_ratio       ! (pcols,pver) fer/(fer+fdr) from uwschu
+    call pbuf_get_field(pbuf, pblh_idx, pblh)
 
-   logical                           :: lq(pcnst)
+    ! This field probably should reference the pbuf tpert field but it doesn't.
+    tpert      (:ncol) = 0
+    landfracdum(:ncol) = 0
 
-   type(unicon_out_t) unicon_out
+    select case (shallow_scheme)
+    case('off', 'CLUBB_SGS') ! None
+      lq(:) = .true.
+      call physics_ptend_init(ptend_loc, state%psetcols, 'convect_shallow (off)', ls=.true., lq=lq) ! Initialize local ptend type
 
-   ! ----------------------- !
-   ! Main Computation Begins !
-   ! ----------------------- !
-
-   zero  = 0._r8
-   nstep = get_nstep()
-   lchnk = state%lchnk
-   ncol  = state%ncol
-
-   call physics_state_copy( state, state1 )          ! Copy state to local state1.
-
-   ! Associate pointers with physics buffer fields
-
-
-   itim_old   =  pbuf_old_tim_idx()
-   call pbuf_get_field(pbuf, cld_idx,         cld,    start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-   call pbuf_get_field(pbuf, concld_idx,      concld, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
-
-   call pbuf_get_field(pbuf, icwmrsh_idx,     icwmr)
-
-   call pbuf_get_field(pbuf, rprddp_idx,      rprddp )
-
-   call pbuf_get_field(pbuf, rprdsh_idx,      rprdsh )
-
-   call pbuf_get_field(pbuf, nevapr_shcu_idx, evapcsh  )
-
-   call pbuf_get_field(pbuf, cldtop_idx,      cnt )
-
-   call pbuf_get_field(pbuf, cldbot_idx,      cnb )
-
-   call pbuf_get_field(pbuf, prec_sh_idx,   precc )
-
-   call pbuf_get_field(pbuf, snow_sh_idx,    snow )
-
-   if( convect_shallow_use_shfrc() ) then
-       call pbuf_get_field(pbuf, shfrc_idx,  shfrc  )
-   endif
-
-   call pbuf_get_field(pbuf, cmfmc_sh_idx,  cmfmc2)
-
-   ! Initialization
-
-
-   call cnst_get_ind( 'CLDLIQ', ixcldliq )
-   call cnst_get_ind( 'CLDICE', ixcldice )
-
-   call pbuf_get_field(pbuf, pblh_idx, pblh)
-
-   !  This field probably should reference the pbuf tpert field but it doesnt
-   tpert(:ncol)         = 0._r8
-   landfracdum(:ncol)   = 0._r8
-
-   select case (shallow_scheme)
-
-   case('off', 'CLUBB_SGS') ! None
-
-      lq(:) = .TRUE.
-      call physics_ptend_init( ptend_loc, state%psetcols, 'convect_shallow (off)', ls=.true., lq=lq ) ! Initialize local ptend type
-
-      cmfmc2      = 0._r8
-      ptend_loc%q = 0._r8
-      ptend_loc%s = 0._r8
-      rprdsh      = 0._r8
-      cmfdqs      = 0._r8
-      precc       = 0._r8
-      slflx       = 0._r8
-      qtflx       = 0._r8
-      icwmr       = 0._r8
-      rliq2       = 0._r8
-      qc2         = 0._r8
-      cmfsl       = 0._r8
-      cmflq       = 0._r8
+      cmfmc2      = 0
+      ptend_loc%q = 0
+      ptend_loc%s = 0
+      rprdsh      = 0
+      cmfdqs      = 0
+      precc       = 0
+      slflx       = 0
+      qtflx       = 0
+      icwmr       = 0
+      rliq2       = 0
+      qc2         = 0
+      cmfsl       = 0
+      cmflq       = 0
       cnt2        = pver
-      cnb2        = 1._r8
-      evapcsh     = 0._r8
-      snow        = 0._r8
-
-   case('Hack') ! Hack scheme
-
-      lq(:) = .TRUE.
-      call physics_ptend_init( ptend_loc, state%psetcols, 'cmfmca', ls=.true., lq=lq  ) ! Initialize local ptend type
+      cnb2        = 1
+      evapcsh     = 0
+      snow        = 0
+    case('Hack') ! Hack scheme
+      lq(:) = .true.
+      call physics_ptend_init(ptend_loc, state%psetcols, 'cmfmca', ls=.true., lq=lq)
 
       call pbuf_get_field(pbuf, qpert_idx, qpert)
-      qpert(:ncol,2:pcnst) = 0._r8
+      qpert(:ncol,2:pcnst) = 0
 
       call cmfmca( lchnk        ,  ncol         ,                                               &
                    nstep        ,  ztodt        ,  state%pmid ,  state%pdel  ,                  &
@@ -573,20 +534,15 @@
                    cmfmc2       ,  rprdsh       ,  cmfsl      ,  cmflq       ,  precc       ,   &
                    qc2          ,  cnt2         ,  cnb2       ,  icwmr       ,  rliq2       ,   &
                    state%pmiddry,  state%pdeldry,  state%rpdeldry )
-
-   case('UW')   ! UW shallow convection scheme
-
+    case('UW')   ! UW shallow convection scheme
       ! -------------------------------------- !
       ! uwshcu does momentum transport as well !
       ! -------------------------------------- !
+      lq(:) = .true.
+      call physics_ptend_init(ptend_loc, state%psetcols, 'UWSHCU', ls=.true., lu=.true., lv=.true., lq=lq)
 
-      ! Initialize local ptend type
-      lq(:) = .TRUE.
-      call physics_ptend_init( ptend_loc, state%psetcols, 'UWSHCU', ls=.true., lu=.true., lv=.true., lq=lq  )
-
-      call pbuf_get_field(pbuf, cush_idx, cush  ,(/1,itim_old/),  (/pcols,1/))
-      call pbuf_get_field(pbuf, tke_idx,  tke)
-
+      call pbuf_get_field(pbuf, cush_idx, cush, [1,itim_old], [pcols,1])
+      call pbuf_get_field(pbuf, tke_idx , tke)
 
       call pbuf_get_field(pbuf, sh_flxprc_idx, flxprec)
       call pbuf_get_field(pbuf, sh_flxsnw_idx, flxsnow)
@@ -597,8 +553,7 @@
                                state%u   , state%v , state%q(:,:,1) , state%q(:,:,ixcldliq), state%q(:,:,ixcldice),     &
                                state%t   , state%s , state%q(:,:,:) ,                                                   &
                                tke       , cld     , concld         , pblh          , cush          ,                   &
-                               cmfmc2    , slflx   , qtflx          , 							&
-			       flxprec, flxsnow, 			         					&
+                               cmfmc2    , slflx   , qtflx          , flxprec       , flxsnow       ,                   &
                                ptend_loc%q(:,:,1)  , ptend_loc%q(:,:,ixcldliq), ptend_loc%q(:,:,ixcldice),              &
                                ptend_loc%s         , ptend_loc%u    , ptend_loc%v   , ptend_tracer  ,                   &
                                rprdsh              , cmfdqs         , precc         , snow          ,                   &
@@ -612,11 +567,11 @@
       ! In addition, define 'icwmr' which includes both liquid and ice.       !
       ! --------------------------------------------------------------------- !
 
-      icwmr(:ncol,:)  = iccmr_UW(:ncol,:)
+      icwmr (:ncol,:) = iccmr_UW(:ncol,:)
       rprdsh(:ncol,:) = rprdsh(:ncol,:) + cmfdqs(:ncol,:)
       do m = 4, pcnst
-         ptend_loc%q(:ncol,:pver,m) = ptend_tracer(:ncol,:pver,m)
-      enddo
+        ptend_loc%q(:ncol,:pver,m) = ptend_tracer(:ncol,:pver,m)
+      end do
 
       ! Conservation check
 
@@ -650,10 +605,8 @@
       cmfsl(:ncol,:) = slflx(:ncol,:)
       cmflq(:ncol,:) = qtflx(:ncol,:) * latvap
 
-      call outfld( 'PRECSH' , precc  , pcols, lchnk )
-
-
-    case('UNICON')
+      call outfld('PRECSH' , precc  , pcols, lchnk)
+    case ('UNICON')
       icwmr = 0
 
       call unicon_out%init()
@@ -676,251 +629,227 @@
       call outfld('PRECSH', precc, pcols, lchnk)
     end select
 
-   ! --------------------------------------------------------!
-   ! Calculate fractional occurance of shallow convection    !
-   ! --------------------------------------------------------!
+    ! --------------------------------------------------------!
+    ! Calculate fractional occurance of shallow convection    !
+    ! --------------------------------------------------------!
 
- ! Modification : I should check whether below computation of freqsh is correct.
+    ! Modification : I should check whether below computation of freqsh is correct.
 
-   freqsh(:) = 0._r8
-   do i = 1, ncol
-      if( maxval(cmfmc2(i,:pver)) <= 0._r8 ) then
-          freqsh(i) = 1._r8
+    freqsh(:) = 0._r8
+    do i = 1, ncol
+      if (maxval(cmfmc2(i,:pver)) <= 0) then
+        freqsh(i) = 1
       end if
-   end do
+    end do
 
-   ! ------------------------------------------------------------------------------ !
-   ! Merge shallow convection output with prior results from deep convection scheme !
-   ! ------------------------------------------------------------------------------ !
+    ! ------------------------------------------------------------------------------ !
+    ! Merge shallow convection output with prior results from deep convection scheme !
+    ! ------------------------------------------------------------------------------ !
 
-   ! ----------------------------------------------------------------------- !
-   ! Combine cumulus updraft mass flux : 'cmfmc2'(shallow) + 'cmfmc'(deep)   !
-   ! ----------------------------------------------------------------------- !
+    ! ----------------------------------------------------------------------- !
+    ! Combine cumulus updraft mass flux : 'cmfmc2'(shallow) + 'cmfmc'(deep)   !
+    ! ----------------------------------------------------------------------- !
 
-   cmfmc(:ncol,:) = cmfmc(:ncol,:) + cmfmc2(:ncol,:)
+    cmfmc(:ncol,:) = cmfmc(:ncol,:) + cmfmc2(:ncol,:)
 
-   ! -------------------------------------------------------------- !
-   ! 'cnt2' & 'cnb2' are from shallow, 'cnt' & 'cnb' are from deep  !
-   ! 'cnt2' & 'cnb2' are the interface indices of cloud top & base: !
-   !        cnt2 = float(kpen)                                      !
-   !        cnb2 = float(krel - 1)                                  !
-   ! Note that indices decreases with height.                       !
-   ! -------------------------------------------------------------- !
+    ! -------------------------------------------------------------- !
+    ! 'cnt2' & 'cnb2' are from shallow, 'cnt' & 'cnb' are from deep  !
+    ! 'cnt2' & 'cnb2' are the interface indices of cloud top & base: !
+    !        cnt2 = float(kpen)                                      !
+    !        cnb2 = float(krel - 1)                                  !
+    ! Note that indices decreases with height.                       !
+    ! -------------------------------------------------------------- !
 
-   do i = 1, ncol
-      if( cnt2(i) < cnt(i)) cnt(i) = cnt2(i)
-      if( cnb2(i) > cnb(i)) cnb(i) = cnb2(i)
+    do i = 1, ncol
+      if (cnt2(i) < cnt(i)) cnt(i) = cnt2(i)
+      if (cnb2(i) > cnb(i)) cnb(i) = cnb2(i)
       pcnt(i) = state%pmid(i,int(cnt(i)))
       pcnb(i) = state%pmid(i,int(cnb(i)))
-   end do
+    end do
 
-   ! ----------------------------------------------- !
-   ! This quantity was previously known as CMFDQR.   !
-   ! Now CMFDQR is the shallow rain production only. !
-   ! ----------------------------------------------- !
+    ! ----------------------------------------------- !
+    ! This quantity was previously known as CMFDQR.   !
+    ! Now CMFDQR is the shallow rain production only. !
+    ! ----------------------------------------------- !
 
+    call pbuf_set_field(pbuf, rprdtot_idx, rprdsh(:ncol,:pver) + rprddp(:ncol,:pver), start=(/1,1/), kount=(/ncol,pver/))
 
-   call pbuf_set_field(pbuf, rprdtot_idx, rprdsh(:ncol,:pver) + rprddp(:ncol,:pver), start=(/1,1/), kount=(/ncol,pver/))
+    ! ----------------------------------------------------------------------- !
+    ! Add shallow reserved cloud condensate to deep reserved cloud condensate !
+    !     qc [ kg/kg/s] , rliq [ m/s ]                                        !
+    ! ----------------------------------------------------------------------- !
 
-   ! ----------------------------------------------------------------------- !
-   ! Add shallow reserved cloud condensate to deep reserved cloud condensate !
-   !     qc [ kg/kg/s] , rliq [ m/s ]                                        !
-   ! ----------------------------------------------------------------------- !
+    qc(:ncol,:pver) = qc(:ncol,:pver) + qc2(:ncol,:pver)
+    rliq(:ncol)     = rliq(:ncol) + rliq2(:ncol)
 
-   qc(:ncol,:pver) = qc(:ncol,:pver) + qc2(:ncol,:pver)
-   rliq(:ncol)     = rliq(:ncol) + rliq2(:ncol)
+    ! ---------------------------------------------------------------------------- !
+    ! Output new partition of cloud condensate variables, as well as precipitation !
+    ! ---------------------------------------------------------------------------- !
 
-   ! ---------------------------------------------------------------------------- !
-   ! Output new partition of cloud condensate variables, as well as precipitation !
-   ! ---------------------------------------------------------------------------- !
+    if( microp_scheme == 'MG' ) then
+        call cnst_get_ind( 'NUMLIQ', ixnumliq )
+        call cnst_get_ind( 'NUMICE', ixnumice )
+    endif
 
-   if( microp_scheme == 'MG' ) then
-       call cnst_get_ind( 'NUMLIQ', ixnumliq )
-       call cnst_get_ind( 'NUMICE', ixnumice )
-   endif
+    ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
 
-   ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
+    call outfld( 'ICWMRSH ', icwmr                    , pcols   , lchnk )
 
-   call outfld( 'ICWMRSH ', icwmr                    , pcols   , lchnk )
+    call outfld( 'CMFDT  ', ftem                      , pcols   , lchnk )
+    call outfld( 'CMFDQ  ', ptend_loc%q(1,1,1)        , pcols   , lchnk )
+    call outfld( 'CMFDICE', ptend_loc%q(1,1,ixcldice) , pcols   , lchnk )
+    call outfld( 'CMFDLIQ', ptend_loc%q(1,1,ixcldliq) , pcols   , lchnk )
+    call outfld( 'CMFMC'  , cmfmc                     , pcols   , lchnk )
+    call outfld( 'QC'     , qc2                       , pcols   , lchnk )
+    call outfld( 'CMFDQR' , rprdsh                    , pcols   , lchnk )
+    call outfld( 'CMFSL'  , cmfsl                     , pcols   , lchnk )
+    call outfld( 'CMFLQ'  , cmflq                     , pcols   , lchnk )
+    call outfld( 'DQP'    , qc2                       , pcols   , lchnk )
+    call outfld( 'CLDTOP' , cnt                       , pcols   , lchnk )
+    call outfld( 'CLDBOT' , cnb                       , pcols   , lchnk )
+    call outfld( 'PCLDTOP', pcnt                      , pcols   , lchnk )
+    call outfld( 'PCLDBOT', pcnb                      , pcols   , lchnk )
+    call outfld( 'FREQSH' , freqsh                    , pcols   , lchnk )
 
-   call outfld( 'CMFDT  ', ftem                      , pcols   , lchnk )
-   call outfld( 'CMFDQ  ', ptend_loc%q(1,1,1)        , pcols   , lchnk )
-   call outfld( 'CMFDICE', ptend_loc%q(1,1,ixcldice) , pcols   , lchnk )
-   call outfld( 'CMFDLIQ', ptend_loc%q(1,1,ixcldliq) , pcols   , lchnk )
-   call outfld( 'CMFMC'  , cmfmc                     , pcols   , lchnk )
-   call outfld( 'QC'     , qc2                       , pcols   , lchnk )
-   call outfld( 'CMFDQR' , rprdsh                    , pcols   , lchnk )
-   call outfld( 'CMFSL'  , cmfsl                     , pcols   , lchnk )
-   call outfld( 'CMFLQ'  , cmflq                     , pcols   , lchnk )
-   call outfld( 'DQP'    , qc2                       , pcols   , lchnk )
-   call outfld( 'CLDTOP' , cnt                       , pcols   , lchnk )
-   call outfld( 'CLDBOT' , cnb                       , pcols   , lchnk )
-   call outfld( 'PCLDTOP', pcnt                      , pcols   , lchnk )
-   call outfld( 'PCLDBOT', pcnb                      , pcols   , lchnk )
-   call outfld( 'FREQSH' , freqsh                    , pcols   , lchnk )
+    if( shallow_scheme .eq. 'UW' ) then
+        call outfld( 'CBMF'   , cbmf                      , pcols   , lchnk )
+        call outfld( 'UWFLXPRC', flxprec                  , pcols   , lchnk )
+        call outfld( 'UWFLXSNW' , flxsnow                 , pcols   , lchnk )
+    endif
 
-   if( shallow_scheme .eq. 'UW' ) then
-      call outfld( 'CBMF'   , cbmf                      , pcols   , lchnk )
-      call outfld( 'UWFLXPRC', flxprec                  , pcols   , lchnk )
-      call outfld( 'UWFLXSNW' , flxsnow                 , pcols   , lchnk )
-   endif
+    ! ---------------------------------------------------------------- !
+    ! Add tendency from this process to tend from other processes here !
+    ! ---------------------------------------------------------------- !
 
-   ! ---------------------------------------------------------------- !
-   ! Add tendency from this process to tend from other processes here !
-   ! ---------------------------------------------------------------- !
+    call physics_ptend_init(ptend_all, state1%psetcols, 'convect_shallow')
+    call physics_ptend_sum(ptend_loc, ptend_all, ncol)
 
-   call physics_ptend_init(ptend_all, state1%psetcols, 'convect_shallow')
-   call physics_ptend_sum( ptend_loc, ptend_all, ncol )
+    ! ----------------------------------------------------------------------------- !
+    ! For diagnostic purpose, print out 'QT,SL,SLV,T,RH' just before cumulus scheme !
+    ! ----------------------------------------------------------------------------- !
 
-   ! ----------------------------------------------------------------------------- !
-   ! For diagnostic purpose, print out 'QT,SL,SLV,T,RH' just before cumulus scheme !
-   ! ----------------------------------------------------------------------------- !
+    sl_preCu(:ncol,:pver)  = state1%s(:ncol,:pver) -  latvap           * state1%q(:ncol,:pver,ixcldliq) &
+                                                   - (latvap + latice) * state1%q(:ncol,:pver,ixcldice)
+    qt_preCu(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
+                                                     + state1%q(:ncol,:pver,ixcldice)
+    slv_preCu(:ncol,:pver) = sl_preCu(:ncol,:pver) * (1 + zvir * qt_preCu(:ncol,:pver))
 
-   sl_preCu(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
-                                                  - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
-   qt_preCu(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
-                                                    + state1%q(:ncol,:pver,ixcldice)
-   slv_preCu(:ncol,:pver) = sl_preCu(:ncol,:pver) * ( 1._r8 + zvir * qt_preCu(:ncol,:pver) )
+    t_preCu(:ncol,:) = state1%t(:ncol,:pver)
+    call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), tem2(:ncol,:), ftem(:ncol,:))
+    ftem_preCu(:ncol,:) = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100
 
-   t_preCu(:ncol,:)       = state1%t(:ncol,:pver)
-   call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), &
-        tem2(:ncol,:), ftem(:ncol,:))
-   ftem_preCu(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+    call outfld('qt_pre_Cu      ', qt_preCu              , pcols, lchnk)
+    call outfld('sl_pre_Cu      ', sl_preCu              , pcols, lchnk)
+    call outfld('slv_pre_Cu     ', slv_preCu             , pcols, lchnk)
+    call outfld('u_pre_Cu       ', state1%u              , pcols, lchnk)
+    call outfld('v_pre_Cu       ', state1%v              , pcols, lchnk)
+    call outfld('qv_pre_Cu      ', state1%q(:,:,1)       , pcols, lchnk)
+    call outfld('ql_pre_Cu      ', state1%q(:,:,ixcldliq), pcols, lchnk)
+    call outfld('qi_pre_Cu      ', state1%q(:,:,ixcldice), pcols, lchnk)
+    call outfld('t_pre_Cu       ', state1%t              , pcols, lchnk)
+    call outfld('rh_pre_Cu      ', ftem_preCu            , pcols, lchnk)
 
-   call outfld( 'qt_pre_Cu      ', qt_preCu               , pcols, lchnk )
-   call outfld( 'sl_pre_Cu      ', sl_preCu               , pcols, lchnk )
-   call outfld( 'slv_pre_Cu     ', slv_preCu              , pcols, lchnk )
-   call outfld( 'u_pre_Cu       ', state1%u               , pcols, lchnk )
-   call outfld( 'v_pre_Cu       ', state1%v               , pcols, lchnk )
-   call outfld( 'qv_pre_Cu      ', state1%q(:,:,1)        , pcols, lchnk )
-   call outfld( 'ql_pre_Cu      ', state1%q(:,:,ixcldliq) , pcols, lchnk )
-   call outfld( 'qi_pre_Cu      ', state1%q(:,:,ixcldice) , pcols, lchnk )
-   call outfld( 't_pre_Cu       ', state1%t               , pcols, lchnk )
-   call outfld( 'rh_pre_Cu      ', ftem_preCu             , pcols, lchnk )
+    ! Update physics state type state1 with ptend_loc
 
-   ! ----------------------------------------------- !
-   ! Update physics state type state1 with ptend_loc !
-   ! ----------------------------------------------- !
+    call physics_update(state1, ptend_loc, ztodt)
 
-   call physics_update( state1, ptend_loc, ztodt )
+    ! For diagnostic purpose, print out 'QT,SL,SLV,t,RH' just after cumulus scheme
 
-   ! ----------------------------------------------------------------------------- !
-   ! For diagnostic purpose, print out 'QT,SL,SLV,t,RH' just after cumulus scheme  !
-   ! ----------------------------------------------------------------------------- !
+    sl (:ncol,:pver) = state1%s(:ncol,:pver) - latvap * state1%q(:ncol,:pver,ixcldliq) - (latvap + latice) * state1%q(:ncol,:pver,ixcldice)
+    qt (:ncol,:pver) = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) + state1%q(:ncol,:pver,ixcldice)
+    slv(:ncol,:pver) = sl(:ncol,:pver) * (1 + zvir * qt(:ncol,:pver))
 
-   sl(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
-                                            - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
-   qt(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
-                                              + state1%q(:ncol,:pver,ixcldice)
-   slv(:ncol,:pver) = sl(:ncol,:pver) * ( 1._r8 + zvir * qt(:ncol,:pver) )
+    call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), tem2(:ncol,:), ftem(:ncol,:))
+    ftem(:ncol,:) = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100
 
-   call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), &
-        tem2(:ncol,:), ftem(:ncol,:))
-   ftem(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+    call outfld('qt_aft_Cu      ', qt                     , pcols, lchnk)
+    call outfld('sl_aft_Cu      ', sl                     , pcols, lchnk)
+    call outfld('slv_aft_Cu     ', slv                    , pcols, lchnk)
+    call outfld('u_aft_Cu       ', state1%u               , pcols, lchnk)
+    call outfld('v_aft_Cu       ', state1%v               , pcols, lchnk)
+    call outfld('qv_aft_Cu      ', state1%q(:,:,1)        , pcols, lchnk)
+    call outfld('ql_aft_Cu      ', state1%q(:,:,ixcldliq) , pcols, lchnk)
+    call outfld('qi_aft_Cu      ', state1%q(:,:,ixcldice) , pcols, lchnk)
+    call outfld('t_aft_Cu       ', state1%t               , pcols, lchnk)
+    call outfld('rh_aft_Cu      ', ftem                   , pcols, lchnk)
 
-   call outfld( 'qt_aft_Cu      ', qt                     , pcols, lchnk )
-   call outfld( 'sl_aft_Cu      ', sl                     , pcols, lchnk )
-   call outfld( 'slv_aft_Cu     ', slv                    , pcols, lchnk )
-   call outfld( 'u_aft_Cu       ', state1%u               , pcols, lchnk )
-   call outfld( 'v_aft_Cu       ', state1%v               , pcols, lchnk )
-   call outfld( 'qv_aft_Cu      ', state1%q(:,:,1)        , pcols, lchnk )
-   call outfld( 'ql_aft_Cu      ', state1%q(:,:,ixcldliq) , pcols, lchnk )
-   call outfld( 'qi_aft_Cu      ', state1%q(:,:,ixcldice) , pcols, lchnk )
-   call outfld( 't_aft_Cu       ', state1%t               , pcols, lchnk )
-   call outfld( 'rh_aft_Cu      ', ftem                   , pcols, lchnk )
+    tten (:ncol,:) = (state1%t(:ncol,:pver) - t_preCu   (:ncol,:)) / ztodt
+    rhten(:ncol,:) = (ftem    (:ncol,:    ) - ftem_preCu(:ncol,:)) / ztodt
 
-   tten(:ncol,:)  = ( state1%t(:ncol,:pver) - t_preCu(:ncol,:) ) / ztodt
-   rhten(:ncol,:) = ( ftem(:ncol,:) - ftem_preCu(:ncol,:) ) / ztodt
+    call outfld('tten_Cu        ', tten                   , pcols, lchnk)
+    call outfld('rhten_Cu       ', rhten                  , pcols, lchnk)
 
-   call outfld( 'tten_Cu        ', tten                           , pcols, lchnk )
-   call outfld( 'rhten_Cu       ', rhten                          , pcols, lchnk )
+    ! ------------------------------------------------------------------------ !
+    ! UW-Shallow Cumulus scheme includes                                       !
+    ! evaporation physics inside in it. So when 'shallow_scheme = UW', we must !
+    ! NOT perform below 'zm_conv_evap'.                                        !
+    ! ------------------------------------------------------------------------ !
 
+    if (shallow_scheme == 'Hack') then
 
-   ! ------------------------------------------------------------------------ !
-   ! UW-Shallow Cumulus scheme includes                                       !
-   ! evaporation physics inside in it. So when 'shallow_scheme = UW', we must !
-   ! NOT perform below 'zm_conv_evap'.                                        !
-   ! ------------------------------------------------------------------------ !
+      ! ------------------------------------------------------------------------------- !
+      ! Determine the phase of the precipitation produced and add latent heat of fusion !
+      ! Evaporate some of the precip directly into the environment (Sundqvist)          !
+      ! Allow this to use the updated state1 and a fresh ptend_loc type                 !
+      ! Heating and specific humidity tendencies produced                               !
+      ! ------------------------------------------------------------------------------- !
 
-   if( shallow_scheme .eq. 'Hack' ) then
+      ! Initialize ptend for next process !
+      lq(1) = .true.
+      lq(2:) = .false.
+      call physics_ptend_init(ptend_loc, state1%psetcols, 'zm_conv_evap', ls=.true., lq=lq)
 
-   ! ------------------------------------------------------------------------------- !
-   ! Determine the phase of the precipitation produced and add latent heat of fusion !
-   ! Evaporate some of the precip directly into the environment (Sundqvist)          !
-   ! Allow this to use the updated state1 and a fresh ptend_loc type                 !
-   ! Heating and specific humidity tendencies produced                               !
-   ! ------------------------------------------------------------------------------- !
+      call pbuf_get_field(pbuf, sh_flxprc_idx, flxprec    )
+      call pbuf_get_field(pbuf, sh_flxsnw_idx, flxsnow    )
+      call pbuf_get_field(pbuf, sh_cldliq_idx, sh_cldliq  )
+      call pbuf_get_field(pbuf, sh_cldice_idx, sh_cldice  )
 
-   ! --------------------------------- !
-   ! initialize ptend for next process !
-   ! --------------------------------- !
+      ! Clouds have no water... :)
+      sh_cldliq(:ncol,:) = 0
+      sh_cldice(:ncol,:) = 0
 
-    lq(1) = .TRUE.
-    lq(2:) = .FALSE.
-    call physics_ptend_init(ptend_loc, state1%psetcols, 'zm_conv_evap', ls=.true., lq=lq)
+      call zm_conv_evap(state1%ncol, state1%lchnk,                                    &
+                        state1%t, state1%pmid, state1%pdel, state1%q(:pcols,:pver,1), &
+                        landfracdum, &
+                        ptend_loc%s, tend_s_snwprd, tend_s_snwevmlt,                  &
+                        ptend_loc%q(:pcols,:pver,1),                                  &
+                        rprdsh, cld, ztodt,                                           &
+                        precc, snow, ntprprd, ntsnprd , flxprec, flxsnow)
 
-    call pbuf_get_field(pbuf, sh_flxprc_idx, flxprec    )
-    call pbuf_get_field(pbuf, sh_flxsnw_idx, flxsnow    )
-    call pbuf_get_field(pbuf, sh_cldliq_idx, sh_cldliq  )
-    call pbuf_get_field(pbuf, sh_cldice_idx, sh_cldice  )
+      ! Record history variables from zm_conv_evap !
+      evapcsh(:ncol,:pver) = ptend_loc%q(:ncol,:pver,1)
 
-    !! clouds have no water... :)
-    sh_cldliq(:ncol,:) = 0._r8
-    sh_cldice(:ncol,:) = 0._r8
+      ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver) / cpair
+      call outfld( 'EVAPTCM '       , ftem                           , pcols, lchnk )
+      ftem(:ncol,:pver) = tend_s_snwprd(:ncol,:pver) / cpair
+      call outfld( 'FZSNTCM '       , ftem                           , pcols, lchnk )
+      ftem(:ncol,:pver) = tend_s_snwevmlt(:ncol,:pver) / cpair
+      call outfld( 'EVSNTCM '       , ftem                           , pcols, lchnk )
+      call outfld( 'EVAPQCM '       , ptend_loc%q(1,1,1)             , pcols, lchnk )
+      call outfld( 'PRECSH  '       , precc                          , pcols, lchnk )
+      call outfld( 'HKFLXPRC'       , flxprec                        , pcols, lchnk )
+      call outfld( 'HKFLXSNW'       , flxsnow                        , pcols, lchnk )
+      call outfld( 'HKNTPRPD'       , ntprprd                        , pcols, lchnk )
+      call outfld( 'HKNTSNPD'       , ntsnprd                        , pcols, lchnk )
+      call outfld( 'HKEIHEAT'       , ptend_loc%s                    , pcols, lchnk )
 
-    call zm_conv_evap( state1%ncol, state1%lchnk,                                    &
-                       state1%t, state1%pmid, state1%pdel, state1%q(:pcols,:pver,1), &
-		       landfracdum, &
-                       ptend_loc%s, tend_s_snwprd, tend_s_snwevmlt,                  &
-                       ptend_loc%q(:pcols,:pver,1),                                  &
-                       rprdsh, cld, ztodt,                                           &
-                       precc, snow, ntprprd, ntsnprd , flxprec, flxsnow )
+      ! Add tendency from this process to tend from other processes here !
+      call physics_ptend_sum(ptend_loc, ptend_all, ncol)
+      call physics_ptend_dealloc(ptend_loc)
+    end if ! Do not perform evaporation process for UW-Cu !
 
-   ! ------------------------------------------ !
-   ! record history variables from zm_conv_evap !
-   ! ------------------------------------------ !
+    ! ------------------------------------------------------------- !
+    ! Update name of parameterization tendencies to send to tphysbc !
+    ! ------------------------------------------------------------- !
 
-   evapcsh(:ncol,:pver) = ptend_loc%q(:ncol,:pver,1)
+    call physics_state_dealloc(state1)
 
-   ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver) / cpair
-   call outfld( 'EVAPTCM '       , ftem                           , pcols, lchnk )
-   ftem(:ncol,:pver) = tend_s_snwprd(:ncol,:pver) / cpair
-   call outfld( 'FZSNTCM '       , ftem                           , pcols, lchnk )
-   ftem(:ncol,:pver) = tend_s_snwevmlt(:ncol,:pver) / cpair
-   call outfld( 'EVSNTCM '       , ftem                           , pcols, lchnk )
-   call outfld( 'EVAPQCM '       , ptend_loc%q(1,1,1)             , pcols, lchnk )
-   call outfld( 'PRECSH  '       , precc                          , pcols, lchnk )
-   call outfld( 'HKFLXPRC'       , flxprec                        , pcols, lchnk )
-   call outfld( 'HKFLXSNW'       , flxsnow                        , pcols, lchnk )
-   call outfld( 'HKNTPRPD'       , ntprprd                        , pcols, lchnk )
-   call outfld( 'HKNTSNPD'       , ntsnprd                        , pcols, lchnk )
-   call outfld( 'HKEIHEAT'       , ptend_loc%s                    , pcols, lchnk )
-
-   ! ---------------------------------------------------------------- !
-   ! Add tendency from this process to tend from other processes here !
-   ! ---------------------------------------------------------------- !
-
-   call physics_ptend_sum( ptend_loc, ptend_all, ncol )
-   call physics_ptend_dealloc(ptend_loc)
-
-   ! -------------------------------------------- !
-   ! Do not perform evaporation process for UW-Cu !
-   ! -------------------------------------------- !
-
-   end if
-
-   ! ------------------------------------------------------------- !
-   ! Update name of parameterization tendencies to send to tphysbc !
-   ! ------------------------------------------------------------- !
-
-   call physics_state_dealloc(state1)
-
-   ! If we added temperature tendency to pbuf, set it now.
-   if (ttend_sh_idx > 0) then
+    ! If we added temperature tendency to pbuf, set it now.
+    if (ttend_sh_idx > 0) then
       call pbuf_get_field(pbuf, ttend_sh_idx, ttend_sh)
-      ttend_sh(:ncol,:pver) = ptend_all%s(:ncol,:pver)/cpair
-   end if
+      ttend_sh(:ncol,:pver) = ptend_all%s(:ncol,:pver) / cpair
+    end if
 
   end subroutine convect_shallow_tend
 
-  end module convect_shallow
+end module convect_shallow

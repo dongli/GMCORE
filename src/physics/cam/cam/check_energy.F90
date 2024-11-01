@@ -85,9 +85,9 @@ contains
 
     call this%clear()
 
-    allocate(this%tracer    (pcols,PCNST))
-    allocate(this%tracer_tnd(pcols,PCNST))
-    allocate(this%count     (      PCNST))
+    allocate(this%tracer    (pcols,PCNST)); this%tracer     = 0
+    allocate(this%tracer_tnd(pcols,PCNST)); this%tracer_tnd = 0
+    allocate(this%count     (      PCNST)); this%count      = 0
 
   end subroutine check_tracers_data_init
 

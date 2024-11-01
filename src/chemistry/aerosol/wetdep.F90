@@ -104,14 +104,14 @@ contains
 
     call this%clear()
 
-    allocate(this%cldcu  (pcols,pver))
-    allocate(this%evapc  (pcols,pver))
-    allocate(this%cmfdqr (pcols,pver))
-    allocate(this%conicw (pcols,pver))
-    allocate(this%totcond(pcols,pver))
-    allocate(this%cldv   (pcols,pver))
-    allocate(this%cldvcu (pcols,pver))
-    allocate(this%cldvst (pcols,pver))
+    allocate(this%cldcu  (pcols,pver)); this%cldcu   = 0
+    allocate(this%evapc  (pcols,pver)); this%evapc   = 0
+    allocate(this%cmfdqr (pcols,pver)); this%cmfdqr  = 0
+    allocate(this%conicw (pcols,pver)); this%conicw  = 0
+    allocate(this%totcond(pcols,pver)); this%totcond = 0
+    allocate(this%cldv   (pcols,pver)); this%cldv    = 0
+    allocate(this%cldvcu (pcols,pver)); this%cldvcu  = 0
+    allocate(this%cldvst (pcols,pver)); this%cldvst  = 0
 
   end subroutine wetdep_inputs_init
 

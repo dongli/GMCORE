@@ -1999,10 +1999,10 @@ subroutine momtran(lchnk, ncol, &
 !
 ! Input arguments
 !
-   integer, intent(in) :: lchnk                 ! chunk identifier
-   integer, intent(in) :: ncol                  ! number of atmospheric columns
-   integer, intent(in) :: ncnst                 ! number of tracers to transport
-   logical, intent(in) :: domomtran(ncnst)      ! flag for doing convective transport
+   integer , intent(in) :: lchnk                ! chunk identifier
+   integer , intent(in) :: ncol                 ! number of atmospheric columns
+   integer , intent(in) :: ncnst                ! number of tracers to transport
+   logical , intent(in) :: domomtran(ncnst)     ! flag for doing convective transport
    real(r8), intent(in) :: q(pcols,pver,ncnst)  ! Wind array
    real(r8), intent(in) :: mu(pcols,pver)       ! Mass flux up
    real(r8), intent(in) :: md(pcols,pver)       ! Mass flux down
@@ -2011,7 +2011,7 @@ subroutine momtran(lchnk, ncol, &
    real(r8), intent(in) :: ed(pcols,pver)       ! Mass entraining from downdraft
    real(r8), intent(in) :: dp(pcols,pver)       ! Delta pressure between interfaces
    real(r8), intent(in) :: dsubcld(pcols)       ! Delta pressure from cloud base to sfc
-   real(r8), intent(in) :: dt                   !  time step in seconds : 2*delta_t
+   real(r8), intent(in) :: dt                   ! Time step in seconds
 
    integer, intent(in) :: jt(pcols)         ! Index of cloud top for each column
    integer, intent(in) :: mx(pcols)         ! Index of cloud top for each column

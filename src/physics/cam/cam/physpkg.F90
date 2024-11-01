@@ -13,7 +13,7 @@ module physpkg
   !-----------------------------------------------------------------------
 
   use shr_kind_mod,     only: r8 => SHR_KIND_R8
-  use spmd_utils,       only: masterproc
+  use spmd_utils,       only: masterproc, iam
   use physconst,        only: latvap, latice, rh2o
   use physics_types,    only: physics_state, physics_tend, physics_state_set_grid, &
                               physics_ptend, physics_tend_init, physics_update,    &
@@ -936,8 +936,7 @@ contains
       !
       call diag_surf(cam_in(c), cam_out(c), phys_state(c), phys_buffer_chunk)
 
-      call tphysac(ztodt, cam_in(c), cam_out(c), &
-           phys_state(c), phys_tend(c), phys_buffer_chunk)
+      call tphysac(ztodt, cam_in(c), cam_out(c), phys_state(c), phys_tend(c), phys_buffer_chunk)
     end do
 
 #ifdef TRACER_CHECK
@@ -1212,7 +1211,6 @@ contains
       call physics_update(state, ptend, ztodt, tend)
       call check_energy_chng(state, tend, 'carma_tend', nstep, ztodt, zero, zero, zero, zero)
     end if
-
 
     ! --------------------------------------------------------------------------
     ! Enforce charge neutrality
@@ -1649,16 +1647,16 @@ contains
     end if
 
     call convect_shallow_tend( &
-      ztodt=ztodt            , &
-      cmfmc=cmfmc            , &
-      qc=dlf                 , &
-      qc2=dlf2               , &
-      rliq=rliq              , &
-      rliq2=rliq2            , &
-      state=state            , &
-      ptend_all=ptend        , &
-      pbuf=pbuf              , &
-      cam_in=cam_in          )
+      ztodt     =ztodt       , &
+      cmfmc     =cmfmc       , &
+      qc        =dlf         , &
+      qc2       =dlf2        , &
+      rliq      =rliq        , &
+      rliq2     =rliq2       , &
+      state     =state       , &
+      ptend_all =ptend       , &
+      pbuf      =pbuf        , &
+      cam_in    =cam_in      )
     call physics_update(state, ptend, ztodt, tend)
 
     flx_cnd(:ncol) = prec_sh(:ncol) + rliq2(:ncol)

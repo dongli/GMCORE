@@ -209,11 +209,11 @@ contains
     real(r8), allocatable :: rairv_loc (:,:)
 
     ! PERGRO limits cldliq/ice for macro/microphysics:
-    character(len=24), parameter :: pergro_cldlim_names(4) = &
+    character(24), parameter :: pergro_cldlim_names(4) = &
          [ 'stratiform', 'cldwat    ', 'micro_mg  ', 'macro_park' ]
 
     ! cldliq/ice limits that are always on.
-    character(len=24), parameter :: cldlim_names(2) = &
+    character(24), parameter :: cldlim_names(2) = &
          [ 'convect_deep', 'zm_conv_tend' ]
 
     ! Whether to do validation of state on each call.
@@ -243,7 +243,7 @@ contains
 
     ncol = state%ncol
 
-    ! Update u,v fields
+    ! Update u, v fields
     if (ptend%lu) then
       do k = ptend%top_level, ptend%bot_level
         state%u(:ncol,k) = state%u(:ncol,k) + ptend%u(:ncol,k) * dt

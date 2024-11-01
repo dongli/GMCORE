@@ -14,6 +14,7 @@ module convect_deep
   !---------------------------------------------------------------------------------
 
   use shr_kind_mod, only: r8 => shr_kind_r8
+  use spmd_utils  , only: masterproc, iam
   use ppgrid      , only: pver, pcols, pverp
   use cam_logfile , only: iulog
 
@@ -88,7 +89,6 @@ contains
 
     use cam_history   , only: addfld                          
     use pmgrid        , only: plevp
-    use spmd_utils    , only: masterproc
     use zm_conv_intr  , only: zm_conv_init
     use cam_abortutils, only: endrun
     use physics_buffer, only: physics_buffer_desc, pbuf_get_index
@@ -138,10 +138,10 @@ contains
     use physconst     , only: cpair
     use physics_buffer, only: physics_buffer_desc, pbuf_get_field
 
-    type(physics_state), intent(in ) :: state   ! Physics state variables
-    type(physics_ptend), intent(out) :: ptend   ! Individual parameterization tendencies
+    type(physics_state), intent(in   ) :: state ! Physics state variables
+    type(physics_ptend), intent(inout) :: ptend ! Individual parameterization tendencies
     type(physics_buffer_desc), pointer :: pbuf(:)
-    real(r8), intent(in ) :: ztodt              ! 2 delta t (model time increment)
+    real(r8), intent(in ) :: ztodt              ! Time step size [s]
     real(r8), intent(in ) :: landfrac(pcols)    ! Land fraction
     real(r8), intent(out) :: mcon(pcols,pverp)  ! Convective mass flux--m sub c
     real(r8), intent(out) :: pflx(pcols,pverp)  ! Scattered precip flux at each level
@@ -221,10 +221,10 @@ contains
     use constituents  , only: pcnst
     use zm_conv_intr  , only: zm_conv_tend_2
 
-    type(physics_state), intent(in ) :: state          ! Physics state variables
-    type(physics_ptend), intent(out) :: ptend          ! indivdual parameterization tendencies
+    type(physics_state), intent(in)    :: state        ! Physics state variables
+    type(physics_ptend), intent(inout) :: ptend        ! Indivdual parameterization tendencies
     type(physics_buffer_desc), pointer :: pbuf(:)
-    real(r8), intent(in) :: ztodt                      ! 2 delta t (model time increment)
+    real(r8), intent(in) :: ztodt                      ! Time step size [s]
 
     if (deep_scheme == 'ZM') then
       call zm_conv_tend_2(state, ptend, ztodt, pbuf) 
