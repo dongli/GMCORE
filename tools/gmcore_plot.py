@@ -12,6 +12,10 @@ import cartopy.crs as ccrs
 import cartopy.util as cutil
 from metpy.interpolate import interpolate_1d
 from metpy.units import units
+import pendulum
+
+def to_pendulum(time):
+	return pendulum.from_timestamp(time.item() / 1e9)
 
 def vinterp(zi, var, zo):
 	plev = np.array([zo]) * units.hPa
@@ -27,8 +31,10 @@ def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, ri
 	else:
 		ax.set_title('')
 	if add_cyclic_point: var, lon = cutil.add_cyclic_point(var, coord=lon)
-	im = ax.contourf(lon, lat, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both')
-	if with_contour: ax.contour(lon, lat, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=contour_linewidth, colors='k')
+	# Use transform_first as in https://scitools.org.uk/cartopy/docs/latest/gallery/scalar_data/contour_transforms.html to avoid failure in contouring.
+	lon2d, lat2d = np.meshgrid(lon, lat) # Needs 2D coordinates for transform_first=True.
+	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=True)
+	if with_contour: ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=contour_linewidth, colors='k', transform_first=True)
 	if with_grid:
 		gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, color='gray', alpha=0.5, linestyle='--')
 		gl.top_labels = False
