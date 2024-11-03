@@ -275,7 +275,7 @@ contains
                  m_new => blocks(iblk)%dstate(new)%dmg)  ! in
       do m = 1, size(block%adv_batches)
         if (time_is_alerted(block%adv_batches(m)%name)) then
-          if (m == 1 .and. pdc_type == 2) call physics_update_dynamics(block, new, dt_adv)
+          if (m == 1 .and. pdc_type == 2) call physics_update(block, new, dt_adv)
           associate (batch => block%adv_batches(m))
           call swift_prepare(batch, dt_adv)
           do l = 1, block%adv_batches(m)%ntracers

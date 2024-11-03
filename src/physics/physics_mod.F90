@@ -35,7 +35,6 @@ module physics_mod
   public physics_init_stage3
   public physics_run
   public physics_update
-  public physics_update_dynamics
   public physics_final
   public physics_add_output
   public physics_output
@@ -168,62 +167,7 @@ contains
 
     call dp_coupling_p2d(block, itime)
 
-    select case (physics_suite)
-    case ('simple_physics')
-      call physics_set_tracers(block, simple_objects(block%id)%state)
-#ifdef HAS_CAM
-    case ('cam')
-      call physics_set_tracers(block, cam_objects(block%id)%state)
-#endif
-    end select
-
     call perf_stop('physics_run')
-
-  contains
-
-    subroutine physics_set_tracers(block, pstate)
-
-      type(block_type), intent(in) :: block
-      class(physics_state_type), intent(in) :: pstate
-
-      integer i, j, k, m, icol
-
-      associate (mesh => block%mesh, q => tracers(block%id)%q, qm => tracers(block%id)%qm)
-      qm%d = 0
-      do m = 1, ntracers
-        if (is_water_tracer(m)) then
-          do k = mesh%full_kds, mesh%full_kde
-            icol = 1
-            do j = mesh%full_jds, mesh%full_jde
-              do i = mesh%full_ids, mesh%full_ide
-                qm%d(i,j,k) = pstate%q(icol,k,m)
-                icol = icol + 1
-              end do
-            end do
-          end do
-        end if
-      end do
-      do m = 1, ntracers
-        do k = mesh%full_kds, mesh%full_kde
-          icol = 1
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              if (physics_use_wet_tracers(m)) then
-                q%d(i,j,k,m) = pstate%q(icol,k,m) / (1 - qm%d(i,j,k))
-              else
-                q%d(i,j,k,m) = pstate%q(icol,k,m)
-              end if
-              icol = icol + 1
-            end do
-          end do
-        end do
-        call tracer_fill_negative_values(block, itime, q%d(:,:,:,m), m, __FILE__, __LINE__)
-        call fill_halo(q, m)
-      end do
-      call tracer_calc_qm(block)
-      end associate
-
-    end subroutine physics_set_tracers
 
   end subroutine physics_run
 
@@ -282,7 +226,6 @@ contains
           end do
         end do
       end do
-      call tracer_fill_negative_values(block, itime, q%d(:,:,:,m), m, __FILE__, __LINE__)
       call fill_halo(q, m)
     end do
     call tracer_calc_qm(block)
@@ -291,55 +234,6 @@ contains
     call perf_stop('physics_update')
 
   end subroutine physics_update
-
-  subroutine physics_update_dynamics(block, itime, dt)
-
-    type(block_type), intent(inout) :: block
-    integer, intent(in) :: itime
-    real(r8), intent(in) :: dt
-
-    integer i, j, k
-
-    call perf_start('physics_update_dynamics')
-
-    associate (mesh  => block%mesh               , &
-               dudt  => block%aux%dudt_phys      , & ! in
-               dvdt  => block%aux%dvdt_phys      , & ! in
-               dptdt => block%aux%dptdt_phys     , & ! in
-               dmg   => block%dstate(itime)%dmg  , & ! in
-               u_lon => block%dstate(itime)%u_lon, & ! inout
-               v_lat => block%dstate(itime)%v_lat, & ! inout
-               pt    => block%dstate(itime)%pt   )   ! inout
-    ! Update dynamics.
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%half_ids, mesh%half_ide
-          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * 0.5_r8 * (dudt%d(i,j,k) + dudt%d(i+1,j,k))
-        end do
-      end do
-    end do
-    call fill_halo(u_lon)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
-          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * 0.5_r8 * (dvdt%d(i,j,k) + dvdt%d(i,j+1,k))
-        end do
-      end do
-    end do
-    call fill_halo(v_lat)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = pt%d(i,j,k) + dt * dptdt%d(i,j,k) / dmg%d(i,j,k)
-        end do
-      end do
-    end do
-    call fill_halo(pt)
-    end associate
-
-    call perf_stop('physics_update_dynamics')
-
-  end subroutine physics_update_dynamics
 
   subroutine physics_final()
 

@@ -446,7 +446,6 @@ contains
           do k = 1, mesh%nlev
             do i = 1, phys_state(c)%ncol
               ptend%dqdt(icol_map(i,c),k,m) = (phys_state(c)%q(i,k,m) - pstate%q(icol_map(i,c),k,m)) / dt_phys
-              pstate%q(icol_map(i,c),k,m) = phys_state(c)%q(i,k,m)
             end do
           end do
           ptend%updated_q(m) = .true.
