@@ -60,12 +60,16 @@ module time_mod
     module procedure time_fast_forward_2
   end interface time_fast_forward
 
+  logical :: move_forward = .true.
+
 contains
 
   subroutine time_init(dt_in_seconds)
 
     ! Time step size in Earth time system (s)
     real(r8), intent(in) :: dt_in_seconds
+
+    move_forward = dt_in_seconds > 0
 
     select case (planet)
     case ('earth')
@@ -92,7 +96,11 @@ contains
     select case (planet)
     case ('earth')
       if (run_years > 0 .or. run_days > 0 .or. run_hours > 0) then
-        call end_time%add(years=run_years, days=run_days, hours=run_hours)
+        if (move_forward) then
+          call end_time%add(years=run_years, days=run_days, hours=run_hours)
+        else
+          call end_time%add(years=-run_years, days=-run_days, hours=-run_hours)
+        end if
       else if (sum(end_time_array) > 0) then
         call end_time%init(year  =end_time_array(1), &
                            month =end_time_array(2), &
@@ -102,7 +110,11 @@ contains
       end if
     case ('mars')
       if (run_my > 0 .or. run_sol > 0 .or. run_hours > 0) then
-        call end_time%add(my=run_my, sol=run_sol, hours=run_hours)
+        if (move_forward) then
+          call end_time%add(my=run_my, sol=run_sol, hours=run_hours)
+        else
+          call end_time%add(my=-run_my, sol=-run_sol, hours=-run_hours)
+        end if
       else if (sum(end_time_array) > 0) then
         call end_time%init(my    =end_time_array(1), &
                            sol   =end_time_array(2), &
@@ -285,7 +297,11 @@ contains
 
   logical function time_is_finished() result(res)
 
-    res = curr_time >= end_time
+    if (move_forward) then
+      res = curr_time >= end_time
+    else
+      res = curr_time <= end_time
+    end if
 
   end function time_is_finished
 
@@ -307,12 +323,12 @@ contains
     real(r8) seconds_opt
     type(alert_type) alert
 
-    months_opt  = 0; if (present(months )) months_opt  = months
-    days_opt    = 0; if (present(days   )) days_opt    = days
-    sol_opt     = 0; if (present(sol    )) sol_opt     = sol
-    hours_opt   = 0; if (present(hours  )) hours_opt   = hours
-    minutes_opt = 0; if (present(minutes)) minutes_opt = minutes
-    seconds_opt = 0; if (present(seconds)) seconds_opt = seconds
+    months_opt  = 0; if (present(months )) months_opt  = abs(months ) * merge(1, -1, move_forward)
+    days_opt    = 0; if (present(days   )) days_opt    = abs(days   ) * merge(1, -1, move_forward)
+    sol_opt     = 0; if (present(sol    )) sol_opt     = abs(sol    ) * merge(1, -1, move_forward)
+    hours_opt   = 0; if (present(hours  )) hours_opt   = abs(hours  ) * merge(1, -1, move_forward)
+    minutes_opt = 0; if (present(minutes)) minutes_opt = abs(minutes) * merge(1, -1, move_forward)
+    seconds_opt = 0; if (present(seconds)) seconds_opt = abs(seconds) * merge(1, -1, move_forward)
 
     select case (planet)
     case ('earth')
@@ -372,11 +388,20 @@ contains
     alert => get_alert(name)
     if (associated(alert)) then
       time = alert%last_time + alert%period
-      if (time <= curr_time) then
-        alert%ring = .true.
-        res = .true.
+      if (move_forward) then
+        if (time <= curr_time) then
+          alert%ring = .true.
+          res = .true.
+        else
+          res = .false.
+        end if
       else
-        res = .false.
+        if (time >= curr_time) then
+          alert%ring = .true.
+          res = .true.
+        else
+          res = .false.
+        end if
       end if
     else
       res = .false.
