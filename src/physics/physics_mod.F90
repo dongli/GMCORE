@@ -117,8 +117,7 @@ contains
       if (proc%is_root()) call log_error('CAM physics is not compiled!')
 #endif
     case ('mars_nasa')
-      call mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, &
-        min_lon, max_lon, min_lat, max_lat, input_ngroups, gmcore_root)
+      call mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroups, gmcore_root)
     end select
 
   end subroutine physics_init_stage2

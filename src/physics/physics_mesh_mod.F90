@@ -19,6 +19,10 @@ module physics_mesh_mod
     integer :: lev_count(4) = 0
     real(r8) :: ptop = 0
     real(r8) :: ztop = 0
+    real(r8) :: min_lon = 0
+    real(r8) :: max_lon = 0
+    real(r8) :: min_lat = 0
+    real(r8) :: max_lat = 0
     real(r8), allocatable, dimension(:) :: lon  ! Longitude (rad)
     real(r8), allocatable, dimension(:) :: lat  ! Latitude (rad)
     real(r8), allocatable, dimension(:) :: lev  ! Vertical coordinate (1)
@@ -56,6 +60,11 @@ contains
     allocate(this%area(ncol)); this%area = area
     if (present(ptop)) this%ptop = ptop
     if (present(ztop)) this%ztop = ztop
+
+    this%min_lon = min_lon
+    this%max_lon = max_lon
+    this%min_lat = min_lat
+    this%max_lat = max_lat
 
   end subroutine physics_mesh_init
 

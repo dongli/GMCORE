@@ -45,17 +45,12 @@ module mars_nasa_physics_driver_mod
 
 contains
 
-  subroutine mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, &
-    min_lon, max_lon, min_lat, max_lat, input_ngroup, model_root)
+  subroutine mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroup, model_root)
 
     character(*), intent(in) :: namelist_path
     type(physics_mesh_type), intent(in), target :: mesh(:)
     real(r8), intent(in) :: dt_adv
     real(r8), intent(in) :: dt_phys
-    real(r8), intent(in) :: min_lon
-    real(r8), intent(in) :: max_lon
-    real(r8), intent(in) :: min_lat
-    real(r8), intent(in) :: max_lat
     integer , intent(in) :: input_ngroup
     character(*), intent(in), optional :: model_root
 
@@ -63,7 +58,7 @@ contains
     call mars_nasa_parse_namelist(namelist_path, model_root)
     call mars_nasa_tracers_init(dt_adv)
     call mars_nasa_objects_init(mesh)
-    call mars_nasa_read_static_data(min_lon, max_lon, min_lat, max_lat, input_ngroup)
+    call mars_nasa_read_static_data(input_ngroup)
     call mars_nasa_lsm_init()
     call mars_nasa_rad_init(mesh(1)%nlev)
     call mars_orbit_init()
@@ -121,14 +116,10 @@ contains
 
   end subroutine mars_nasa_run
 
-  subroutine mars_nasa_read_static_data(min_lon, max_lon, min_lat, max_lat, input_ngroups)
+  subroutine mars_nasa_read_static_data(input_ngroups)
 
     use latlon_interp_mod
 
-    real(r8), intent(in) :: min_lon
-    real(r8), intent(in) :: max_lon
-    real(r8), intent(in) :: min_lat
-    real(r8), intent(in) :: max_lat
     integer , intent(in) :: input_ngroups
 
     real(r8), allocatable :: lon(:)
@@ -143,9 +134,9 @@ contains
       call fiona_set_dim('alb', 'lon', span=[0, 360], cyclic=.true.)
       call fiona_set_dim('alb', 'lat', span=[-90, 90])
       call fiona_start_input('alb')
-      call fiona_input_range('alb', 'lon', lon, coord_range=[min_lon, max_lon]); lon = lon * rad
-      call fiona_input_range('alb', 'lat', lat, coord_range=[min_lat, max_lat]); lat = lat * rad
-      call fiona_input_range('alb', 'albedo', array, coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
+      call fiona_input_range('alb', 'lon', lon, coord_range=[mesh%min_lon, mesh%max_lon]); lon = lon * rad
+      call fiona_input_range('alb', 'lat', lat, coord_range=[mesh%min_lat, mesh%max_lat]); lat = lat * rad
+      call fiona_input_range('alb', 'albedo', array, coord_range_1=[mesh%min_lon, mesh%max_lon], coord_range_2=[min_lat, max_lat])
       call fiona_end_input('alb')
       call latlon_interp_bilinear_column(lon, lat, array, mesh%lon, mesh%lat, state%alb)
       deallocate(lon, lat, array)
