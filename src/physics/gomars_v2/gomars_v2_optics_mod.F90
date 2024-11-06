@@ -10,19 +10,19 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_optics_mod
+module gomars_v2_optics_mod
 
   use fiona
   use const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_spectra_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_spectra_mod
 
   implicit none
 
   private
 
-  public mars_nasa_optics_init
-  public mars_nasa_optics_final
+  public gomars_v2_optics_init
+  public gomars_v2_optics_final
 
   ! Symbol notation from Petty (2006):
   ! Absorption coefficient (m-1): βa
@@ -56,13 +56,13 @@ module mars_nasa_optics_mod
 
 contains
 
-  subroutine mars_nasa_optics_init(nlev_rad)
+  subroutine gomars_v2_optics_init(nlev_rad)
 
     integer, intent(in) :: nlev_rad
 
     integer i, n
 
-    call mars_nasa_optics_final()
+    call gomars_v2_optics_final()
 
     call fiona_open_dataset('dust_optics', dust_optics_file)
     call fiona_get_dim('dust_optics', 'bin', size=nbin_dst)
@@ -149,9 +149,9 @@ contains
     call fiona_input('cld_optics', 'cld_gs_ir' , cld_gs_ir)
     call fiona_end_input('cld_optics')
 
-  end subroutine mars_nasa_optics_init
+  end subroutine gomars_v2_optics_init
 
-  subroutine mars_nasa_optics_final()
+  subroutine gomars_v2_optics_final()
 
     if (allocated(dst_r_bnds)) deallocate(dst_r_bnds)
     if (allocated(dst_qe0_vs)) deallocate(dst_qe0_vs)
@@ -180,6 +180,6 @@ contains
     if (allocated(cld_gs_ir )) deallocate(cld_gs_ir )
     if (allocated(cld_ws_ir )) deallocate(cld_ws_ir )
 
-  end subroutine mars_nasa_optics_final
+  end subroutine gomars_v2_optics_final
 
-end module mars_nasa_optics_mod
+end module gomars_v2_optics_mod

@@ -1,4 +1,4 @@
-module mars_nasa_const_mod
+module gomars_v2_const_mod
 
   use const_mod
   use gas_mod, only: m_h2o, m_co2
@@ -31,4 +31,4 @@ module mars_nasa_const_mod
 
   real(r8) :: ice_thresh_kgm2
 
-end module mars_nasa_const_mod
+end module gomars_v2_const_mod

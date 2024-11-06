@@ -23,7 +23,8 @@ module physics_mod
 #ifdef HAS_CAM
   use cam_physics_driver_mod, cam_objects => objects
 #endif
-  use mars_nasa_physics_driver_mod
+  use gomars_v1_driver_mod
+  use gomars_v2_driver_mod
   use perf_mod
 
   implicit none
@@ -116,8 +117,8 @@ contains
 #else
       if (proc%is_root()) call log_error('CAM physics is not compiled!')
 #endif
-    case ('mars_nasa')
-      call mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroups, gmcore_root)
+    case ('gomars_v2')
+      call gomars_v2_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroups, gmcore_root)
     end select
 
   end subroutine physics_init_stage2
@@ -131,8 +132,10 @@ contains
     end do
 
     select case (physics_suite)
-    case ('mars_nasa')
-      call mars_nasa_init_stage3()
+    case ('gomars_v1')
+      call gomars_v1_init_stage3()
+    case ('gomars_v2')
+      call gomars_v2_init_stage3()
     end select
 
   end subroutine physics_init_stage3
@@ -160,8 +163,10 @@ contains
       call cam_physics_sfc_flux()
       call cam_physics_run_stage2()
 #endif
-    case ('mars_nasa')
-      call mars_nasa_run(curr_time)
+    case ('gomars_v1')
+      call gomars_v1_run()
+    case ('gomars_v2')
+      call gomars_v2_run(curr_time)
     end select
 
     call dp_coupling_p2d(block, itime)
@@ -245,8 +250,10 @@ contains
     case ('cam')
       call cam_physics_final()
 #endif
-    case ('mars_nasa')
-      call mars_nasa_final()
+    case ('gomars_v1')
+      call gomars_v1_final()
+    case ('gomars_v2')
+      call gomars_v2_final()
     end select
 
     if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
@@ -266,8 +273,8 @@ contains
     case ('cam')
       call cam_physics_add_output(tag, output_h0_dtype)
 #endif
-    case ('mars_nasa')
-      call mars_nasa_add_output(tag, output_h0_dtype)
+    case ('gomars_v2')
+      call gomars_v2_add_output(tag, output_h0_dtype)
     end select
 
   end subroutine physics_add_output
@@ -286,8 +293,8 @@ contains
     case ('cam')
       call cam_physics_output(tag, iblk)
 #endif
-    case ('mars_nasa')
-      call mars_nasa_output(tag, iblk)
+    case ('gomars_v2')
+      call gomars_v2_output(tag, iblk)
     end select
 
   end subroutine physics_output

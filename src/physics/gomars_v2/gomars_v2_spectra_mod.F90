@@ -10,16 +10,16 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_spectra_mod
+module gomars_v2_spectra_mod
 
-  use mars_nasa_const_mod
+  use gomars_v2_const_mod
 
   implicit none
 
   private
 
-  public mars_nasa_spectra_init
-  public mars_nasa_spectra_final
+  public gomars_v2_spectra_init
+  public gomars_v2_spectra_final
   public spec_vs
   public spec_ir
 
@@ -42,7 +42,7 @@ module mars_nasa_spectra_mod
 
 contains
 
-  subroutine mars_nasa_spectra_init()
+  subroutine gomars_v2_spectra_init()
 
     call spec_vs%init(nspec_vs, [ &
        2222.22_r8, & ! ->   4.50 microns
@@ -64,14 +64,14 @@ contains
       2222.222_r8  & ! ->    4.50 microns
     ])
 
-  end subroutine mars_nasa_spectra_init
+  end subroutine gomars_v2_spectra_init
 
-  subroutine mars_nasa_spectra_final()
+  subroutine gomars_v2_spectra_final()
 
     call spec_vs%clear()
     call spec_ir %clear()
 
-  end subroutine mars_nasa_spectra_final
+  end subroutine gomars_v2_spectra_final
 
   subroutine spectra_init(this, n, bwn)
 
@@ -118,4 +118,4 @@ contains
 
   end subroutine spectra_final
 
-end module mars_nasa_spectra_mod
+end module gomars_v2_spectra_mod

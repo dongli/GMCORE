@@ -1,8 +1,8 @@
-module mars_nasa_mp_mod
+module gomars_v2_mp_mod
 
-  use mars_nasa_const_mod
-  use mars_nasa_physics_types_mod
-  use mars_nasa_tracers_mod
+  use gomars_v2_const_mod
+  use gomars_v2_types_mod
+  use gomars_v2_tracers_mod
 
   implicit none
 
@@ -12,7 +12,7 @@ contains
 
   subroutine update_dust_params(state)
 
-    type(mars_nasa_state_type), intent(inout) :: state
+    type(gomars_v2_state_type), intent(inout) :: state
 
     real(r8), parameter :: f = 1.0_r8 / 3.0_r8
     real(r8), parameter :: c = 3.0_r8 / 4.0_r8 / pi
@@ -34,7 +34,7 @@ contains
 
   subroutine update_cloud_params(state)
 
-    type(mars_nasa_state_type), intent(inout) :: state
+    type(gomars_v2_state_type), intent(inout) :: state
 
     real(r8), parameter :: f = 1.0_r8 / 3.0_r8
     real(r8), parameter :: c = 3.0_r8 / 4.0_r8 / pi
@@ -55,4 +55,4 @@ contains
 
   end subroutine update_cloud_params
 
-end module mars_nasa_mp_mod
+end module gomars_v2_mp_mod

@@ -10,42 +10,42 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_physics_driver_mod
+module gomars_v2_driver_mod
 
   use datetime
   use tracer_mod
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_tracers_mod
-  use mars_nasa_physics_types_mod
-  use mars_nasa_physics_output_mod
-  use mars_nasa_objects_mod
-  use mars_orbit_mod
-  use mars_nasa_solar_mod
-  use mars_nasa_rad_mod
-  use mars_nasa_lsm_mod
-  use mars_nasa_pbl_mod
-  use mars_nasa_mp_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_tracers_mod
+  use gomars_v2_types_mod
+  use gomars_v2_output_mod
+  use gomars_v2_objects_mod
+  use gomars_v2_orbit_mod
+  use gomars_v2_solar_mod
+  use gomars_v2_rad_mod
+  use gomars_v2_lsm_mod
+  use gomars_v2_pbl_mod
+  use gomars_v2_mp_mod
 
   implicit none
 
   private
 
-  public mars_nasa_init_stage2
-  public mars_nasa_init_stage3
-  public mars_nasa_final
-  public mars_nasa_run
-  public mars_nasa_d2p
-  public mars_nasa_p2d
-  public mars_nasa_add_output
-  public mars_nasa_output
+  public gomars_v2_init_stage2
+  public gomars_v2_init_stage3
+  public gomars_v2_final
+  public gomars_v2_run
+  public gomars_v2_d2p
+  public gomars_v2_p2d
+  public gomars_v2_add_output
+  public gomars_v2_output
   public objects
 
   real(r8) dt
 
 contains
 
-  subroutine mars_nasa_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroup, model_root)
+  subroutine gomars_v2_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroup, model_root)
 
     character(*), intent(in) :: namelist_path
     type(physics_mesh_type), intent(in), target :: mesh(:)
@@ -54,18 +54,18 @@ contains
     integer , intent(in) :: input_ngroup
     character(*), intent(in), optional :: model_root
 
-    call mars_nasa_final()
-    call mars_nasa_parse_namelist(namelist_path, model_root)
-    call mars_nasa_tracers_init(dt_adv)
-    call mars_nasa_objects_init(mesh)
-    call mars_nasa_read_static_data(input_ngroup)
-    call mars_nasa_lsm_init()
-    call mars_nasa_rad_init(mesh(1)%nlev)
+    call gomars_v2_final()
+    call gomars_v2_parse_namelist(namelist_path, model_root)
+    call gomars_v2_tracers_init(dt_adv)
+    call gomars_v2_objects_init(mesh)
+    call gomars_v2_read_static_data(input_ngroup)
+    call gomars_v2_lsm_init()
+    call gomars_v2_rad_init(mesh(1)%nlev)
     call mars_orbit_init()
 
-  end subroutine mars_nasa_init_stage2
+  end subroutine gomars_v2_init_stage2
 
-  subroutine mars_nasa_init_stage3()
+  subroutine gomars_v2_init_stage3()
 
     integer iblk, icol
 
@@ -78,18 +78,18 @@ contains
       end associate
     end do
 
-  end subroutine mars_nasa_init_stage3
+  end subroutine gomars_v2_init_stage3
 
-  subroutine mars_nasa_final()
+  subroutine gomars_v2_final()
 
-    call mars_nasa_rad_final()
-    call mars_nasa_objects_final()
-    call mars_nasa_lsm_final()
-    call mars_nasa_pbl_final()
+    call gomars_v2_rad_final()
+    call gomars_v2_objects_final()
+    call gomars_v2_lsm_final()
+    call gomars_v2_pbl_final()
 
-  end subroutine mars_nasa_final
+  end subroutine gomars_v2_final
 
-  subroutine mars_nasa_run(time)
+  subroutine gomars_v2_run(time)
 
     type(datetime_type), intent(in) :: time
 
@@ -108,15 +108,15 @@ contains
       do icol = 1, objects(iblk)%mesh%ncol
         state%cosz(icol) = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%hours_in_day())
       end do
-      call mars_nasa_pbl_run(state, tend, dt)
-      call mars_nasa_lsm_run(state, tend)
-      call mars_nasa_rad_run(state, tend)
+      call gomars_v2_pbl_run(state, tend, dt)
+      call gomars_v2_lsm_run(state, tend)
+      call gomars_v2_rad_run(state, tend)
       end associate
     end do
 
-  end subroutine mars_nasa_run
+  end subroutine gomars_v2_run
 
-  subroutine mars_nasa_read_static_data(input_ngroups)
+  subroutine gomars_v2_read_static_data(input_ngroups)
 
     use latlon_interp_mod
 
@@ -167,16 +167,16 @@ contains
       end associate
     end if
 
-  end subroutine mars_nasa_read_static_data
+  end subroutine gomars_v2_read_static_data
 
-  subroutine mars_nasa_d2p()
+  subroutine gomars_v2_d2p()
 
     ! Calculate ts.
 
-  end subroutine mars_nasa_d2p
+  end subroutine gomars_v2_d2p
 
-  subroutine mars_nasa_p2d()
+  subroutine gomars_v2_p2d()
 
-  end subroutine mars_nasa_p2d
+  end subroutine gomars_v2_p2d
 
-end module mars_nasa_physics_driver_mod
+end module gomars_v2_driver_mod

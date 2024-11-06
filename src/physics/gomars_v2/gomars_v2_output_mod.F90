@@ -10,21 +10,21 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_physics_output_mod
+module gomars_v2_output_mod
 
   use fiona
-  use mars_nasa_objects_mod
+  use gomars_v2_objects_mod
 
   implicit none
 
   private
 
-  public mars_nasa_add_output
-  public mars_nasa_output
+  public gomars_v2_add_output
+  public gomars_v2_output
 
 contains
 
-  subroutine mars_nasa_add_output(tag, dtype)
+  subroutine gomars_v2_add_output(tag, dtype)
 
     character(*), intent(in) :: tag
     character(*), intent(in) :: dtype
@@ -34,9 +34,9 @@ contains
     call fiona_add_var(tag, 'tin' , long_name='Surface thermal inertia'     , units='', dim_names=dims, dtype=dtype)
     call fiona_add_var(tag, 'gnd_ice' , long_name='Ground ice indicator'     , units='', dim_names=dims, dtype=dtype)
 
-  end subroutine mars_nasa_add_output
+  end subroutine gomars_v2_add_output
 
-  subroutine mars_nasa_output(tag, iblk)
+  subroutine gomars_v2_output(tag, iblk)
 
     character(*), intent(in) :: tag
     integer, intent(in) :: iblk
@@ -46,6 +46,6 @@ contains
     call fiona_output(tag, 'gnd_ice', reshape(state%gnd_ice, mesh%cell_count_2d(1:2)), start=mesh%cell_start_2d, count=mesh%cell_count_2d)
     end associate
 
-  end subroutine mars_nasa_output
+  end subroutine gomars_v2_output
 
-end module mars_nasa_physics_output_mod
+end module gomars_v2_output_mod

@@ -10,25 +10,25 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_physics_types_mod
+module gomars_v2_types_mod
 
   use fiona
   use process_mod
   use physics_types_mod
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_spectra_mod
-  use mars_nasa_rad_kcoef_mod
-  use mars_nasa_tracers_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_spectra_mod
+  use gomars_v2_rad_kcoef_mod
+  use gomars_v2_tracers_mod
 
   implicit none
 
   private
 
-  public mars_nasa_state_type
-  public mars_nasa_tend_type
+  public gomars_v2_state_type
+  public gomars_v2_tend_type
 
-  type, extends(physics_state_type) :: mars_nasa_state_type
+  type, extends(physics_state_type) :: gomars_v2_state_type
     ! Surface latent heat flux (W m-2)
     real(r8), allocatable, dimension(    :    ) :: lhflx
     ! Atmosphere CO2 condensation (???)
@@ -73,24 +73,24 @@ module mars_nasa_physics_types_mod
     ! Ground ice indicator for initializing soil model
     real(r8), allocatable, dimension(:  ) :: gnd_ice
   contains
-    procedure :: init  => mars_nasa_state_init
-    procedure :: clear => mars_nasa_state_clear
-    final mars_nasa_state_final
-  end type mars_nasa_state_type
+    procedure :: init  => gomars_v2_state_init
+    procedure :: clear => gomars_v2_state_clear
+    final gomars_v2_state_final
+  end type gomars_v2_state_type
 
-  type, extends(physics_tend_type) :: mars_nasa_tend_type
+  type, extends(physics_tend_type) :: gomars_v2_tend_type
     real(r8), allocatable :: dpsdt(:)
   contains
-    procedure :: init  => mars_nasa_tend_init
-    procedure :: clear => mars_nasa_tend_clear
-    final mars_nasa_tend_final
-  end type mars_nasa_tend_type
+    procedure :: init  => gomars_v2_tend_init
+    procedure :: clear => gomars_v2_tend_clear
+    final gomars_v2_tend_final
+  end type gomars_v2_tend_type
 
 contains
 
-  subroutine mars_nasa_state_init(this, mesh)
+  subroutine gomars_v2_state_init(this, mesh)
 
-    class(mars_nasa_state_type), intent(inout) :: this
+    class(gomars_v2_state_type), intent(inout) :: this
     type(physics_mesh_type), intent(in), target :: mesh
 
     call this%clear()
@@ -122,11 +122,11 @@ contains
 
     call this%physics_state_init(mesh)
 
-  end subroutine mars_nasa_state_init
+  end subroutine gomars_v2_state_init
 
-  subroutine mars_nasa_state_clear(this)
+  subroutine gomars_v2_state_clear(this)
 
-    class(mars_nasa_state_type), intent(inout) :: this
+    class(gomars_v2_state_type), intent(inout) :: this
 
     if (allocated(this%lhflx        )) deallocate(this%lhflx        )
     if (allocated(this%atmcond      )) deallocate(this%atmcond      )
@@ -155,19 +155,19 @@ contains
 
     call this%physics_state_clear()
 
-  end subroutine mars_nasa_state_clear
+  end subroutine gomars_v2_state_clear
 
-  subroutine mars_nasa_state_final(this)
+  subroutine gomars_v2_state_final(this)
 
-    type(mars_nasa_state_type), intent(inout) :: this
+    type(gomars_v2_state_type), intent(inout) :: this
 
     call this%clear()
 
-  end subroutine mars_nasa_state_final
+  end subroutine gomars_v2_state_final
 
-  subroutine mars_nasa_tend_init(this, mesh)
+  subroutine gomars_v2_tend_init(this, mesh)
 
-    class(mars_nasa_tend_type), intent(inout) :: this
+    class(gomars_v2_tend_type), intent(inout) :: this
     type(physics_mesh_type), intent(in), target :: mesh
 
     call this%clear()
@@ -176,24 +176,24 @@ contains
 
     call this%physics_tend_init(mesh)
 
-  end subroutine mars_nasa_tend_init
+  end subroutine gomars_v2_tend_init
 
-  subroutine mars_nasa_tend_clear(this)
+  subroutine gomars_v2_tend_clear(this)
 
-    class(mars_nasa_tend_type), intent(inout) :: this
+    class(gomars_v2_tend_type), intent(inout) :: this
 
     if (allocated(this%dpsdt)) deallocate(this%dpsdt)
 
     call this%physics_tend_clear()
 
-  end subroutine mars_nasa_tend_clear
+  end subroutine gomars_v2_tend_clear
 
-  subroutine mars_nasa_tend_final(this)
+  subroutine gomars_v2_tend_final(this)
 
-    type(mars_nasa_tend_type), intent(inout) :: this
+    type(gomars_v2_tend_type), intent(inout) :: this
 
     call this%clear()
 
-  end subroutine mars_nasa_tend_final
+  end subroutine gomars_v2_tend_final
 
-end module mars_nasa_physics_types_mod
+end module gomars_v2_types_mod

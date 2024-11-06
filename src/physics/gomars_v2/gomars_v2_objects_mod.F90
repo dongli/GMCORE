@@ -10,30 +10,38 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_objects_mod
+module gomars_v2_objects_mod
 
   use physics_mesh_mod
-  use mars_nasa_physics_types_mod
+  use gomars_v2_types_mod
 
   implicit none
 
-  type mars_nasa_objects_type
-    type(physics_mesh_type), pointer :: mesh
-    type(mars_nasa_state_type) state
-    type(mars_nasa_tend_type) tend
-  end type mars_nasa_objects_type
+  private
 
-  type(mars_nasa_objects_type), allocatable, target :: objects(:)
+  public physics_mesh_type
+  public gomars_v2_objects_type
+  public objects
+  public gomars_v2_objects_init
+  public gomars_v2_objects_final
+
+  type gomars_v2_objects_type
+    type(physics_mesh_type), pointer :: mesh
+    type(gomars_v2_state_type) state
+    type(gomars_v2_tend_type) tend
+  end type gomars_v2_objects_type
+
+  type(gomars_v2_objects_type), allocatable, target :: objects(:)
 
 contains
 
-  subroutine mars_nasa_objects_init(mesh)
+  subroutine gomars_v2_objects_init(mesh)
 
     type(physics_mesh_type), intent(in), target :: mesh(:)
 
     integer nblk, iblk
 
-    call mars_nasa_objects_final()
+    call gomars_v2_objects_final()
 
     nblk = size(mesh)
     allocate(objects(nblk))
@@ -43,9 +51,9 @@ contains
       call objects(iblk)%tend %init(objects(iblk)%mesh)
     end do
 
-  end subroutine mars_nasa_objects_init
+  end subroutine gomars_v2_objects_init
 
-  subroutine mars_nasa_objects_final()
+  subroutine gomars_v2_objects_final()
 
     integer iblk
 
@@ -56,6 +64,6 @@ contains
       end do
     end if
 
-  end subroutine mars_nasa_objects_final
+  end subroutine gomars_v2_objects_final
 
-end module mars_nasa_objects_mod
+end module gomars_v2_objects_mod

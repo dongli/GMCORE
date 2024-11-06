@@ -10,7 +10,7 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_tracers_mod
+module gomars_v2_tracers_mod
 
   ! Log-normal distribution
   !                1       ⎡ 1 ln(r / ro)²⎤
@@ -25,13 +25,13 @@ module mars_nasa_tracers_mod
   !   reff = ro exp(2.5 𝛔²)
 
   use tracer_mod
-  use mars_nasa_const_mod
+  use gomars_v2_const_mod
 
   implicit none
 
   private
 
-  public mars_nasa_tracers_init
+  public gomars_v2_tracers_init
   public ntracers
 
   integer, public :: idx_m_dst = 0
@@ -43,7 +43,7 @@ module mars_nasa_tracers_mod
 
 contains
 
-  subroutine mars_nasa_tracers_init(dt_adv)
+  subroutine gomars_v2_tracers_init(dt_adv)
 
     real(r8), intent(in) :: dt_adv
 
@@ -62,6 +62,6 @@ contains
     call tracer_add('mars', dt_adv, 'qm_ccn', 'Dust core mass mixing ratio'  , 'kg kg-1')
     idx_m_ccn = ntracers
 
-  end subroutine mars_nasa_tracers_init
+  end subroutine gomars_v2_tracers_init
 
-end module mars_nasa_tracers_mod
+end module gomars_v2_tracers_mod

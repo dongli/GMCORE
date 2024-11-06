@@ -82,7 +82,6 @@ contains
       minor_gas%gamma = minor_gas%cp / minor_gas%cv
       minor_gas%kappa = minor_gas%r / minor_gas%cp
       minor_gas%l     = 2.5e6_r8
-
     case ('mars')
       allocate(gases(4))
       ! NOTE: DOF is calculated at 200K.
@@ -91,6 +90,13 @@ contains
       call gases(3)%init('ar' , n_atom=1, m=m_ar , v_ratio=0.0193_r8  , dof=3.02464704198518_r8)
       call gases(4)%init('o2' , n_atom=2, m=m_o2 , v_ratio=0.00145_r8 , dof=5.00466195768837_r8)
       call major_gas%init('dry_air', gases(1:4))
+
+      ! Testing fixed constants.
+      major_gas%r     = 189.02_r8
+      major_gas%cp    = 735.94_r8
+      major_gas%cv    = 546.92_r8
+      major_gas%gamma = major_gas%cp / major_gas%cv
+      major_gas%kappa = major_gas%r / major_gas%cp
     end select
 
   end subroutine gas_mixture_init

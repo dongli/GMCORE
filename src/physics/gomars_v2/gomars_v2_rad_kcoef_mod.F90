@@ -20,19 +20,19 @@
 !
 ! ==============================================================================
 
-module mars_nasa_rad_kcoef_mod
+module gomars_v2_rad_kcoef_mod
 
   use fiona
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_spectra_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_spectra_mod
 
   implicit none
 
   private
 
-  public mars_nasa_rad_kcoef_init
-  public mars_nasa_rad_kcoef_final
+  public gomars_v2_rad_kcoef_init
+  public gomars_v2_rad_kcoef_final
   public get_kcoef_vs
   public ntref
   public npint
@@ -87,9 +87,9 @@ module mars_nasa_rad_kcoef_mod
 
 contains
 
-  subroutine mars_nasa_rad_kcoef_init()
+  subroutine gomars_v2_rad_kcoef_init()
 
-    call mars_nasa_rad_kcoef_final()
+    call gomars_v2_rad_kcoef_final()
 
     call fiona_open_dataset('kcoef', file_path=kcoef_file)
     call fiona_get_dim('kcoef', 'tref' , size=ntref )
@@ -119,9 +119,9 @@ contains
 
     call interp_kcoef()
 
-  end subroutine mars_nasa_rad_kcoef_init
+  end subroutine gomars_v2_rad_kcoef_init
 
-  subroutine mars_nasa_rad_kcoef_final()
+  subroutine gomars_v2_rad_kcoef_final()
 
     if (allocated(tref      )) deallocate(tref      )
     if (allocated(pref      )) deallocate(pref      )
@@ -136,7 +136,7 @@ contains
     if (allocated(f0_vs     )) deallocate(f0_vs     )
     if (allocated(f0_ir     )) deallocate(f0_ir     )
 
-  end subroutine mars_nasa_rad_kcoef_final
+  end subroutine gomars_v2_rad_kcoef_final
 
   subroutine interp_kcoef()
 
@@ -349,4 +349,4 @@ contains
 
   end subroutine get_kcoef_vs
 
-end module mars_nasa_rad_kcoef_mod
+end module gomars_v2_rad_kcoef_mod

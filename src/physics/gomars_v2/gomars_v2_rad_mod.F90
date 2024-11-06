@@ -10,25 +10,25 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_rad_mod
+module gomars_v2_rad_mod
 
   use fiona
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_physics_types_mod
-  use mars_nasa_tracers_mod
-  use mars_nasa_spectra_mod
-  use mars_nasa_optics_mod
-  use mars_nasa_solar_mod
-  use mars_nasa_rad_kcoef_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_types_mod
+  use gomars_v2_tracers_mod
+  use gomars_v2_spectra_mod
+  use gomars_v2_optics_mod
+  use gomars_v2_solar_mod
+  use gomars_v2_rad_kcoef_mod
 
   implicit none
 
   private
 
-  public mars_nasa_rad_init
-  public mars_nasa_rad_final
-  public mars_nasa_rad_run
+  public gomars_v2_rad_init
+  public gomars_v2_rad_final
+  public gomars_v2_rad_run
 
   ! Number of radiation levels
   integer nlev_rad
@@ -44,7 +44,7 @@ module mars_nasa_rad_mod
 
 contains
 
-  subroutine mars_nasa_rad_init(nlev)
+  subroutine gomars_v2_rad_init(nlev)
 
     ! Number of model full levels
     integer, intent(in) :: nlev
@@ -52,14 +52,14 @@ contains
     real(r8) a, b, t
     integer i, j
 
-    call mars_nasa_rad_final()
+    call gomars_v2_rad_final()
 
     nlev_rad = 2 * nlev + 3
 
-    call mars_nasa_spectra_init()
-    call mars_nasa_optics_init(nlev_rad)
-    call mars_nasa_solar_init()
-    call mars_nasa_rad_kcoef_init()
+    call gomars_v2_spectra_init()
+    call gomars_v2_optics_init(nlev_rad)
+    call gomars_v2_solar_init()
+    call gomars_v2_rad_kcoef_init()
 
     allocate(tauray_vs(spec_vs%n     ))
     allocate(planck_ir(spec_ir%n,8501))
@@ -80,24 +80,24 @@ contains
       end do
     end do
 
-  end subroutine mars_nasa_rad_init
+  end subroutine gomars_v2_rad_init
 
-  subroutine mars_nasa_rad_final()
+  subroutine gomars_v2_rad_final()
 
-    call mars_nasa_spectra_final()
-    call mars_nasa_optics_final()
-    call mars_nasa_solar_final()
-    call mars_nasa_rad_kcoef_final()
+    call gomars_v2_spectra_final()
+    call gomars_v2_optics_final()
+    call gomars_v2_solar_final()
+    call gomars_v2_rad_kcoef_final()
 
     if (allocated(planck_ir)) deallocate(planck_ir)
     if (allocated(tauray_vs)) deallocate(tauray_vs)
 
-  end subroutine mars_nasa_rad_final
+  end subroutine gomars_v2_rad_final
 
-  subroutine mars_nasa_rad_run(state, tend)
+  subroutine gomars_v2_rad_run(state, tend)
 
-    type(mars_nasa_state_type), intent(inout) :: state
-    type(mars_nasa_tend_type), intent(inout) :: tend
+    type(gomars_v2_state_type), intent(inout) :: state
+    type(gomars_v2_tend_type), intent(inout) :: tend
 
     real(r8) t_rad(nlev_rad)
     real(r8) p_rad(nlev_rad)
@@ -159,7 +159,7 @@ contains
     end do
     end associate
 
-  end subroutine mars_nasa_rad_run
+  end subroutine gomars_v2_rad_run
 
   pure real(r8) function integrate_planck_function(s1, s2, t) result(res)
 
@@ -202,7 +202,7 @@ contains
 
     ! Calculate direct solar flux at surface.
 
-    type(mars_nasa_state_type), intent(inout) :: state
+    type(gomars_v2_state_type), intent(inout) :: state
 
     integer icol, is, ig
     real(r8) c
@@ -232,4 +232,4 @@ contains
 
   end subroutine calc_fdns_dir
 
-end module mars_nasa_rad_mod
+end module gomars_v2_rad_mod

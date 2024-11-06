@@ -15,21 +15,21 @@
 !
 ! ==============================================================================
 
-module mars_nasa_lsm_mod
+module gomars_v2_lsm_mod
 
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_physics_types_mod
-  use mars_nasa_tracers_mod
-  use mars_nasa_objects_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_types_mod
+  use gomars_v2_tracers_mod
+  use gomars_v2_objects_mod
 
   implicit none
 
   private
 
-  public mars_nasa_lsm_init
-  public mars_nasa_lsm_final
-  public mars_nasa_lsm_run
+  public gomars_v2_lsm_init
+  public gomars_v2_lsm_final
+  public gomars_v2_lsm_run
 
   real(r8), allocatable, dimension(:) :: soil_z
   real(r8), allocatable, dimension(:) :: soil_z_lev
@@ -47,11 +47,11 @@ module mars_nasa_lsm_mod
 
 contains
 
-  subroutine mars_nasa_lsm_init()
+  subroutine gomars_v2_lsm_init()
 
     integer iblk, icol, k
 
-    call mars_nasa_lsm_final()
+    call gomars_v2_lsm_final()
 
     allocate(soil_z     (nlev_soil  ))
     allocate(soil_z_lev (nlev_soil+1))
@@ -117,21 +117,21 @@ contains
       end associate
     end do
 
-  end subroutine mars_nasa_lsm_init
+  end subroutine gomars_v2_lsm_init
 
-  subroutine mars_nasa_lsm_final()
+  subroutine gomars_v2_lsm_final()
 
     if (allocated(soil_z     )) deallocate(soil_z     )
     if (allocated(soil_z_lev )) deallocate(soil_z_lev )
     if (allocated(soil_dz    )) deallocate(soil_dz    )
     if (allocated(soil_dz_lev)) deallocate(soil_dz_lev)
 
-  end subroutine mars_nasa_lsm_final
+  end subroutine gomars_v2_lsm_final
 
-  subroutine mars_nasa_lsm_run(state, tend)
+  subroutine gomars_v2_lsm_run(state, tend)
 
-    type(mars_nasa_state_type ), intent(inout), target :: state
-    type(mars_nasa_tend_type  ), intent(inout) :: tend
+    type(gomars_v2_state_type ), intent(inout), target :: state
+    type(gomars_v2_tend_type  ), intent(inout) :: tend
 
     integer icol
     real(r8), pointer :: qice(:)
@@ -175,7 +175,7 @@ contains
     end associate
     stop 999
 
-  end subroutine mars_nasa_lsm_run
+  end subroutine gomars_v2_lsm_run
 
   subroutine calc_tg(alb, fdnl, fdns, rhouch, t_bot, soil_cond, soil_t, soil_dz, ps, qice, gnd_ice, tg)
 
@@ -270,4 +270,4 @@ contains
 
   end subroutine calc_tg
 
-end module mars_nasa_lsm_mod
+end module gomars_v2_lsm_mod

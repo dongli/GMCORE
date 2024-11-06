@@ -14,23 +14,23 @@
 !   This module calculates ustar and tstar from bulk Richardson number.
 ! ==============================================================================
 
-module mars_nasa_sfc_mod
+module gomars_v2_sfc_mod
 
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_physics_types_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_types_mod
 
   implicit none
 
   private
 
-  public mars_nasa_sfc_run
+  public gomars_v2_sfc_run
 
 contains
 
-  subroutine mars_nasa_sfc_run(state)
+  subroutine gomars_v2_sfc_run(state)
 
-    type(mars_nasa_state_type), intent(inout) :: state
+    type(gomars_v2_state_type), intent(inout) :: state
 
     real(r8) dpt, rib, lnz
     integer icol, nlev
@@ -70,6 +70,6 @@ contains
     end do
     end associate
 
-  end subroutine mars_nasa_sfc_run
+  end subroutine gomars_v2_sfc_run
 
-end module mars_nasa_sfc_mod
+end module gomars_v2_sfc_mod

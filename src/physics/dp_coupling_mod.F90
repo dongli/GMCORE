@@ -16,14 +16,15 @@ module dp_coupling_mod
   use formula_mod
   use latlon_parallel_mod
   use tracer_mod
-  use simple_physics_driver_mod   , only: simple_objects => objects
+  use simple_physics_driver_mod, only: simple_objects => objects
 #ifdef HAS_CAM
-  use cam_physics_driver_mod      , only: cam_physics_d2p, cam_physics_p2d, &
-                                          cam_objects => objects
+  use cam_physics_driver_mod, only: cam_physics_d2p, cam_physics_p2d, &
+                                    cam_objects => objects
 #endif
-  use mars_nasa_physics_driver_mod, only: mars_nasa_d2p, &
-                                          mars_nasa_p2d, &
-                                          mars_nasa_objects => objects
+  use gomars_v1_driver_mod, only: gomars_v1_d2p, gomars_v1_p2d, &
+                                  gomars_v1_objects => objects
+  use gomars_v2_driver_mod, only: gomars_v2_d2p, gomars_v2_p2d, &
+                                  gomars_v2_objects => objects
   use filter_mod
   use perf_mod
 
@@ -53,9 +54,12 @@ contains
       call common_d2p(block, itime, tracers(block%id), cam_objects(block%id)%state)
       call cam_physics_d2p()
 #endif
-    case ('mars_nasa')
-      call common_d2p(block, itime, tracers(block%id), mars_nasa_objects(block%id)%state)
-      call mars_nasa_d2p()
+    case ('gomars_v1')
+      call common_d2p(block, itime, tracers(block%id), gomars_v1_objects(block%id)%state)
+      call gomars_v1_d2p()
+    case ('gomars_v2')
+      call common_d2p(block, itime, tracers(block%id), gomars_v2_objects(block%id)%state)
+      call gomars_v2_d2p()
     end select
 
     call perf_stop('dp_coupling_d2p')
@@ -175,9 +179,9 @@ contains
       call cam_physics_p2d()
       call common_p2d(block, itime, tracers(iblk), cam_objects(iblk)%state, cam_objects(iblk)%tend)
 #endif
-    case ('mars_nasa')
-      call mars_nasa_p2d()
-      call common_p2d(block, itime, tracers(iblk), mars_nasa_objects(iblk)%state, mars_nasa_objects(iblk)%tend)
+    case ('gomars_v2')
+      call gomars_v2_p2d()
+      call common_p2d(block, itime, tracers(iblk), gomars_v2_objects(iblk)%state, gomars_v2_objects(iblk)%tend)
     end select
 
     call perf_stop('dp_coupling_p2d')

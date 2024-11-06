@@ -10,13 +10,13 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_nasa_namelist_mod
+module gomars_v2_namelist_mod
 
   use fiona
   use flogger
   use string
   use process_mod
-  use mars_nasa_const_mod, only: r8, rho_ice, ice_thresh_kgm2
+  use gomars_v2_const_mod, only: r8, rho_ice, ice_thresh_kgm2
 
   implicit none
 
@@ -39,7 +39,7 @@ module mars_nasa_namelist_mod
   ! Number of soil layers
   integer :: nlev_soil                     = 40
 
-  namelist /mars_nasa_control/ &
+  namelist /gomars_v2_control/ &
     kcoef_file               , &
     dust_optics_file         , &
     cld_optics_file          , &
@@ -55,7 +55,7 @@ module mars_nasa_namelist_mod
 
 contains
 
-  subroutine mars_nasa_parse_namelist(file_path, model_root)
+  subroutine gomars_v2_parse_namelist(file_path, model_root)
 
     character(*), intent(in) :: file_path
     character(*), intent(in), optional :: model_root
@@ -66,9 +66,9 @@ contains
     ice_thresh_kgm2 = ice_thresh_depth * 1.0e-6_r8 * rho_ice
 
     open(10, file=file_path, status='old')
-    read(10, nml=mars_nasa_control, iostat=ierr)
+    read(10, nml=gomars_v2_control, iostat=ierr)
     if (ierr /= 0 .and. ierr /= -1) then
-      if (proc%is_root()) call log_error('There is error in mars_nasa_control namelist in ' // trim(file_path) // '!')
+      if (proc%is_root()) call log_error('There is error in gomars_v2_control namelist in ' // trim(file_path) // '!')
     end if
     close(10)
 
@@ -120,6 +120,6 @@ contains
       if (proc%is_root()) call log_error('gnd_ice_file ' // trim(gnd_ice_file) // ' does not exist!')
     end if
 
-  end subroutine mars_nasa_parse_namelist
+  end subroutine gomars_v2_parse_namelist
 
-end module mars_nasa_namelist_mod
+end module gomars_v2_namelist_mod

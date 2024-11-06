@@ -18,19 +18,19 @@
 !   1359 W m-2 at 1 AU compared to 1355 W m-2 for the obserged sun.
 ! ==============================================================================
 
-module mars_nasa_solar_mod
+module gomars_v2_solar_mod
 
-  use mars_nasa_const_mod
-  use mars_nasa_spectra_mod
-  use mars_nasa_objects_mod
-  use mars_orbit_mod
+  use gomars_v2_const_mod
+  use gomars_v2_spectra_mod
+  use gomars_v2_objects_mod
+  use gomars_v2_orbit_mod
 
   implicit none
 
   private
 
-  public mars_nasa_solar_init
-  public mars_nasa_solar_final
+  public gomars_v2_solar_init
+  public gomars_v2_solar_final
   public update_solar_flux
   public fsol_spec_mars
   public fsol_mars
@@ -43,10 +43,10 @@ module mars_nasa_solar_mod
 
 contains
 
-  subroutine mars_nasa_solar_init()
+  subroutine gomars_v2_solar_init()
 
     if (spec_vs%n /= 7) then
-      stop 'mars_nasa_solar_mod only matches with visible spectra with 7 bands!'
+      stop 'gomars_v2_solar_mod only matches with visible spectra with 7 bands!'
     end if
 
     allocate(fsol_spec_1au (spec_vs%n))
@@ -56,14 +56,14 @@ contains
     fsol_spec_1au = [12.7_r8, 24.2_r8, 54.6_r8, 145.9_r8, 354.9_r8, 657.5_r8, 106.3_r8]
     fsol_1au = sum(fsol_spec_1au)
 
-  end subroutine mars_nasa_solar_init
+  end subroutine gomars_v2_solar_init
 
-  subroutine mars_nasa_solar_final()
+  subroutine gomars_v2_solar_final()
 
     if (allocated(fsol_spec_1au )) deallocate(fsol_spec_1au )
     if (allocated(fsol_spec_mars)) deallocate(fsol_spec_mars)
 
-  end subroutine mars_nasa_solar_final
+  end subroutine gomars_v2_solar_final
 
   subroutine update_solar_flux(ls)
 
@@ -77,4 +77,4 @@ contains
 
   end subroutine update_solar_flux
 
-end module mars_nasa_solar_mod
+end module gomars_v2_solar_mod

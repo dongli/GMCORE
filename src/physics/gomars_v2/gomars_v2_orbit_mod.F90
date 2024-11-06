@@ -10,9 +10,9 @@
 ! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
 ! ==============================================================================
 
-module mars_orbit_mod
+module gomars_v2_orbit_mod
 
-  use const_mod
+  use gomars_v2_const_mod
 
   implicit none
 
@@ -119,4 +119,4 @@ contains
 
   end function solar_cos_zenith_angle
 
-end module mars_orbit_mod
+end module gomars_v2_orbit_mod

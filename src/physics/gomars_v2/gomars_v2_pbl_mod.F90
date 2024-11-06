@@ -1,22 +1,22 @@
-module mars_nasa_pbl_mod
+module gomars_v2_pbl_mod
 
-  use mars_nasa_const_mod
-  use mars_nasa_namelist_mod
-  use mars_nasa_physics_types_mod
-  use mars_nasa_objects_mod
-  use mars_nasa_sfc_mod
+  use gomars_v2_const_mod
+  use gomars_v2_namelist_mod
+  use gomars_v2_types_mod
+  use gomars_v2_objects_mod
+  use gomars_v2_sfc_mod
 
   implicit none
 
   private
 
-  public mars_nasa_pbl_init
-  public mars_nasa_pbl_final
-  public mars_nasa_pbl_run
+  public gomars_v2_pbl_init
+  public gomars_v2_pbl_final
+  public gomars_v2_pbl_run
 
 contains
 
-  subroutine mars_nasa_pbl_init()
+  subroutine gomars_v2_pbl_init()
 
     integer iblk
 
@@ -27,16 +27,16 @@ contains
       end associate
     end do
 
-  end subroutine mars_nasa_pbl_init
+  end subroutine gomars_v2_pbl_init
 
-  subroutine mars_nasa_pbl_final()
+  subroutine gomars_v2_pbl_final()
 
-  end subroutine mars_nasa_pbl_final
+  end subroutine gomars_v2_pbl_final
 
-  subroutine mars_nasa_pbl_run(state, tend, dt)
+  subroutine gomars_v2_pbl_run(state, tend, dt)
 
-    type(mars_nasa_state_type), intent(inout) :: state
-    type(mars_nasa_tend_type), intent(inout) :: tend
+    type(gomars_v2_state_type), intent(inout) :: state
+    type(gomars_v2_tend_type), intent(inout) :: tend
     real(r8), intent(in) :: dt
 
     real(r8) alpha, rhos, c1, c2
@@ -46,7 +46,7 @@ contains
     integer nlev, icol, k
 
     call calc_eddy_coef(state, dt)
-    call mars_nasa_sfc_run(state)
+    call gomars_v2_sfc_run(state)
 
     associate (mesh   => state%mesh   , &
                beta   => pbl_beta     , &
@@ -89,11 +89,11 @@ contains
     end do
     end associate
 
-  end subroutine mars_nasa_pbl_run
+  end subroutine gomars_v2_pbl_run
 
   subroutine calc_eddy_coef(state, dt)
 
-    type(mars_nasa_state_type), intent(inout) :: state
+    type(gomars_v2_state_type), intent(inout) :: state
     real(r8), intent(in) :: dt
 
     real(r8), parameter :: Sm = 0.393_r8
@@ -147,4 +147,4 @@ contains
 
   end subroutine calc_eddy_coef
 
-end module mars_nasa_pbl_mod
+end module gomars_v2_pbl_mod

@@ -313,23 +313,6 @@ target_sources(gmcore PRIVATE
   src/physics/simple_physics/simple_physics_output_mod.F90
   src/physics/simple_physics/simple_physics_driver_mod.F90
   src/physics/test_forcing_mod.F90
-  src/physics/mars_nasa/mars_nasa_const_mod.F90
-  src/physics/mars_nasa/mars_nasa_namelist_mod.F90
-  src/physics/mars_nasa/mars_nasa_tracers_mod.F90
-  src/physics/mars_nasa/mars_nasa_physics_types_mod.F90
-  src/physics/mars_nasa/mars_nasa_objects_mod.F90
-  src/physics/mars_nasa/mars_orbit_mod.F90
-  src/physics/mars_nasa/mars_nasa_spectra_mod.F90
-  src/physics/mars_nasa/mars_nasa_optics_mod.F90
-  src/physics/mars_nasa/mars_nasa_solar_mod.F90
-  src/physics/mars_nasa/mars_nasa_rad_kcoef_mod.F90
-  src/physics/mars_nasa/mars_nasa_rad_mod.F90
-  src/physics/mars_nasa/mars_nasa_sfc_mod.F90
-  src/physics/mars_nasa/mars_nasa_pbl_mod.F90
-  src/physics/mars_nasa/mars_nasa_lsm_mod.F90
-  src/physics/mars_nasa/mars_nasa_mp_mod.F90
-  src/physics/mars_nasa/mars_nasa_physics_output_mod.F90
-  src/physics/mars_nasa/mars_nasa_physics_driver_mod.F90
   src/prepare/latlon/latlon_bkg_mod.F90
   src/prepare/latlon/latlon_topo_mod.F90
   src/prepare/prepare_mod.F90
@@ -400,6 +383,9 @@ else ()
     src/meshes/cubed_sphere/cubed_sphere_array_mod.F90
   )
 endif ()
+
+add_subdirectory(src/physics/gomars_v1)
+add_subdirectory(src/physics/gomars_v2)
 
 if (HAS_RRTMGP AND HAS_NOAHMP)
   target_sources(gmcore PRIVATE
