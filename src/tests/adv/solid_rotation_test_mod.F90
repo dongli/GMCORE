@@ -29,7 +29,8 @@ contains
 
     call tracer_add('adv', dt, 'q1', 'Cosine bell tracer')
     call tracer_add('adv', dt, 'q2', 'Slotted cylinder tracer')
-    call tracer_add('adv', dt, 'q3', 'Constant one tracer')
+    call tracer_add('adv', dt, 'q3', 'Gaussian hill tracer')
+    call tracer_add('adv', dt, 'q4', 'Constant one tracer')
 
   end subroutine solid_rotation_test_init
 
@@ -78,8 +79,18 @@ contains
         end do
       end do
       call fill_halo(q, 2)
+      ! Gaussian hill
+      do j = mesh%full_jds, mesh%full_jde
+        lat = mesh%full_lat(j)
+        do i = mesh%full_ids, mesh%full_ide
+          lon = mesh%full_lon(i)
+          r = great_circle(radius, lon0, lat0, lon, lat)
+          q%d(i,j,1,3) = exp(-5 * r**2 / radius**2)
+        end do
+      end do
+      call fill_halo(q, 3)
       ! Constant one
-      q%d(:,:,:,3) = 1
+      q%d(:,:,:,4) = 1
       end associate
     end do
 

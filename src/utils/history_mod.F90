@@ -160,6 +160,7 @@ contains
     call fiona_add_dim('h0', 'ilat', size=global_mesh%half_nlat, add_var=.true., decomp=.true.)
     call fiona_add_dim('h0', 'ilev', size=global_mesh%half_nlev)
     ! Variables
+    call fiona_add_var('h0', 'area', long_name='Cell area', units='m2', dim_names=['lat'], dtype=output_h0_dtype)
     select case (planet)
     case ('mars')
       call fiona_add_var('h0', 'Ls', long_name='Solar longitude', units='deg', dim_names=['time'], dtype=output_h0_dtype)
@@ -208,6 +209,7 @@ contains
       call fiona_start_output('h0', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
 
+    call fiona_output('h0', 'area', global_mesh%area_cell(1:global_mesh%full_nlat))
     select case (planet)
     case ('mars')
       call fiona_output('h0', 'Ls', curr_time%solar_longitude() * deg)
