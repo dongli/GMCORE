@@ -161,6 +161,8 @@ module namelist_mod
   real(r8)        :: vor_damp_lat0        = 80
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
+  logical         :: use_p_damp           = .false.
+  real(r8)        :: p_damp_coef          = 0.12_r8
   logical         :: use_smag_damp        = .false.
   integer         :: smag_damp_cycles     = 1
   real(r8)        :: smag_damp_coef       = 0.015
@@ -299,6 +301,8 @@ module namelist_mod
     vor_damp_lat0             , &
     rayleigh_damp_w_coef      , &
     rayleigh_damp_top         , &
+    use_p_damp                , &
+    p_damp_coef               , &
     use_smag_damp             , &
     smag_damp_cycles          , &
     smag_damp_coef            , &
@@ -463,6 +467,10 @@ contains
       write(*, *) 'implicit_w_wgt      = ', to_str(implicit_w_wgt, 3)
       write(*, *) 'rayleigh_damp_w_coef= ', to_str(rayleigh_damp_w_coef, 2)
       write(*, *) 'rayleigh_damp_top   = ', to_str(rayleigh_damp_top   , 2)
+    end if
+      write(*, *) 'use_p_damp          = ', to_str(use_p_damp)
+    if (use_p_damp) then
+      write(*, *) 'p_damp_coef         = ', p_damp_coef
     end if
       write(*, *) 'use_smag_damp       = ', to_str(use_smag_damp)
     if (use_smag_damp) then

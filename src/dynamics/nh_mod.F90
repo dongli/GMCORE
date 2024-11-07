@@ -346,11 +346,18 @@ contains
             (new_dmg%d(i,j,k) * new_pt%d(i,j,k)) / (old_dmg%d(i,j,k) * old_pt%d(i,j,k)) -                 &
             (new_gz_lev%d(i,j,k) - new_gz_lev%d(i,j,k+1)) / (old_gz_lev%d(i,j,k) - old_gz_lev%d(i,j,k+1)) &
           )
-          ! Do 3D divergence damping?
-          new_p%d(i,j,k) = new_p%d(i,j,k) + 0.12_r8 * (new_p%d(i,j,k) - old_p%d(i,j,k))
         end do
       end do
     end do
+    if (use_p_damp) then
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
+          do i = mesh%full_ids, mesh%full_ide + 1
+            new_p%d(i,j,k) = new_p%d(i,j,k) + p_damp_coef * (new_p%d(i,j,k) - old_p%d(i,j,k))
+          end do
+        end do
+      end do
+    end if
     ! Calculate half level pressure from w equation.
     new_p_lev%d(:,:,1) = ptop
     do k = mesh%half_kds + 1, mesh%half_kde
