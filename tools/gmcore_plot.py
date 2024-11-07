@@ -12,10 +12,6 @@ import cartopy.crs as ccrs
 import cartopy.util as cutil
 from metpy.interpolate import interpolate_1d
 from metpy.units import units
-import pendulum
-
-def to_pendulum(time):
-	return pendulum.from_timestamp(time.item() / 1e9)
 
 def vinterp(zi, var, zo):
 	plev = np.array([zo]) * units.hPa
