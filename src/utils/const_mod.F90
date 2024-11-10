@@ -12,7 +12,7 @@ module const_mod
   use, intrinsic :: ieee_arithmetic
   use flogger
   use string
-  use datetime, only: earth_day_seconds, mars_sol_seconds
+  use datetime, only: earth_day_seconds, mars_sol_seconds, mars_sidereal_day_seconds
   use gas_mod
 
   implicit none
@@ -98,12 +98,12 @@ contains
       rv_o_rd    = rv / rd
       p0         = 1.0d5
     case ('mars')
-      omega      = 2 * pi / mars_sol_seconds
-      radius     = 3.397200d6
+      omega      = 2 * pi / mars_sidereal_day_seconds
+      radius     = 3.397d6
       g          = 3.72d0
       lv         = 2.84d6
       lapse_rate = 5.06d-3
-      p0         = 6.1d2
+      p0         = 701
     case default
       call log_error('Invalid planet!')
     end select

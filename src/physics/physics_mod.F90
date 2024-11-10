@@ -95,7 +95,9 @@ contains
     do iblk = 1, nblk
       associate (dmesh => blocks(iblk)%mesh)
       call mesh(iblk)%init(ncol(iblk), nlev, lon(:,iblk), lat(:,iblk), &
-                           blocks(iblk)%mesh%full_lev, blocks(iblk)%mesh%full_dlev, &
+                           blocks(iblk)%mesh%full_lev , &
+                           blocks(iblk)%mesh%half_lev , &
+                           blocks(iblk)%mesh%full_dlev, &
                            area(:,iblk), ptop=ptop)
       ! For output dimensions
       mesh(iblk)%cell_start_2d = [dmesh%full_ids ,dmesh%full_jds ,1]
@@ -117,6 +119,8 @@ contains
 #else
       if (proc%is_root()) call log_error('CAM physics is not compiled!')
 #endif
+    case ('gomars_v1')
+      call gomars_v1_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroups, gmcore_root)
     case ('gomars_v2')
       call gomars_v2_init_stage2(namelist_path, mesh, dt_adv, dt_phys, input_ngroups, gmcore_root)
     end select

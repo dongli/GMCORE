@@ -1,8 +1,20 @@
+! ==============================================================================
+! This file is part of GoMars since 2023.
+!
+! GoMars is a Martian general circulation model developed in Institute of
+! Atmospheric Physics (IAP), Chinese Academy of Sciences (CAS).
+!
+! GMCORE is a dynamical core for atmospheric model used in GoMars.
+!
+! GoMars and GMCORE are distributed in the hope that it will be useful, but
+! WITHOUT ANY WARRANTY. You may contact authors for helping or cooperation.
+! ==============================================================================
+
 module gomars_v1_types_mod
 
   use physics_types_mod
   use gomars_v1_const_mod
-  use nasa_rad_mod
+  use gomars_v1_rad_mod
 
   implicit none
 
@@ -10,24 +22,48 @@ module gomars_v1_types_mod
 
   public gomars_v1_state_type
   public gomars_v1_tend_type
+  public physics_use_wet_tracers
 
   type, extends(physics_state_type) :: gomars_v1_state_type
+    ! Stratospheric temperature (K)
+    real(r8), allocatable, dimension(:      ) :: tstrat
+    ! Surface temperature (K)
+    real(r8), allocatable, dimension(:      ) :: gt
+    ! Surface CO2 ice (?)
+    real(r8), allocatable, dimension(:      ) :: co2ice
+    !
     real(r8), allocatable, dimension(:      ) :: latheat
+    !
     real(r8), allocatable, dimension(:,:    ) :: atmcond
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qxvdst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qsvdst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: gvdst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qxidst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qsidst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: gidst
+    !
     real(r8), allocatable, dimension(  :    ) :: qextrefdst
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qxvcld
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qsvcld
+    !
     real(r8), allocatable, dimension(  :,:  ) :: gvcld
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qxicld
+    !
     real(r8), allocatable, dimension(  :,:  ) :: qsicld
+    !
     real(r8), allocatable, dimension(  :,:  ) :: gicld
+    !
     real(r8), allocatable, dimension(  :    ) :: qextrefcld
+    !
     real(r8), allocatable, dimension(  :    ) :: taurefcld
     ! Downward diffuse visible (solar) flux at the surface
     real(r8), allocatable, dimension(:      ) :: dndiffv
@@ -37,8 +73,33 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:,  :,:) :: detau
     ! Solar flux at the current Mars distance
     real(r8), allocatable, dimension(    :  ) :: solar
-    ! Mars distance from sun
+    ! Total absorption of solar energy by the atmosphere (?)
+    real(r8), allocatable, dimension(:      ) :: ssun
+    ! Surface albedo
+    real(r8), allocatable, dimension(:      ) :: alsp
+    ! North pole cap flag
+    logical , allocatable, dimension(:      ) :: npcflag
+    ! Thermal inertia (J m-2 K-1 s-1/2)
+    real(r8), allocatable, dimension(:,:    ) :: zin
+    real(r8), allocatable, dimension(:,:    ) :: rhosoil
+    real(r8), allocatable, dimension(:,:    ) :: cpsoil
+    ! Square of Mars distance from sun
     real(r8) :: rsdist
+    ! Temperature at all levels with two extra levels at the top (K)
+    real(r8), allocatable, dimension(    :  ) :: tl
+    ! Potential temperature at all levels with two extra levels at the top (K)
+    real(r8), allocatable, dimension(    :  ) :: teta
+    ! Pressure at all levels with two extra levels at the top (Pa)
+    real(r8), allocatable, dimension(    :  ) :: pl
+    ! Zonal wind at all levels with two extra levels at the top (m s-1)
+    real(r8), allocatable, dimension(    :  ) :: upi
+    ! Meridional wind at all levels with two extra levels at the top (m s-1)
+    real(r8), allocatable, dimension(    :  ) :: vpi
+    ! Tracer mixing ratio at all levels with two extra levels at the top (kg kg-1)
+    real(r8), allocatable, dimension(    :  ) :: qpi
+    real(r8), allocatable, dimension(    :  ) :: aadj
+    real(r8), allocatable, dimension(    :  ) :: badj
+    real(r8), allocatable, dimension(    :  ) :: om
   contains
     procedure :: init  => gomars_v1_state_init
     procedure :: clear => gomars_v1_state_clear
@@ -61,32 +122,52 @@ contains
 
     call this%clear()
 
+    allocate(this%tstrat (mesh%ncol          )); this%tstrat  = 0
+    allocate(this%gt     (mesh%ncol          )); this%gt      = 0
+    allocate(this%co2ice (mesh%ncol          )); this%co2ice  = 0
     allocate(this%latheat(mesh%ncol          )); this%latheat = 0
     allocate(this%atmcond(mesh%ncol,mesh%nlev)); this%atmcond = 0
 
-    allocate(this%qxvdst    (mesh%nlev+1,l_nspectv)); this%qxvdst     = 0
-    allocate(this%qsvdst    (mesh%nlev+1,l_nspectv)); this%qsvdst     = 0
-    allocate(this%gvdst     (mesh%nlev+1,l_nspectv)); this%gvdst      = 0
-    allocate(this%qxidst    (mesh%nlev+1,l_nspecti)); this%qxidst     = 0
-    allocate(this%qsidst    (mesh%nlev+1,l_nspecti)); this%qsidst     = 0
-    allocate(this%gidst     (mesh%nlev+1,l_nspecti)); this%gidst      = 0
-    allocate(this%qextrefdst(mesh%nlev+1          )); this%qextrefdst = 0
+    allocate(this%qxvdst    (2*mesh%nlev+4,l_nspectv)); this%qxvdst     = 0
+    allocate(this%qsvdst    (2*mesh%nlev+4,l_nspectv)); this%qsvdst     = 0
+    allocate(this%gvdst     (2*mesh%nlev+4,l_nspectv)); this%gvdst      = 0
+    allocate(this%qxidst    (2*mesh%nlev+4,l_nspecti)); this%qxidst     = 0
+    allocate(this%qsidst    (2*mesh%nlev+4,l_nspecti)); this%qsidst     = 0
+    allocate(this%gidst     (2*mesh%nlev+4,l_nspecti)); this%gidst      = 0
+    allocate(this%qextrefdst(2*mesh%nlev+4          )); this%qextrefdst = 0
 
-    allocate(this%qxvcld    (mesh%nlev+1,l_nspectv)); this%qxvcld     = 0
-    allocate(this%qsvcld    (mesh%nlev+1,l_nspectv)); this%qsvcld     = 0
-    allocate(this%gvcld     (mesh%nlev+1,l_nspectv)); this%gvcld      = 0
-    allocate(this%qxicld    (mesh%nlev+1,l_nspecti)); this%qxicld     = 0
-    allocate(this%qsicld    (mesh%nlev+1,l_nspecti)); this%qsicld     = 0
-    allocate(this%gicld     (mesh%nlev+1,l_nspecti)); this%gicld      = 0
-    allocate(this%qextrefcld(mesh%nlev+1          )); this%qextrefcld = 0
-    allocate(this%taurefcld (mesh%nlev+1          )); this%taurefcld  = 0
+    allocate(this%qxvcld    (2*mesh%nlev+4,l_nspectv)); this%qxvcld     = 0
+    allocate(this%qsvcld    (2*mesh%nlev+4,l_nspectv)); this%qsvcld     = 0
+    allocate(this%gvcld     (2*mesh%nlev+4,l_nspectv)); this%gvcld      = 0
+    allocate(this%qxicld    (2*mesh%nlev+4,l_nspecti)); this%qxicld     = 0
+    allocate(this%qsicld    (2*mesh%nlev+4,l_nspecti)); this%qsicld     = 0
+    allocate(this%gicld     (2*mesh%nlev+4,l_nspecti)); this%gicld      = 0
+    allocate(this%qextrefcld(2*mesh%nlev+4          )); this%qextrefcld = 0
+    allocate(this%taurefcld (2*mesh%nlev+4          )); this%taurefcld  = 0
 
     allocate(this%dndiffv   (mesh%ncol)); this%dndiffv  = 0
     allocate(this%dnirflux  (mesh%ncol)); this%dnirflux = 0
 
     allocate(this%detau(mesh%ncol,l_nspectv,l_ngauss)); this%detau = 0
 
-    allocate(this%solar(l_nspectv)); this%solar = 0
+    allocate(this%solar  (l_nspectv   )); this%solar   = 0
+    allocate(this%ssun   (mesh%ncol   )); this%ssun    = 0
+    allocate(this%alsp   (mesh%ncol   )); this%alsp    = 0
+    allocate(this%npcflag(mesh%ncol   )); this%npcflag = .false.
+
+    allocate(this%zin    (mesh%ncol,nl)); this%zin     = 0
+    allocate(this%rhosoil(mesh%ncol,nl)); this%rhosoil = 0
+    allocate(this%cpsoil (mesh%ncol,nl)); this%cpsoil  = 0
+
+    allocate(this%tl   (2*mesh%nlev+3)); this%tl    = 0
+    allocate(this%teta (2*mesh%nlev+3)); this%teta  = 0
+    allocate(this%pl   (2*mesh%nlev+3)); this%pl    = 0
+    allocate(this%upi  (2*mesh%nlev+3)); this%upi   = 0
+    allocate(this%vpi  (2*mesh%nlev+3)); this%vpi   = 0
+    allocate(this%qpi  (2*mesh%nlev+3)); this%qpi   = 0
+    allocate(this%aadj (2*mesh%nlev+3)); this%aadj  = 0
+    allocate(this%badj (2*mesh%nlev+3)); this%badj  = 0
+    allocate(this%om   (2*mesh%nlev+3)); this%om    = 0
 
     call this%physics_state_init(mesh)
 
@@ -96,6 +177,9 @@ contains
 
     class(gomars_v1_state_type), intent(inout) :: this
 
+    if (allocated(this%tstrat    )) deallocate(this%tstrat    )
+    if (allocated(this%gt        )) deallocate(this%gt        )
+    if (allocated(this%co2ice    )) deallocate(this%co2ice    )
     if (allocated(this%latheat   )) deallocate(this%latheat   )
     if (allocated(this%atmcond   )) deallocate(this%atmcond   )
     if (allocated(this%qxvdst    )) deallocate(this%qxvdst    )
@@ -117,6 +201,16 @@ contains
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%solar     )) deallocate(this%solar     )
+    if (allocated(this%ssun      )) deallocate(this%ssun      )
+    if (allocated(this%tl        )) deallocate(this%tl        )
+    if (allocated(this%teta      )) deallocate(this%teta      )
+    if (allocated(this%pl        )) deallocate(this%pl        )
+    if (allocated(this%upi       )) deallocate(this%upi       )
+    if (allocated(this%vpi       )) deallocate(this%vpi       )
+    if (allocated(this%qpi       )) deallocate(this%qpi       )
+    if (allocated(this%aadj      )) deallocate(this%aadj      )
+    if (allocated(this%badj      )) deallocate(this%badj      )
+    if (allocated(this%om        )) deallocate(this%om        )
 
   end subroutine gomars_v1_state_clear
 
