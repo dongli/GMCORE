@@ -80,4 +80,7 @@ module gomars_v1_const_mod
   ! Number of soil layers
   integer , parameter :: nl        = 40
 
+  ! Number of vertical layers
+  integer :: nlev = 0
+
 end module gomars_v1_const_mod

@@ -34,9 +34,7 @@ module gomars_v1_damp_mod
 
 contains
 
-  subroutine gomars_v1_damp_init(nlev)
-
-    integer, intent(in) :: nlev
+  subroutine gomars_v1_damp_init()
 
     integer k
     real(r8) pl(nlev)
@@ -58,9 +56,8 @@ contains
 
   end subroutine gomars_v1_damp_init
 
-  subroutine gomars_v1_damp_run(nlev, upi, vpi, om, teta)
+  subroutine gomars_v1_damp_run(upi, vpi, om, teta)
 
-    integer , intent(in   ) :: nlev
     real(r8), intent(inout), dimension(2*nlev+3) :: upi
     real(r8), intent(inout), dimension(2*nlev+3) :: vpi
     real(r8), intent(in   ), dimension(2*nlev+3) :: om

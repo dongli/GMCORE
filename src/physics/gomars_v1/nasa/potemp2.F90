@@ -1,11 +1,10 @@
-subroutine potemp2(nlev, ps, tstrat, aadj, badj, plogadj, pl, om, tl, teta)
+subroutine potemp2(ps, tstrat, aadj, badj, plogadj, pl, om, tl, teta)
 
   use gomars_v1_const_mod
   use vert_coord_mod
 
   implicit none
 
-  integer , intent(in   ) :: nlev
   real(r8), intent(in   ) :: ps
   real(r8), intent(in   ) :: tstrat
   real(r8), intent(in   ), dimension(2*nlev+3) :: aadj

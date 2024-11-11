@@ -14,7 +14,7 @@ module gomars_v1_driver_mod
 
   use datetime
   use const_mod
-  use namelist_mod
+  use namelist_mod, only: restart
   use vert_coord_mod
   use gomars_v1_namelist_mod
   use gomars_v1_objects_mod
@@ -64,7 +64,7 @@ contains
     call gomars_v1_orbit_init()
     call gomars_v1_rad_init()
     call gomars_v1_pbl_init()
-    call gomars_v1_damp_init(mesh(1)%nlev)
+    call gomars_v1_damp_init()
 
   end subroutine gomars_v1_init_stage2
 
@@ -143,7 +143,7 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, is, ig, n
-    real(r8) ls, time_of_day, rsdist, cosz, directsol
+    real(r8) ls, time_of_day, rsdist, cosz, directsol, tsat
 
     ls = time%solar_longitude()
     time_of_day = time%time_of_day()
@@ -200,6 +200,28 @@ contains
           time_of_day                            , &
           cosz                                     &
         )
+        ! Calculate the CO2 condensation temperature at the surface.
+        tsat = 3182.48_r8 / (23.3494_r8 - log(state%ps(icol) / 100.0_r8))
+        if (state%gt(icol) < tsat .or. state%co2ice(icol) > 0) then
+          state%gt(icol) = tsat
+        end if
+        ! Calculate the ice cloud optical depth, where present.
+        ! FIXME: Is this finished?
+        ! Call gridvel.
+        call potemp1(           &
+          mesh%nlev           , &
+          state%ps    (icol  ), &
+          state%tstrat(icol  ), &
+          state%t     (icol,:), &
+          state%aadj          , &
+          state%badj          , &
+          state%pl            , &
+          state%om            , &
+          state%tl            , &
+          state%teta            &
+        )
+        ! Save initial values for teta, upi, vpi and qpi.
+
       end do
       end associate
     end do

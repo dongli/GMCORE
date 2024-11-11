@@ -1,4 +1,4 @@
-subroutine ini_optcld(l_nspectv, l_nspecti, nlev, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld)
+subroutine ini_optcld(l_nspectv, l_nspecti, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld)
   
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -10,7 +10,6 @@ subroutine ini_optcld(l_nspectv, l_nspecti, nlev, qxv, qsv, gv, qxi, qsi, gi, qe
 
   integer, intent(in) :: l_nspectv
   integer, intent(in) :: l_nspecti
-  integer, intent(in) :: nlev
   real(r8), intent(out) :: qxv(2*nlev+4,l_nspectv)
   real(r8), intent(out) :: qsv(2*nlev+4,l_nspectv)
   real(r8), intent(out) :: gv (2*nlev+4,l_nspectv)

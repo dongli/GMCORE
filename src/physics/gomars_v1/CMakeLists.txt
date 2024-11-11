@@ -36,5 +36,6 @@ target_sources(gmcore PRIVATE
   nasa/tempgr.F90
   nasa/solarza.F90
   nasa/potemp1.F90
+  nasa/coldair.F90
   nasa/potemp2.F90
 )
