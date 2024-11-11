@@ -34,6 +34,7 @@ target_sources(gmcore PRIVATE
   nasa/ini_optcld.F90
   nasa/dsolflux.F90
   nasa/tempgr.F90
+  nasa/solarza.F90
   nasa/potemp1.F90
   nasa/potemp2.F90
 )

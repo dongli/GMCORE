@@ -106,7 +106,7 @@ contains
                  state  => objects(iblk)%state , &
                  tend   => objects(iblk)%tend  )
       do icol = 1, objects(iblk)%mesh%ncol
-        state%cosz(icol) = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%hours_in_day())
+        state%cosz(icol) = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%time_of_day())
       end do
       call gomars_v2_pbl_run(state, tend, dt)
       call gomars_v2_lsm_run(state, tend)

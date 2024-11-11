@@ -24,6 +24,9 @@ module gomars_v1_orbit_mod
   public solar_decl_angle
   public update_solar_decl_angle
   public solar_cos_zenith_angle
+  public decl_angle
+  public cos_decl
+  public sin_decl
 
   ! Convert Mkm to AU
   real(r8), parameter :: au        = 1.0_r8 / 149.597927_r8
@@ -51,8 +54,8 @@ module gomars_v1_orbit_mod
 
   ! Solar declination angle (rad), updated periodically
   real(r8) decl_angle
-  real(r8) cos_decl_angle
-  real(r8) sin_decl_angle
+  real(r8) cos_decl
+  real(r8) sin_decl
 
 contains
 
@@ -106,18 +109,18 @@ contains
     real(r8), intent(in) :: ls ! Solar longitude (rad)
 
     decl_angle = solar_decl_angle(ls)
-    cos_decl_angle = cos(decl_angle)
-    sin_decl_angle = sin(decl_angle)
+    cos_decl = cos(decl_angle)
+    sin_decl = sin(decl_angle)
 
   end subroutine update_solar_decl_angle
 
-  pure real(r8) function solar_cos_zenith_angle(lon, lat, hour_utc) result(res)
+  pure real(r8) function solar_cos_zenith_angle(lon, lat, time_of_day) result(res)
 
-    real(r8), intent(in) :: lon      ! Longitude (rad)
-    real(r8), intent(in) :: lat      ! Latitude (rad)
-    real(r8), intent(in) :: hour_utc ! Hour
+    real(r8), intent(in) :: lon         ! Longitude (rad)
+    real(r8), intent(in) :: lat         ! Latitude (rad)
+    real(r8), intent(in) :: time_of_day ! Time fraction of a day (1)
 
-    res = sin(lat) * sin_decl_angle + cos(lat) * cos_decl_angle * cos(pi2 * hour_utc + lon)
+    res = sin(lat) * sin_decl + cos(lat) * cos_decl * cos(pi2 * time_of_day + lon)
     if (res < 1.0e-5_r8) res = 0
 
   end function solar_cos_zenith_angle

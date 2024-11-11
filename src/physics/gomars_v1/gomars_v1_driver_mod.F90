@@ -143,9 +143,12 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, is, ig, n
-    real(r8) rsdist, acosz, directsol
+    real(r8) ls, time_of_day, rsdist, cosz, directsol
 
-    rsdist = solar_dist(time%solar_longitude())**2
+    ls = time%solar_longitude()
+    time_of_day = time%time_of_day()
+    call update_solar_decl_angle(ls)
+    rsdist = solar_dist(ls)**2
 
     ! Calculate solar flux at the current Mars distance.
     do is = 1, l_nspectv
@@ -155,9 +158,9 @@ contains
     do iblk = 1, size(objects)
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
       do icol = 1, mesh%nlev
-        acosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%hours_in_day())
-        if (acosz >= 1.0e-5_r8) then
-          call dsolflux(l_nspectv, l_ngauss, solar, acosz, gweight, fzerov, state%detau(icol,:,:), directsol)
+        cosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time_of_day)
+        if (cosz >= 1.0e-5_r8) then
+          call dsolflux(l_nspectv, l_ngauss, solar, cosz, gweight, fzerov, state%detau(icol,:,:), directsol)
         else
           directsol = 0
         end if
@@ -186,6 +189,16 @@ contains
           state%zin      (icol,1                ), &
           state%gt       (icol                  ), &
           state%surfalb  (icol                  )  &
+        )
+        ! Calculate the average cosine of the solar zenith angle.
+        call solarza(                              &
+          mesh%lon       (icol                  ), &
+          mesh%cos_lat   (icol                  ), &
+          mesh%sin_lat   (icol                  ), &
+          cos_decl                               , &
+          sin_decl                               , &
+          time_of_day                            , &
+          cosz                                     &
         )
       end do
       end associate
