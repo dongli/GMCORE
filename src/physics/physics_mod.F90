@@ -168,7 +168,7 @@ contains
       call cam_physics_run_stage2()
 #endif
     case ('gomars_v1')
-      call gomars_v1_run()
+      call gomars_v1_run(curr_time)
     case ('gomars_v2')
       call gomars_v2_run(curr_time)
     end select

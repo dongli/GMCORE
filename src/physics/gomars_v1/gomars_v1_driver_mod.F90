@@ -12,6 +12,7 @@
 
 module gomars_v1_driver_mod
 
+  use datetime
   use const_mod
   use namelist_mod
   use vert_coord_mod
@@ -21,6 +22,7 @@ module gomars_v1_driver_mod
   use gomars_v1_orbit_mod
   use gomars_v1_rad_mod
   use gomars_v1_pbl_mod
+  use gomars_v1_lsm_mod
   use gomars_v1_mp_mod
   use gomars_v1_damp_mod
 
@@ -136,9 +138,58 @@ contains
 
   end subroutine gomars_v1_init_stage3
 
-  subroutine gomars_v1_run()
+  subroutine gomars_v1_run(time)
+
+    type(datetime_type), intent(in) :: time
+
+    integer iblk, icol, k, l, is, ig, n
+    real(r8) rsdist, acosz, directsol
+
+    rsdist = solar_dist(time%solar_longitude())**2
 
     ! Calculate solar flux at the current Mars distance.
+    do is = 1, l_nspectv
+      solar(is) = solar_1au(is) * rsdist
+    end do
+
+    do iblk = 1, size(objects)
+      associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
+      do icol = 1, mesh%nlev
+        acosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time%hours_in_day())
+        if (acosz >= 1.0e-5_r8) then
+          call dsolflux(l_nspectv, l_ngauss, solar, acosz, gweight, fzerov, state%detau(icol,:,:), directsol)
+        else
+          directsol = 0
+        end if
+        state%dnvflux(icol) = state%dndiffv(icol) + directsol
+        ! Calculate the ground temperature.
+        call tempgr( &
+          mesh%lat       (icol                  ), &
+          state%ps       (icol                  ), &
+          state%t        (icol,mesh%nlev        ), &
+          state%q        (icol,mesh%nlev,iMa_vap), &
+          state%qcond    (icol,          iMa_vap), &
+          state%alsp     (icol                  ), &
+          state%npcflag  (icol                  ), &
+          state%rhouch   (icol                  ), &
+          state%co2ice   (icol                  ), &
+          state%fa       (icol                  ), &
+          state%dnirflux (icol                  ), &
+          state%dnvflux  (icol                  ), &
+          state%subflux  (icol                  ), &
+          state%gndice   (icol                  ), &
+          state%rhosoil  (icol,:                ), &
+          state%cpsoil   (icol,:                ), &
+          state%scond    (icol,:                ), &
+          state%stemp    (icol,:                ), &
+          sthick                                 , &
+          state%zin      (icol,1                ), &
+          state%gt       (icol                  ), &
+          state%surfalb  (icol                  )  &
+        )
+      end do
+      end associate
+    end do
 
   end subroutine gomars_v1_run
 

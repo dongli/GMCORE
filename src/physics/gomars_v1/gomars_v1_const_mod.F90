@@ -45,6 +45,26 @@ module gomars_v1_const_mod
   real(r8), parameter :: dev_dt    = 0.63676_r8
   ! Standard deviation of the water ice distribution (reff = 0.1)
   real(r8), parameter :: dev_ice   = 0.3087_r8
+  ! Albedo of surface ice at northern hemisphere
+  real(r8), parameter :: alicen    = 0.600_r8
+  ! Albedo of surface ice at southern hemisphere
+  real(r8), parameter :: alices    = 0.500_r8
+  ! Emissivity of bare ground outsidt 15 micron band width
+  real(r8), parameter :: egognd    = 1.0_r8
+  ! Emissivity of bare ground inside 15 micron band width
+  real(r8), parameter :: eg15gnd   = 1.0_r8
+  !
+  real(r8), parameter :: eg15co2s  = 1.0_r8
+  !
+  real(r8), parameter :: eg15co2n  = 0.8_r8
+  !
+  real(r8), parameter :: egoco2s   = 1.0_r8
+  !
+  real(r8), parameter :: egoco2n   = 0.8_r8
+  ! CO2 latent heat
+  real(r8), parameter :: xlhtc     = 5.902e5_r8
+  ! A radiation code conversion factor
+  real(r8), parameter :: cmk       = 3.51e22_r8
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop
@@ -55,7 +75,9 @@ module gomars_v1_const_mod
   ! Amount of surface ice required to change albedo (kg m-2)
   real(r8) icethresh_kgm2
 
+  real(r8), parameter :: sqrdy = sqrt(4 * pi / mars_sol_seconds)
+
   ! Number of soil layers
-  integer , parameter :: nl         = 40
+  integer , parameter :: nl        = 40
 
 end module gomars_v1_const_mod

@@ -22,6 +22,7 @@ module gomars_v1_rad_mod
   public gomars_v1_rad_final
   public qexti, qscati, gi, wi, fzeroi
   public qextv, qscatv, gv, wv, fzerov
+  public solar_1au, solar, gweight
 
   integer, public, parameter :: l_nspecti = 5
   integer, public, parameter :: l_nspectv = 7
@@ -44,7 +45,8 @@ module gomars_v1_rad_mod
   real(r8), allocatable, dimension(:) :: wnov
   real(r8), allocatable, dimension(:) :: dwnv
   real(r8), allocatable, dimension(:) :: wavev
-  real(r8), allocatable, dimension(:) :: solarf
+  real(r8), allocatable, dimension(:) :: solar_1au
+  real(r8), allocatable, dimension(:) :: solar
   real(r8), allocatable, dimension(:) :: tauray
 
   real(r8), allocatable, dimension(:,:,:,:,:) :: co2i
@@ -99,14 +101,15 @@ contains
 
     call gomars_v1_rad_final()
 
-    allocate(wnoi  (l_nspecti))
-    allocate(dwni  (l_nspecti))
-    allocate(wavei (l_nspecti))
-    allocate(wnov  (l_nspectv))
-    allocate(dwnv  (l_nspectv))
-    allocate(wavev (l_nspectv))
-    allocate(solarf(l_nspectv))
-    allocate(tauray(l_nspectv))
+    allocate(wnoi     (l_nspecti))
+    allocate(dwni     (l_nspecti))
+    allocate(wavei    (l_nspecti))
+    allocate(wnov     (l_nspectv))
+    allocate(dwnv     (l_nspectv))
+    allocate(wavev    (l_nspectv))
+    allocate(solar_1au(l_nspectv))
+    allocate(solar    (l_nspectv))
+    allocate(tauray   (l_nspectv))
 
     allocate(co2i(l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss))
     allocate(co2v(l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss))
@@ -130,7 +133,7 @@ contains
 
     allocate(pfgasref(l_pint))
 
-    call setspv(l_nspectv, wnov, dwnv, wavev, solarf, tauray)
+    call setspv(l_nspectv, wnov, dwnv, wavev, solar_1au, tauray)
     call setspi(l_nspecti, wnoi, dwni, wavei, planckir)
     call setrad(l_ntref, l_npref, l_pint, l_refh2o, l_nspecti, l_nspectv, l_ngauss, &
                 tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
@@ -142,30 +145,31 @@ contains
 
   subroutine gomars_v1_rad_final()
 
-    if (allocated(wnoi    )) deallocate(wnoi    )
-    if (allocated(dwni    )) deallocate(dwni    )
-    if (allocated(wavei   )) deallocate(wavei   )
-    if (allocated(wnov    )) deallocate(wnov    )
-    if (allocated(dwnv    )) deallocate(dwnv    )
-    if (allocated(wavev   )) deallocate(wavev   )
-    if (allocated(solarf  )) deallocate(solarf  )
-    if (allocated(tauray  )) deallocate(tauray  )
-    if (allocated(co2i    )) deallocate(co2i    )
-    if (allocated(co2v    )) deallocate(co2v    )
-    if (allocated(fzeroi  )) deallocate(fzeroi  )
-    if (allocated(fzerov  )) deallocate(fzerov  )
-    if (allocated(pgasref )) deallocate(pgasref )
-    if (allocated(tgasref )) deallocate(tgasref )
-    if (allocated(qextv   )) deallocate(qextv   )
-    if (allocated(qscatv  )) deallocate(qscatv  )
-    if (allocated(wv      )) deallocate(wv      )
-    if (allocated(gv      )) deallocate(gv      )
-    if (allocated(qexti   )) deallocate(qexti   )
-    if (allocated(qscati  )) deallocate(qscati  )
-    if (allocated(wi      )) deallocate(wi      )
-    if (allocated(gi      )) deallocate(gi      )
-    if (allocated(planckir)) deallocate(planckir)
-    if (allocated(pfgasref)) deallocate(pfgasref)
+    if (allocated(wnoi     )) deallocate(wnoi     )
+    if (allocated(dwni     )) deallocate(dwni     )
+    if (allocated(wavei    )) deallocate(wavei    )
+    if (allocated(wnov     )) deallocate(wnov     )
+    if (allocated(dwnv     )) deallocate(dwnv     )
+    if (allocated(wavev    )) deallocate(wavev    )
+    if (allocated(solar_1au)) deallocate(solar_1au)
+    if (allocated(solar    )) deallocate(solar    )
+    if (allocated(tauray   )) deallocate(tauray   )
+    if (allocated(co2i     )) deallocate(co2i     )
+    if (allocated(co2v     )) deallocate(co2v     )
+    if (allocated(fzeroi   )) deallocate(fzeroi   )
+    if (allocated(fzerov   )) deallocate(fzerov   )
+    if (allocated(pgasref  )) deallocate(pgasref  )
+    if (allocated(tgasref  )) deallocate(tgasref  )
+    if (allocated(qextv    )) deallocate(qextv    )
+    if (allocated(qscatv   )) deallocate(qscatv   )
+    if (allocated(wv       )) deallocate(wv       )
+    if (allocated(gv       )) deallocate(gv       )
+    if (allocated(qexti    )) deallocate(qexti    )
+    if (allocated(qscati   )) deallocate(qscati   )
+    if (allocated(wi       )) deallocate(wi       )
+    if (allocated(gi       )) deallocate(gi       )
+    if (allocated(planckir )) deallocate(planckir )
+    if (allocated(pfgasref )) deallocate(pfgasref )
 
   end subroutine gomars_v1_rad_final
 

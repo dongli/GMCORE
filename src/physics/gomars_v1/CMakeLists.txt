@@ -21,6 +21,7 @@ target_sources(gmcore PRIVATE
   gomars_v1_types_mod.F90
   gomars_v1_orbit_mod.F90
   gomars_v1_pbl_mod.F90
+  gomars_v1_lsm_mod.F90
   gomars_v1_mp_mod.F90
   gomars_v1_damp_mod.F90
   gomars_v1_rad_mod.F90
@@ -31,6 +32,8 @@ target_sources(gmcore PRIVATE
   nasa/laginterp.F90
   nasa/ini_optdst.F90
   nasa/ini_optcld.F90
+  nasa/dsolflux.F90
+  nasa/tempgr.F90
   nasa/potemp1.F90
   nasa/potemp2.F90
 )

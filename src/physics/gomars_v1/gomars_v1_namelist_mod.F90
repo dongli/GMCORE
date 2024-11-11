@@ -17,6 +17,7 @@ module gomars_v1_namelist_mod
   implicit none
 
   real(r8) :: psf              = 701.0_r8  ! Reference surface pressure (Pa)
+  real(r8) :: icealb           = 0.4_r8    ! Albedo of surface water ice when albfeed is true.
   real(r8) :: icethresh_depth  = 5.0_r8    ! Ice depth threshold required to change albedo (um)
   logical  :: cloudon          = .false.
   logical  :: active_dust      = .false.
@@ -26,6 +27,8 @@ module gomars_v1_namelist_mod
 
   namelist /gomars_v1_control/ &
     psf                      , &
+    icealb                   , &
+    icethresh_depth          , &
     cloudon                  , &
     active_dust              , &
     co2scav                  , &
