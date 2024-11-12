@@ -1,35 +1,19 @@
-subroutine setspi(l_nspecti, wnoi, dwni, wavei, planckir)
+subroutine setspi(wnoi, dwni, wavei, planckir)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
   ! NASA Ames Research Center
 
-  ! PURPOSE:
-  !    Set up the spectral intervals in the infrared.  Based on
+  ! Set up the spectral intervals in the infrared.  Based on
   ! Chris McKay's SETSPI code.
-  !
-  ! INPUT PARAMETERS
-  ! L_NSPECTI  - Number of spectral intervals in the INFRARED
-  !
-  ! OUTPUT PARAMETERS
-  ! WNOI       - Array of wavenumbers at the spectral interval
-  !              centers for the infrared.  Array is NSPECTI
-  !              elements long.
-  ! DWNI       - Array of "delta wavenumber", i.e., the width,
-  !              in wavenumbers (cm^-1) of each IR spectral
-  !              interval.  NSPECTI elements long.
-  ! WAVEI      - Array (NSPECTI elements long) of the wavelenght
-  !              (in microns) at the center of each IR spectral
-  !              interval.
 
   use gomars_v1_const_mod
 
   implicit none
 
-  integer, intent(in) :: l_nspecti
-  real(r8), intent(out) :: wnoi (l_nspecti)
-  real(r8), intent(out) :: dwni (l_nspecti)
-  real(r8), intent(out) :: wavei(l_nspecti)
+  real(r8), intent(out) :: wnoi    (l_nspecti)
+  real(r8), intent(out) :: dwni    (l_nspecti)
+  real(r8), intent(out) :: wavei   (l_nspecti)
   real(r8), intent(out) :: planckir(l_nspecti,8501)
 
   real(r8) a, b, ans, y, bpa, bma, t

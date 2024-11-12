@@ -1,5 +1,5 @@
 
-subroutine setspv(l_nspectv, wnov, dwnv, wavev, solarf, tauray)
+subroutine setspv(wnov, dwnv, wavev, solarf, tauray)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -10,7 +10,7 @@ subroutine setspv(l_nspectv, wnov, dwnv, wavev, solarf, tauray)
   ! on Chris McKay's SETSPV code.
   !
   ! INPUT PARAMETERS
-  ! L_NSPECTV  - Number of spectral intervals in the visible
+  ! L_NSPECTV  - 
   !
   ! OUTPUT PARAMETERS
   ! WNOV       - Array of wavenumbers at the spectral interval
@@ -33,7 +33,6 @@ subroutine setspv(l_nspectv, wnov, dwnv, wavev, solarf, tauray)
 
   implicit none
 
-  integer, intent(in) :: l_nspectv
   real(r8), intent(out) :: wnov  (l_nspectv)
   real(r8), intent(out) :: dwnv  (l_nspectv)
   real(r8), intent(out) :: wavev (l_nspectv)

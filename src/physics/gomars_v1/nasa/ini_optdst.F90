@@ -1,4 +1,4 @@
-subroutine ini_optdst(l_nspectv, l_nspecti, l_nrefv, qextv, qscatv, grefv, qexti, qscati, grefi, qxv, qsv, gv, qxi, qsi, gi, qextref)
+subroutine ini_optdst(qextv, qscatv, grefv, qexti, qscati, grefi, qxv, qsv, gv, qxi, qsi, gi, qextref)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -8,9 +8,6 @@ subroutine ini_optdst(l_nspectv, l_nspecti, l_nrefv, qextv, qscatv, grefv, qexti
 
   implicit none
 
-  integer, intent(in) :: l_nspectv
-  integer, intent(in) :: l_nspecti
-  integer, intent(in) :: l_nrefv
   real(r8), intent(in) :: qextv (l_nspectv)
   real(r8), intent(in) :: qscatv(l_nspectv)
   real(r8), intent(in) :: grefv (l_nspectv)

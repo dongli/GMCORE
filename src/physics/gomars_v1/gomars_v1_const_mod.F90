@@ -14,6 +14,7 @@ module gomars_v1_const_mod
 
   use mars_orbit_const_mod
   use const_mod
+  use tracer_mod, only: ntracers
 
   implicit none
 
@@ -26,7 +27,9 @@ module gomars_v1_const_mod
   ! Molecular weight of water (kg mol-1)
   real(r8), parameter :: mh2o       = m_h2o
   ! Weight of a water molecule (kg)
-  real(r8), parameter :: m0         = mh2o / nav
+  real(r8), parameter :: m0         = m_h2o / nav
+  ! Ratio between air mass and water mass
+  real(r8), parameter :: mwratio    = m_co2 / m_h2o
   ! Dust particle density (kg m-3)
   real(r8), parameter :: dpden_dt   = 2.5e3_r8
   ! Water ice particle density (kg m-3)
@@ -65,6 +68,8 @@ module gomars_v1_const_mod
   real(r8), parameter :: xlhtc     = 5.902e5_r8
   ! A radiation code conversion factor
   real(r8), parameter :: cmk       = 3.51e22_r8
+  !
+  real(r8), parameter :: scaveff   = 0.6_r8
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop
@@ -79,6 +84,20 @@ module gomars_v1_const_mod
 
   ! Number of soil layers
   integer , parameter :: nl        = 40
+
+  ! Number of aerosol tracers
+  integer , parameter :: naer      = 5
+  ! Number of spectral intervals in the visible
+  integer , parameter :: l_nspecti = 5
+  integer , parameter :: l_nspectv = 7
+  integer , parameter :: l_ngauss  = 17
+  integer , parameter :: l_npref   = 11
+  integer , parameter :: l_ntref   = 7
+  integer , parameter :: l_taumax  = 35
+  integer , parameter :: l_pint    = 51
+  integer , parameter :: l_refh2o  = 10
+  integer , parameter :: l_nrefi   = 4
+  integer , parameter :: l_nrefv   = 6
 
   ! Number of vertical layers
   integer :: nlev = 0

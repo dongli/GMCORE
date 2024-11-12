@@ -1,50 +1,20 @@
 
-subroutine setrad(l_ntref, l_npref, l_pint, l_refh2o, l_nspecti, l_nspectv, l_ngauss, &
-                  tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
+subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
                   qexti, qscati, wi, gi, fzeroi, fzerov)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
   ! NASA Ames Research Center
 
-  ! PURPOSE:
-  !    Set up values used by the radiation code, such as the CO2 gas
+  ! Set up values used by the radiation code, such as the CO2 gas
   ! absorption coefficients.  True constants are defined, and the 
   ! time-independent quantities used by the radiation code are 
   ! calculated. 
-  !
-  ! INPUT PARAMETERS
-  ! DTAU(L,M)      - Dust optical depth of layer L, and for aerosol 
-  !                  species M.
-  ! ptrop          - Pressure of the tropopause (mb)
-  !
-  ! OUTPUT PARAMETERS
-  !
-  ! AEROSOL RADIATIVE OPTICAL CONSTANTS
-  ! Values are at the wavelenght interval center
-  !
-  ! MIE SCATTERING - Size distribution weighted
-  ! Qextv    - Extinction efficiency - in the visible.
-  ! Qscatv   - Scattering efficiency - in the visible.
-  ! WV       - Single scattering albedo - in the visible.
-  ! GV       - Asymmetry parameter - in the visible.
-  !
-  ! Qexti    - Extinction efficiency - in the infrared.
-  ! Qscati   - Scattering efficiency - in the infrared.
-  ! WI       - Single scattering albedo - in the infrared.
-  ! GI       - Asymmetry parameter - in the infrared.
 
   use gomars_v1_const_mod
 
   implicit none
 
-  integer, intent(in) :: l_ntref
-  integer, intent(in) :: l_npref
-  integer, intent(in) :: l_pint
-  integer, intent(in) :: l_refh2o
-  integer, intent(in) :: l_nspecti
-  integer, intent(in) :: l_nspectv
-  integer, intent(in) :: l_ngauss
   real(r8), intent(out) :: co2i(l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss)
   real(r8), intent(out) :: co2v(l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss)
   real(r8), intent(out) :: tgasref(l_ntref)

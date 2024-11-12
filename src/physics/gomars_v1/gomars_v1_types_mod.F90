@@ -38,31 +38,31 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:,:    ) :: atmcond
     ! Surface boundary condition for tracers
     real(r8), allocatable, dimension(:,    :) :: qcond
-    !
+    ! Visible extinction efficiency for dust
     real(r8), allocatable, dimension(  :,:  ) :: qxvdst
-    !
+    ! Visible scattering efficiency for dust
     real(r8), allocatable, dimension(  :,:  ) :: qsvdst
-    !
+    ! Visible asymmetry parameter for dust
     real(r8), allocatable, dimension(  :,:  ) :: gvdst
-    !
+    ! Infrared extinction efficiency for dust
     real(r8), allocatable, dimension(  :,:  ) :: qxidst
-    !
+    ! Infrared scattering efficiency for dust
     real(r8), allocatable, dimension(  :,:  ) :: qsidst
-    !
+    ! Infrared asymmetry parameter for dust
     real(r8), allocatable, dimension(  :,:  ) :: gidst
     !
     real(r8), allocatable, dimension(  :    ) :: qextrefdst
-    !
+    ! Visible extinction efficiency for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: qxvcld
-    !
+    ! Visible scattering efficiency for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: qsvcld
-    !
+    ! Visible asymmetry parameter for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: gvcld
-    !
+    ! Infrared extinction efficiency for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: qxicld
-    !
+    ! Infrared scattering efficiency for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: qsicld
-    !
+    ! Infrared asymmetry parameter for ice clouds
     real(r8), allocatable, dimension(  :,:  ) :: gicld
     !
     real(r8), allocatable, dimension(  :    ) :: qextrefcld
@@ -74,6 +74,8 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:      ) :: dnvflux
     ! Downward IR flux at the surface
     real(r8), allocatable, dimension(:      ) :: dnirflux
+    !
+    real(r8), allocatable, dimension(:,    :) :: srfdnflx
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
     ! Solar flux at the current Mars distance
@@ -102,6 +104,8 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:      ) :: subflux
     !
     real(r8), allocatable, dimension(:      ) :: gndice
+    !
+    real(r8), allocatable, dimension(:      ) :: dmadt
     ! Square of Mars distance from sun
     real(r8) :: rsdist
     ! Temperature at all levels with two extra levels at the top (K)
@@ -110,15 +114,19 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(    :  ) :: teta
     ! Pressure at all levels with two extra levels at the top (Pa)
     real(r8), allocatable, dimension(    :  ) :: pl
+    real(r8), allocatable, dimension(    :  ) :: plogadj
     ! Zonal wind at all levels with two extra levels at the top (m s-1)
     real(r8), allocatable, dimension(    :  ) :: upi
     ! Meridional wind at all levels with two extra levels at the top (m s-1)
     real(r8), allocatable, dimension(    :  ) :: vpi
     ! Tracer mixing ratio at all levels with two extra levels at the top (kg kg-1)
-    real(r8), allocatable, dimension(    :  ) :: qpi
+    real(r8), allocatable, dimension(    :,:) :: qpi
+    real(r8), allocatable, dimension(    :  ) :: qpig
     real(r8), allocatable, dimension(    :  ) :: aadj
     real(r8), allocatable, dimension(    :  ) :: badj
     real(r8), allocatable, dimension(    :  ) :: om
+    !
+    real(r8), allocatable, dimension(    :  ) :: qh2o
   contains
     procedure :: init  => gomars_v1_state_init
     procedure :: clear => gomars_v1_state_clear
@@ -168,6 +176,7 @@ contains
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
+    allocate(this%srfdnflx  (mesh%ncol,          ntracers)); this%srfdnflx   = 0
 
     allocate(this%detau     (mesh%ncol,l_nspectv,l_ngauss)); this%detau      = 0
 
@@ -186,16 +195,20 @@ contains
     allocate(this%stemp     (mesh%ncol,2*nl+1            )); this%stemp      = 0
     allocate(this%subflux   (mesh%ncol                   )); this%subflux    = 0
     allocate(this%gndice    (mesh%ncol                   )); this%gndice     = 0
+    allocate(this%dmadt     (mesh%ncol                   )); this%dmadt      = 0
 
     allocate(this%tl        (2*mesh%nlev+3               )); this%tl         = 0
     allocate(this%teta      (2*mesh%nlev+3               )); this%teta       = 0
     allocate(this%pl        (2*mesh%nlev+3               )); this%pl         = 0
+    allocate(this%plogadj   (2*mesh%nlev+3               )); this%plogadj    = 0
     allocate(this%upi       (2*mesh%nlev+3               )); this%upi        = 0
     allocate(this%vpi       (2*mesh%nlev+3               )); this%vpi        = 0
-    allocate(this%qpi       (2*mesh%nlev+3               )); this%qpi        = 0
+    allocate(this%qpi       (2*mesh%nlev+3,ntracers      )); this%qpi        = 0
+    allocate(this%qpig      (              ntracers      )); this%qpig       = 0
     allocate(this%aadj      (2*mesh%nlev+3               )); this%aadj       = 0
     allocate(this%badj      (2*mesh%nlev+3               )); this%badj       = 0
     allocate(this%om        (2*mesh%nlev+3               )); this%om         = 0
+    allocate(this%qh2o      (2*mesh%nlev+3               )); this%qh2o       = 0
 
     call this%physics_state_init(mesh)
 
@@ -229,6 +242,7 @@ contains
     if (allocated(this%dndiffv   )) deallocate(this%dndiffv   )
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
+    if (allocated(this%srfdnflx  )) deallocate(this%srfdnflx  )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )
@@ -244,15 +258,18 @@ contains
     if (allocated(this%stemp     )) deallocate(this%stemp     )
     if (allocated(this%subflux   )) deallocate(this%subflux   )
     if (allocated(this%gndice    )) deallocate(this%gndice    )
+    if (allocated(this%dmadt     )) deallocate(this%dmadt     )
     if (allocated(this%tl        )) deallocate(this%tl        )
     if (allocated(this%teta      )) deallocate(this%teta      )
     if (allocated(this%pl        )) deallocate(this%pl        )
+    if (allocated(this%plogadj   )) deallocate(this%plogadj   )
     if (allocated(this%upi       )) deallocate(this%upi       )
     if (allocated(this%vpi       )) deallocate(this%vpi       )
     if (allocated(this%qpi       )) deallocate(this%qpi       )
     if (allocated(this%aadj      )) deallocate(this%aadj      )
     if (allocated(this%badj      )) deallocate(this%badj      )
     if (allocated(this%om        )) deallocate(this%om        )
+    if (allocated(this%qh2o      )) deallocate(this%qh2o      )
 
   end subroutine gomars_v1_state_clear
 

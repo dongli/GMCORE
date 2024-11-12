@@ -1,4 +1,4 @@
-subroutine laginterp(l_ntref, l_npref, l_pint, l_refh2o, l_nspecti, l_nspectv, l_ngauss, pgref, pint, co2i, co2v, fzeroi, fzerov)
+subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
 
   !  Lagrange interpolation (linear in log pressure) of the CO2 
   !  k-coefficients in the pressure domain.  Subsequent use of these
@@ -8,26 +8,17 @@ subroutine laginterp(l_ntref, l_npref, l_pint, l_refh2o, l_nspecti, l_nspectv, l
 
   implicit none
 
-  integer, intent(in) :: l_ntref
-  integer, intent(in) :: l_npref
-  integer, intent(in) :: l_pint
-  integer, intent(in) :: l_refh2o
-  integer, intent(in) :: l_nspecti
-  integer, intent(in) :: l_nspectv
-  integer, intent(in) :: l_ngauss
-
+  real(r8), intent(in ) :: pgref (l_npref)
+  real(r8), intent(out) :: pint  (l_pint)
+  real(r8), intent(out) :: co2i  (l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss)
+  real(r8), intent(out) :: co2v  (l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss)
+  real(r8), intent(out) :: fzeroi(l_nspecti)
+  real(r8), intent(out) :: fzerov(l_nspectv)
+  
   real(r8) co2i8(l_ntref,l_npref,l_refh2o,l_nspecti,l_ngauss)
   real(r8) co2v8(l_ntref,l_npref,l_refh2o,l_nspectv,l_ngauss)
-  real(r8) pgref(l_npref)
-  
-  real(r8) co2i(l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss)
-  real(r8) co2v(l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss)
-  
-  real(r8) fzeroi(l_nspecti)
-  real(r8) fzerov(l_nspectv)
-  
   real(r8) x, xi(4), yi(4), ans
-  real(r8) pint(l_pint), pref(l_npref), p
+  real(r8) pref(l_npref), p
   integer n, nt, np, nh, ng, nw, m, i
   
   real(8) pin(l_pint)

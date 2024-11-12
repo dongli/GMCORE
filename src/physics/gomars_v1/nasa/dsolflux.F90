@@ -1,4 +1,4 @@
-subroutine dsolflux(l_nspectv, l_ngauss, sol, acosz, gweight, fzerov, detau, directsol)
+subroutine dsolflux(sol, acosz, gweight, fzerov, detau, directsol)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -10,8 +10,6 @@ subroutine dsolflux(l_nspectv, l_ngauss, sol, acosz, gweight, fzerov, detau, dir
 
   implicit none
 
-  integer, intent(in) :: l_nspectv
-  integer, intent(in) :: l_ngauss
   real(r8), intent(in) :: sol(l_nspectv)
   real(r8), intent(in) :: acosz
   real(r8), intent(in) :: gweight(l_ngauss)

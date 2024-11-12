@@ -24,17 +24,6 @@ module gomars_v1_rad_mod
   public qextv, qscatv, gv, wv, fzerov
   public solar_1au, solar, gweight
 
-  integer, public, parameter :: l_nspecti = 5
-  integer, public, parameter :: l_nspectv = 7
-  integer, public, parameter :: l_ngauss  = 17
-  integer, public, parameter :: l_npref   = 11
-  integer, public, parameter :: l_ntref   = 7
-  integer, public, parameter :: l_taumax  = 35
-  integer, public, parameter :: l_pint    = 51
-  integer, public, parameter :: l_refh2o  = 10
-  integer, public, parameter :: l_nrefi   = 4
-  integer, public, parameter :: l_nrefv   = 6
-
   real(r8), parameter :: ubari = 0.5_r8
   real(r8), parameter :: tlimits = 1.0e-3_r8
   real(r8), parameter :: tlimiti = 5.0e-3_r8
@@ -133,10 +122,9 @@ contains
 
     allocate(pfgasref(l_pint))
 
-    call setspv(l_nspectv, wnov, dwnv, wavev, solar_1au, tauray)
-    call setspi(l_nspecti, wnoi, dwni, wavei, planckir)
-    call setrad(l_ntref, l_npref, l_pint, l_refh2o, l_nspecti, l_nspectv, l_ngauss, &
-                tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
+    call setspv(wnov, dwnv, wavev, solar_1au, tauray)
+    call setspi(wnoi, dwni, wavei, planckir)
+    call setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
                 qexti, qscati, wi, gi, fzeroi, fzerov)
 
     ptop = 10**pfgasref(1)

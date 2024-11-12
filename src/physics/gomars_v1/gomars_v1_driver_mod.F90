@@ -112,13 +112,11 @@ contains
           state%gt    (icol) = state%t(icol,mesh%nlev)
         end do
       end if
-      call ini_optdst(l_nspectv, l_nspecti, l_nrefv, mesh%nlev, &
-                      qextv, qscatv, gv, qexti, qscati, gi, &
+      call ini_optdst(qextv, qscatv, gv, qexti, qscati, gi, &
                       state%qxvdst, state%qsvdst, state%gvdst, &
                       state%qxidst, state%qsidst, state%gidst, &
                       state%qextrefdst)
-      call ini_optcld(l_nspectv, l_nspecti, mesh%nlev, &
-                      state%qxvcld, state%qsvcld, state%gvcld, &
+      call ini_optcld(state%qxvcld, state%qsvcld, state%gvcld, &
                       state%qxicld, state%qsicld, state%gicld, &
                       state%qextrefcld, state%taurefcld)
       ! firstcomp3:
@@ -142,8 +140,9 @@ contains
 
     type(datetime_type), intent(in) :: time
 
-    integer iblk, icol, k, l, is, ig, n
-    real(r8) ls, time_of_day, rsdist, cosz, directsol, tsat
+    integer iblk, icol, k, l, is, ig, m
+    integer l_scavup, l_scavdn
+    real(r8) ls, time_of_day, rsdist, cosz, directsol, tsat, rho
 
     ls = time%solar_longitude()
     time_of_day = time%time_of_day()
@@ -160,7 +159,7 @@ contains
       do icol = 1, mesh%nlev
         cosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time_of_day)
         if (cosz >= 1.0e-5_r8) then
-          call dsolflux(l_nspectv, l_ngauss, solar, cosz, gweight, fzerov, state%detau(icol,:,:), directsol)
+          call dsolflux(solar, cosz, gweight, fzerov, state%detau(icol,:,:), directsol)
         else
           directsol = 0
         end if
@@ -208,20 +207,105 @@ contains
         ! Calculate the ice cloud optical depth, where present.
         ! FIXME: Is this finished?
         ! Call gridvel.
-        call potemp1(           &
-          mesh%nlev           , &
-          state%ps    (icol  ), &
-          state%tstrat(icol  ), &
-          state%t     (icol,:), &
-          state%aadj          , &
-          state%badj          , &
-          state%pl            , &
-          state%om            , &
-          state%tl            , &
-          state%teta            &
+        call potemp1(            &
+          state%ps     (icol  ), &
+          state%tstrat (icol  ), &
+          state%t      (icol,:), &
+          state%aadj           , &
+          state%badj           , &
+          state%plogadj        , &
+          state%pl             , &
+          state%om             , &
+          state%tl             , &
+          state%teta             &
         )
         ! Save initial values for teta, upi, vpi and qpi.
 
+        call coldair(            &
+          state%tstrat (icol  ), &
+          state%dp     (icol,:), &
+          state%pl             , &
+          state%tl             , &
+          state%gt     (icol  ), &
+          state%co2ice (icol  ), &
+          state%zin    (icol,:), &
+          state%dmadt  (icol  ), &
+          state%atmcond(icol,:)  &
+        )
+
+        call potemp2(            &
+          state%ps     (icol  ), &
+          state%tstrat (icol  ), &
+          state%t      (icol,:), &
+          state%aadj           , &
+          state%badj           , &
+          state%plogadj        , &
+          state%pl             , &
+          state%om             , &
+          state%tl             , &
+          state%teta             &
+        )
+        ! Radiation calculation.
+
+        ! Aerosol scavenging by CO2 snow fall.
+        if (co2scav) then
+          l_scavup = 0
+          l_scavdn = 0
+          do l = 1, mesh%nlev
+            if (state%atmcond(icol,l) > 0) then
+              l_scavup = l
+              exit
+            end if
+          end do
+          do l = mesh%nlev, 1, -1
+            if (state%atmcond(icol,l) > 0) then
+              l_scavdn = l
+              exit
+            end if
+          end do
+          if (l_scavup /= 0 .and. l_scavdn /= 0) then
+            do l = l_scavup, l_scavdn
+              k = 2 * l + 2
+              if (l_scavdn == mesh%nlev) then
+                ! If condensation occurs down to the surface, put all aerosols on the surface (in fact, only the cloud mass matters).
+                rho = (state%pl(k+1) - state%pl(k-1)) / g
+                state%qpig(iMa_vap) = state%qpig(iMa_vap) + scaveff * state%qpi(k,iMa_cld) * rho
+                state%qpig(iMa_dt ) = state%qpig(iMa_dt ) + scaveff * state%qpi(k,iMa_dt ) * rho
+                state%qpig(iMa_cor) = state%qpig(iMa_cor) + scaveff * state%qpi(k,iMa_cor) * rho
+                state%srfdnflx(icol,iMa_dt ) = state%srfdnflx(icol,iMa_dt ) + scaveff * state%qpi(k,iMa_dt ) * rho / dt
+                state%srfdnflx(icol,iMa_cor) = state%srfdnflx(icol,iMa_cor) + scaveff * state%qpi(k,iMa_cor) * rho / dt
+                state%srfdnflx(icol,iMa_cld) = state%srfdnflx(icol,iMa_cld) + scaveff * state%qpi(k,iMa_cld) * rho / dt
+              else
+                ! If condensation occurs in a restricted portion, put aerosols in the highest layer unaffected by CO2 condensation.
+                do m = 1, naer
+                  state%qpi(2*l_scavdn+4,m) = state%qpi(2*l_scavdn+4,m) + scaveff * state%qpi(k,m) * &
+                    (state%pl(k+1) - state%pl(k-1)) / (state%pl(2*l_scavdn+5) - state%pl(2*l_scavdn+3))
+                end do
+              end if
+              do m = 1, naer
+                state%qpi(k,m) = state%qpi(k,m) * (1 - scaveff)
+              end do
+              state%atmcond(icol,l) = 0
+            end do
+          end if
+        end if ! co2scav
+        if (active_water) then
+          do l = 1, mesh%nlev
+            k = 2 * l + 2
+            state%qh2o(k) = mwratio * state%q(icol,l,iMa_vap)
+            state%qh2o(k+1) = state%qh2o(k)
+          end do
+        else
+          do l = 1, mesh%nlev
+            k = 2 * l + 2
+            state%qh2o(k) = 1.0e-7_r8
+            state%qh2o(k+1) = state%qh2o(k)
+          end do
+        end if
+        if (.not. active_dust) then
+
+        end if
+        ! Call opt_dst.
       end do
       end associate
     end do
