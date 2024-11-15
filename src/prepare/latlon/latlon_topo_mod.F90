@@ -188,7 +188,7 @@ contains
     associate (mesh => gzs%mesh, halo => gzs%halo)
     call gzs_f%init('', '', '', 'cell', mesh, halo)
     lat0 = abs(global_mesh%full_lat_deg(2))
-    do cyc = 1, 3
+    do cyc = 1, topo_smooth_cycles
       call filter_run(filter, gzs, gzs_f)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         wgt = exp_two_values(1.0_r8, 0.0_r8, lat0, 45.0_r8, abs(mesh%full_lat_deg(j)))

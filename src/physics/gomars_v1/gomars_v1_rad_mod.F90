@@ -63,7 +63,7 @@ module gomars_v1_rad_mod
   real(r8), allocatable, dimension(:) :: tauref(:)
   real(r8), allocatable, dimension(:) :: pfgasref(:)
 
-  real(r8), parameter :: gweight(l_ngauss) = [ &
+  real(r8), parameter :: gweight(ngauss) = [   &
     4.8083554740D-02, 1.0563099137D-01,        &
     1.4901065679D-01, 1.7227479710D-01,        &
     1.7227479710D-01, 1.4901065679D-01,        &
@@ -90,35 +90,35 @@ contains
 
     call gomars_v1_rad_final()
 
-    allocate(wnoi     (l_nspecti))
-    allocate(dwni     (l_nspecti))
-    allocate(wavei    (l_nspecti))
-    allocate(wnov     (l_nspectv))
-    allocate(dwnv     (l_nspectv))
-    allocate(wavev    (l_nspectv))
-    allocate(solar_1au(l_nspectv))
-    allocate(solar    (l_nspectv))
-    allocate(tauray   (l_nspectv))
+    allocate(wnoi     (nspecti))
+    allocate(dwni     (nspecti))
+    allocate(wavei    (nspecti))
+    allocate(wnov     (nspectv))
+    allocate(dwnv     (nspectv))
+    allocate(wavev    (nspectv))
+    allocate(solar_1au(nspectv))
+    allocate(solar    (nspectv))
+    allocate(tauray   (nspectv))
 
-    allocate(co2i(l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss))
-    allocate(co2v(l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss))
+    allocate(co2i(ntref,l_pint,l_refh2o,nspecti,ngauss))
+    allocate(co2v(ntref,l_pint,l_refh2o,nspectv,ngauss))
 
-    allocate(fzeroi(l_nspecti))
-    allocate(fzerov(l_nspectv))
+    allocate(fzeroi(nspecti))
+    allocate(fzerov(nspectv))
 
-    allocate(pgasref(l_npref))
-    allocate(tgasref(l_ntref))
+    allocate(pgasref(npref))
+    allocate(tgasref(ntref))
 
-    allocate(qextv (l_nspectv))
-    allocate(qscatv(l_nspectv))
-    allocate(wv    (l_nspectv))
-    allocate(gv    (l_nspectv))
-    allocate(qexti (l_nspecti))
-    allocate(qscati(l_nspecti))
-    allocate(wi    (l_nspecti))
-    allocate(gi    (l_nspecti))
+    allocate(qextv (nspectv))
+    allocate(qscatv(nspectv))
+    allocate(wv    (nspectv))
+    allocate(gv    (nspectv))
+    allocate(qexti (nspecti))
+    allocate(qscati(nspecti))
+    allocate(wi    (nspecti))
+    allocate(gi    (nspecti))
 
-    allocate(planckir(l_nspecti,8501))
+    allocate(planckir(nspecti,8501))
 
     allocate(pfgasref(l_pint))
 

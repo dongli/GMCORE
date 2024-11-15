@@ -18,6 +18,29 @@ module gomars_v1_const_mod
 
   implicit none
 
+  ! Number of soil layers
+  integer , parameter :: nl        = 40
+  ! Number of aerosol tracers
+  integer , parameter :: naer      = 5
+  integer , parameter :: nbin_rt   = 20
+  integer , parameter :: nratio    = 15
+  ! Number of dust particle sizes
+  integer , parameter :: ndp       = 2
+  integer , parameter :: ndp_dt    = ndp
+  ! Number of spectral intervals in the visible
+  integer , parameter :: nspecti   = 5
+  integer , parameter :: nspectv   = 7
+  integer , parameter :: ngauss    = 17
+  integer , parameter :: npref     = 11
+  integer , parameter :: ntref     = 7
+  integer , parameter :: l_taumax  = 35
+  integer , parameter :: l_pint    = 51
+  integer , parameter :: l_refh2o  = 10
+  integer , parameter :: nrefi     = 4
+  integer , parameter :: nrefv     = 6
+  ! Number of vertical layers
+  integer :: nlev = 0
+
   ! Avogadro constant (mol-1)
   real(r8), parameter :: nav        = na
   ! Perfect gas constant (J K-1 mol-1)
@@ -32,6 +55,8 @@ module gomars_v1_const_mod
   real(r8), parameter :: mwratio    = m_co2 / m_h2o
   ! Dust particle density (kg m-3)
   real(r8), parameter :: dpden_dt   = 2.5e3_r8
+  !
+  real(r8), parameter :: scale_dt   = 3.0_r8 * kb / (amu * m_co2)
   ! Water ice particle density (kg m-3)
   real(r8), parameter :: dpden_ice  = 917.0_r8
   ! Volume of a water molecule (m3)
@@ -70,6 +95,8 @@ module gomars_v1_const_mod
   real(r8), parameter :: cmk       = 3.51e22_r8
   !
   real(r8), parameter :: scaveff   = 0.6_r8
+  ! 1/3
+  real(r8), parameter :: athird    = 1.0_r8 / 3.0_r8
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop
@@ -81,25 +108,5 @@ module gomars_v1_const_mod
   real(r8) icethresh_kgm2
 
   real(r8), parameter :: sqrdy = sqrt(4 * pi / mars_sol_seconds)
-
-  ! Number of soil layers
-  integer , parameter :: nl        = 40
-
-  ! Number of aerosol tracers
-  integer , parameter :: naer      = 5
-  ! Number of spectral intervals in the visible
-  integer , parameter :: l_nspecti = 5
-  integer , parameter :: l_nspectv = 7
-  integer , parameter :: l_ngauss  = 17
-  integer , parameter :: l_npref   = 11
-  integer , parameter :: l_ntref   = 7
-  integer , parameter :: l_taumax  = 35
-  integer , parameter :: l_pint    = 51
-  integer , parameter :: l_refh2o  = 10
-  integer , parameter :: l_nrefi   = 4
-  integer , parameter :: l_nrefv   = 6
-
-  ! Number of vertical layers
-  integer :: nlev = 0
 
 end module gomars_v1_const_mod

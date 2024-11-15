@@ -33,11 +33,11 @@ subroutine setspv(wnov, dwnv, wavev, solarf, tauray)
 
   implicit none
 
-  real(r8), intent(out) :: wnov  (l_nspectv)
-  real(r8), intent(out) :: dwnv  (l_nspectv)
-  real(r8), intent(out) :: wavev (l_nspectv)
-  real(r8), intent(out) :: solarf(l_nspectv)
-  real(r8), intent(out) :: tauray(l_nspectv)
+  real(r8), intent(out) :: wnov  (nspectv)
+  real(r8), intent(out) :: dwnv  (nspectv)
+  real(r8), intent(out) :: wavev (nspectv)
+  real(r8), intent(out) :: solarf(nspectv)
+  real(r8), intent(out) :: tauray(nspectv)
 
   real(r8) wl
   integer n, m
@@ -61,12 +61,12 @@ subroutine setspv(wnov, dwnv, wavev, solarf, tauray)
   ! 25000.00D0   ->   0.40 microns
   ! 41666.67D0   ->   0.24 microns
 
-  real(8) bwnv(l_nspectv+1)
+  real(8) bwnv(nspectv+1)
 
   ! Solar flux within each spectral interval, at 1AU (W/M^2)
   ! Sum equals 1356 W/m^2 (values from Wehrli, 1985)
 
-  real(8) solar(l_nspectv)
+  real(8) solar(nspectv)
 
   ! Set up mean wavenumbers and wavenumber deltas.  Units of 
   ! wavenumbers is cm^(-1); units of wavelengths is microns.
@@ -79,13 +79,13 @@ subroutine setspv(wnov, dwnv, wavev, solarf, tauray)
 
   solar = [12.7, 24.2, 54.6, 145.9, 354.9, 657.5, 106.3]
 
-  do m = 1, l_nspectv
+  do m = 1, nspectv
     wnov(m)  = 0.5 * (bwnv(m+1) + bwnv(m))
     dwnv(m)  = bwnv(m+1) - bwnv(m)
     wavev(m) = 1.0e+4 / wnov(m)
   end do
 
-  do n = 1, l_nspectv
+  do n = 1, nspectv
     solarf(n) = solar(n)
   end do
 
@@ -93,7 +93,7 @@ subroutine setspv(wnov, dwnv, wavev, solarf, tauray)
   ! The pressure dependent part will be computed elsewhere (OPTCV).
   ! WAVEV is in microns.  There is no Rayleigh scattering in the IR.
 
-  do n = 1, l_nspectv
+  do n = 1, nspectv
     wl = wavev(n)
     tauray(n) = (8.7_r8 / g) * (1.527_r8 * (1.0 + 0.013 / wl**2)/ wl**4) / pray0
   end do

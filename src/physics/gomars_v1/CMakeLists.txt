@@ -38,4 +38,5 @@ target_sources(gmcore PRIVATE
   nasa/potemp1.F90
   nasa/coldair.F90
   nasa/potemp2.F90
+  nasa/opt_dst.F90
 )

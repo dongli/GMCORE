@@ -8,17 +8,17 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
 
   implicit none
 
-  real(r8), intent(in ) :: pgref (l_npref)
+  real(r8), intent(in ) :: pgref (npref)
   real(r8), intent(out) :: pint  (l_pint)
-  real(r8), intent(out) :: co2i  (l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss)
-  real(r8), intent(out) :: co2v  (l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss)
-  real(r8), intent(out) :: fzeroi(l_nspecti)
-  real(r8), intent(out) :: fzerov(l_nspectv)
+  real(r8), intent(out) :: co2i  (ntref,l_pint,l_refh2o,nspecti,ngauss)
+  real(r8), intent(out) :: co2v  (ntref,l_pint,l_refh2o,nspectv,ngauss)
+  real(r8), intent(out) :: fzeroi(nspecti)
+  real(r8), intent(out) :: fzerov(nspectv)
   
-  real(r8) co2i8(l_ntref,l_npref,l_refh2o,l_nspecti,l_ngauss)
-  real(r8) co2v8(l_ntref,l_npref,l_refh2o,l_nspectv,l_ngauss)
+  real(r8) co2i8(ntref,npref,l_refh2o,nspecti,ngauss)
+  real(r8) co2v8(ntref,npref,l_refh2o,nspectv,ngauss)
   real(r8) x, xi(4), yi(4), ans
-  real(r8) pref(l_npref), p
+  real(r8) pref(npref), p
   integer n, nt, np, nh, ng, nw, m, i
   
   real(8) pin(l_pint)
@@ -44,7 +44,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
   end do
 
   !  Take log of the reference pressures
-  do n = 1, l_npref
+  do n = 1, npref
     pref(n) = log10(pgref(n))
   end do
   
@@ -61,18 +61,18 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
   
   ! Take Log10 of the values - we interpolate the log10 of the values,
   ! not the values themselves.   Smallest value is 1.0E-200.
-  do nt = 1, l_ntref
-    do np = 1, l_npref
+  do nt = 1, ntref
+    do np = 1, npref
       do nh = 1, l_refh2o
-        do ng = 1, l_ngauss
-          do nw = 1, l_nspectv
+        do ng = 1, ngauss
+          do nw = 1, nspectv
             if (co2v8(nt,np,nh,nw,ng) > 1.0d-200) then
               co2v8(nt,np,nh,nw,ng) = log10(co2v8(nt,np,nh,nw,ng))
             else
               co2v8(nt,np,nh,nw,ng) = -200.0
             end if
           end do
-          do nw = 1, l_nspecti
+          do nw = 1, nspecti
             if (co2i8(nt,np,nh,nw,ng) > 1.0d-200) then
               co2i8(nt,np,nh,nw,ng) = log10(co2i8(nt,np,nh,nw,ng))
             else
@@ -84,10 +84,10 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
     end do
   end do
   !  Interpolate the values:  first the IR
-  do nt = 1, l_ntref
+  do nt = 1, ntref
     do nh = 1, l_refh2o
-      do nw = 1, l_nspecti
-        do ng = 1, l_ngauss
+      do nw = 1, nspecti
+        do ng = 1, ngauss
           ! First, the initial interval (P=1e-6 to 1e-5)
           n = 1 
           do m = 1, 5
@@ -103,7 +103,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             call lagrange(x, xi, yi, ans)
             co2i(nt,m,nh,nw,ng) = 10.0**ans
           end do 
-          do n = 2, l_npref - 2
+          do n = 2, npref - 2
             do m = 1, 5
               i     = (n - 1) * 5 + m
               x     = pint(i)
@@ -120,7 +120,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             end do 
           end do
           !  Now, get the last interval (P=1e+3 to 1e+4)
-          n = L_NPREF-1
+          n = npref - 1
           do m = 1, 5
             i     = (n - 1) * 5 + m
             x     = pint(i)
@@ -136,16 +136,16 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             co2i(nt,i,nh,nw,ng) = 10.0**ans
           end do  
           !  Fill the last pressure point
-          co2i(nt,l_pint,nh,nw,ng) = 10.0**co2i8(nt,l_npref,nh,nw,ng)
+          co2i(nt,l_pint,nh,nw,ng) = 10.0**co2i8(nt,npref,nh,nw,ng)
         end do
       end do
     end do
   end do
   ! Interpolate the values:  now the visible
-  do nt=1,L_NTREF
-    do nh=1,L_REFH2O
-      do nw=1,L_NSPECTV
-        do ng=1,L_NGAUSS
+  do nt = 1, ntref
+    do nh = 1, l_refh2o
+      do nw = 1, nspectv
+        do ng = 1, ngauss
           ! First, the initial interval (P=1e-6 to 1e-5)
           n = 1 
           do m = 1, 5
@@ -161,7 +161,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             call lagrange(x, xi, yi, ans)
             co2v(nt,m,nh,nw,ng) = 10.0**ans
           end do 
-          do n = 2, l_npref - 2
+          do n = 2, npref - 2
             do m = 1, 5
               i     = (n - 1) * 5 + m
               x     = pint(i)
@@ -178,7 +178,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             end do 
           end do
           !  Now, get the last interval (P=1e+3 to 1e+4)
-          n = l_npref - 1
+          n = npref - 1
           do m = 1, 5
             i     = (n - 1) * 5 + m
             x     = pint(i)
@@ -194,7 +194,7 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
             co2v(nt,i,nh,nw,ng) = 10.0**ans
           end do  
           !  Fill the last pressure point
-          co2v(nt,l_pint,nh,nw,ng) = 10.0**co2v8(nt,l_npref,nh,nw,ng)
+          co2v(nt,l_pint,nh,nw,ng) = 10.0**co2v8(nt,npref,nh,nw,ng)
         end do
       end do
     end do

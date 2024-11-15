@@ -76,6 +76,7 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:      ) :: dnirflux
     !
     real(r8), allocatable, dimension(:,    :) :: srfdnflx
+    real(r8), allocatable, dimension(:,    :) :: taudst
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
     ! Solar flux at the current Mars distance
@@ -156,38 +157,34 @@ contains
     allocate(this%atmcond   (mesh%ncol,mesh%nlev         )); this%atmcond    = 0
     allocate(this%qcond     (mesh%ncol,ntracers          )); this%qcond      = 0
 
-    allocate(this%qxvdst    (2*mesh%nlev+4,l_nspectv     )); this%qxvdst     = 0
-    allocate(this%qsvdst    (2*mesh%nlev+4,l_nspectv     )); this%qsvdst     = 0
-    allocate(this%gvdst     (2*mesh%nlev+4,l_nspectv     )); this%gvdst      = 0
-    allocate(this%qxidst    (2*mesh%nlev+4,l_nspecti     )); this%qxidst     = 0
-    allocate(this%qsidst    (2*mesh%nlev+4,l_nspecti     )); this%qsidst     = 0
-    allocate(this%gidst     (2*mesh%nlev+4,l_nspecti     )); this%gidst      = 0
+    allocate(this%qxvdst    (2*mesh%nlev+4,nspectv       )); this%qxvdst     = 0
+    allocate(this%qsvdst    (2*mesh%nlev+4,nspectv       )); this%qsvdst     = 0
+    allocate(this%gvdst     (2*mesh%nlev+4,nspectv       )); this%gvdst      = 0
+    allocate(this%qxidst    (2*mesh%nlev+4,nspecti       )); this%qxidst     = 0
+    allocate(this%qsidst    (2*mesh%nlev+4,nspecti       )); this%qsidst     = 0
+    allocate(this%gidst     (2*mesh%nlev+4,nspecti       )); this%gidst      = 0
     allocate(this%qextrefdst(2*mesh%nlev+4               )); this%qextrefdst = 0
-
-    allocate(this%qxvcld    (2*mesh%nlev+4,l_nspectv     )); this%qxvcld     = 0
-    allocate(this%qsvcld    (2*mesh%nlev+4,l_nspectv     )); this%qsvcld     = 0
-    allocate(this%gvcld     (2*mesh%nlev+4,l_nspectv     )); this%gvcld      = 0
-    allocate(this%qxicld    (2*mesh%nlev+4,l_nspecti     )); this%qxicld     = 0
-    allocate(this%qsicld    (2*mesh%nlev+4,l_nspecti     )); this%qsicld     = 0
-    allocate(this%gicld     (2*mesh%nlev+4,l_nspecti     )); this%gicld      = 0
+    allocate(this%qxvcld    (2*mesh%nlev+4,nspectv       )); this%qxvcld     = 0
+    allocate(this%qsvcld    (2*mesh%nlev+4,nspectv       )); this%qsvcld     = 0
+    allocate(this%gvcld     (2*mesh%nlev+4,nspectv       )); this%gvcld      = 0
+    allocate(this%qxicld    (2*mesh%nlev+4,nspecti       )); this%qxicld     = 0
+    allocate(this%qsicld    (2*mesh%nlev+4,nspecti       )); this%qsicld     = 0
+    allocate(this%gicld     (2*mesh%nlev+4,nspecti       )); this%gicld      = 0
     allocate(this%qextrefcld(2*mesh%nlev+4               )); this%qextrefcld = 0
     allocate(this%taurefcld (2*mesh%nlev+4               )); this%taurefcld  = 0
-
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
     allocate(this%srfdnflx  (mesh%ncol,          ntracers)); this%srfdnflx   = 0
-
-    allocate(this%detau     (mesh%ncol,l_nspectv,l_ngauss)); this%detau      = 0
-
-    allocate(this%solar     (l_nspectv                   )); this%solar      = 0
+    allocate(this%taudst    (mesh%ncol,                 2)); this%taudst     = 0
+    allocate(this%detau     (mesh%ncol,nspectv,ngauss    )); this%detau      = 0
+    allocate(this%solar     (nspectv                     )); this%solar      = 0
     allocate(this%ssun      (mesh%ncol                   )); this%ssun       = 0
     allocate(this%fa        (mesh%ncol                   )); this%fa         = 0
     allocate(this%alsp      (mesh%ncol                   )); this%alsp       = 0
     allocate(this%surfalb   (mesh%ncol                   )); this%surfalb    = 0
     allocate(this%npcflag   (mesh%ncol                   )); this%npcflag    = .false.
     allocate(this%rhouch    (mesh%ncol                   )); this%rhouch     = 0
-
     allocate(this%zin       (mesh%ncol,nl                )); this%zin        = 0
     allocate(this%rhosoil   (mesh%ncol,nl                )); this%rhosoil    = 0
     allocate(this%cpsoil    (mesh%ncol,nl                )); this%cpsoil     = 0
@@ -196,7 +193,6 @@ contains
     allocate(this%subflux   (mesh%ncol                   )); this%subflux    = 0
     allocate(this%gndice    (mesh%ncol                   )); this%gndice     = 0
     allocate(this%dmadt     (mesh%ncol                   )); this%dmadt      = 0
-
     allocate(this%tl        (2*mesh%nlev+3               )); this%tl         = 0
     allocate(this%teta      (2*mesh%nlev+3               )); this%teta       = 0
     allocate(this%pl        (2*mesh%nlev+3               )); this%pl         = 0
@@ -243,6 +239,7 @@ contains
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
     if (allocated(this%srfdnflx  )) deallocate(this%srfdnflx  )
+    if (allocated(this%taudst    )) deallocate(this%taudst    )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )

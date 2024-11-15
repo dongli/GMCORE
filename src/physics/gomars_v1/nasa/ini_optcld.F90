@@ -8,12 +8,12 @@ subroutine ini_optcld(qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld)
 
   implicit none
 
-  real(r8), intent(out) :: qxv(2*nlev+4,l_nspectv)
-  real(r8), intent(out) :: qsv(2*nlev+4,l_nspectv)
-  real(r8), intent(out) :: gv (2*nlev+4,l_nspectv)
-  real(r8), intent(out) :: qxi(2*nlev+4,l_nspecti)
-  real(r8), intent(out) :: qsi(2*nlev+4,l_nspecti)
-  real(r8), intent(out) :: gi (2*nlev+4,l_nspecti)
+  real(r8), intent(out) :: qxv(2*nlev+4,nspectv)
+  real(r8), intent(out) :: qsv(2*nlev+4,nspectv)
+  real(r8), intent(out) :: gv (2*nlev+4,nspectv)
+  real(r8), intent(out) :: qxi(2*nlev+4,nspecti)
+  real(r8), intent(out) :: qsi(2*nlev+4,nspecti)
+  real(r8), intent(out) :: gi (2*nlev+4,nspecti)
   real(r8), intent(out) :: qextrefcld(2*nlev+4)
   real(r8), intent(out) :: taurefcld (2*nlev+4)
 
@@ -26,7 +26,7 @@ subroutine ini_optcld(qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld)
     taurefcld (k) = 0
   end do
   
-  do i = 1, l_nspectv
+  do i = 1, nspectv
     do k = 1, n
       qxv(k,i) = 0
       qsv(k,i) = 0
@@ -34,7 +34,7 @@ subroutine ini_optcld(qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld)
     end do
   end do
   
-  do i = 1, l_nspecti
+  do i = 1, nspecti
     do k = 1, n
       qxi(k,i) = 0
       qsi(k,i) = 0

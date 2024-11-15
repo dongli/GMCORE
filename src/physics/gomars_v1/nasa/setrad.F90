@@ -15,38 +15,38 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
 
   implicit none
 
-  real(r8), intent(out) :: co2i(l_ntref,l_pint,l_refh2o,l_nspecti,l_ngauss)
-  real(r8), intent(out) :: co2v(l_ntref,l_pint,l_refh2o,l_nspectv,l_ngauss)
-  real(r8), intent(out) :: tgasref(l_ntref)
+  real(r8), intent(out) :: co2i(ntref,l_pint,l_refh2o,nspecti,ngauss)
+  real(r8), intent(out) :: co2v(ntref,l_pint,l_refh2o,nspectv,ngauss)
+  real(r8), intent(out) :: tgasref(ntref)
   real(r8), intent(out) :: pfgasref(l_pint)
-  real(r8), intent(out) :: qextv(l_nspectv)
-  real(r8), intent(out) :: qscatv(l_nspectv)
-  real(r8), intent(out) :: wv(l_nspectv)
-  real(r8), intent(out) :: gv(l_nspectv)
-  real(r8), intent(out) :: qexti(l_nspecti)
-  real(r8), intent(out) :: qscati(l_nspecti)
-  real(r8), intent(out) :: wi(l_nspecti)
-  real(r8), intent(out) :: gi(l_nspecti)
-  real(r8), intent(out) :: fzeroi(l_nspecti)
-  real(r8), intent(out) :: fzerov(l_nspectv)
+  real(r8), intent(out) :: qextv(nspectv)
+  real(r8), intent(out) :: qscatv(nspectv)
+  real(r8), intent(out) :: wv(nspectv)
+  real(r8), intent(out) :: gv(nspectv)
+  real(r8), intent(out) :: qexti(nspecti)
+  real(r8), intent(out) :: qscati(nspecti)
+  real(r8), intent(out) :: wi(nspecti)
+  real(r8), intent(out) :: gi(nspecti)
+  real(r8), intent(out) :: fzeroi(nspecti)
+  real(r8), intent(out) :: fzerov(nspectv)
 
   integer n, ns, nt, np, nw, ng
-  real(r8) pgasref(l_npref)
+  real(r8) pgasref(npref)
 
   ! Visible dust properties:  M. Wolff Planck-weighted values (T=6000K)
   ! Log-normal size distribution:  Reff = 1.5 microns, Veff = 0.5
 
   ! Qext - M. Wolff values
   ! Visulal wave lengths (The order is increasing wave number)
-  real(r8) qev1(l_nspectv)
-  real(r8) qsv1(l_nspectv)
-  real(r8) gv1 (l_nspectv)
+  real(r8) qev1(nspectv)
+  real(r8) qsv1(nspectv)
+  real(r8) gv1 (nspectv)
 
   ! M. Wolff Planck-weighted values (T=215K)
   ! Infrared wave lengths.  (The order is increasing wave number.)
-  real(8) qei1(l_nspecti)
-  real(8) qsi1(l_nspecti)
-  real(8) gi1 (l_nspecti)
+  real(8) qei1(nspecti)
+  real(8) qsi1(nspecti)
+  real(8) gi1 (nspecti)
 
   qev1 = [   &
     1.834d0, &
@@ -126,7 +126,7 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
   tgasref(7)  = 350.0
 
   ! Fill the (VISIBLE) arrays Qextv, Qscatv, WV, GV
-  do n = 1, l_nspectv
+  do n = 1, nspectv
     qextv (n) = qev1(n)
     qscatv(n) = qsv1(n)
     if (qscatv(n) >= qextv(n)) then
@@ -137,7 +137,7 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
   end do
 
   ! Fill the (INFRARED) arrays Qexti, Qscati, WI, GI
-  do n = 1, l_nspecti
+  do n = 1, nspecti
     qexti (n) = qei1(n)
     qscati(n) = qsi1(n)
     if (qscati(n) >= qexti(n)) then
@@ -148,7 +148,7 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
   end do
 
   ! Interpolate CO2 k coefficients to the finer pressure grid.
-  call laginterp(l_ntref, l_npref, l_pint, l_nspecti, l_nspectv, l_ngauss, &
+  call laginterp(ntref, npref, l_pint, nspecti, nspectv, ngauss, &
                  pgasref, pfgasref, co2i, co2v, fzeroi, fzerov)
 
 end subroutine setrad

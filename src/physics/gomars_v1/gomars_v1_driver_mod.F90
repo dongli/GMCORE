@@ -124,8 +124,8 @@ contains
         do icol = 1, mesh%ncol
           state%dnirflux(icol) = 1
           state%dndiffv (icol) = 0
-          do is = 1, l_nspectv
-            do ig = 1, l_ngauss
+          do is = 1, nspectv
+            do ig = 1, ngauss
               state%detau(icol,is,ig) = 0.1_r8
             end do
           end do
@@ -150,7 +150,7 @@ contains
     rsdist = solar_dist(ls)**2
 
     ! Calculate solar flux at the current Mars distance.
-    do is = 1, l_nspectv
+    do is = 1, nspectv
       solar(is) = solar_1au(is) * rsdist
     end do
 

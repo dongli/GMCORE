@@ -704,8 +704,6 @@ contains
         end do
       end do
     end do
-    call fill_halo(mfx_lon, east_halo=.false., south_halo=.false.)
-    call fill_halo(mfy_lat, west_halo=.false., north_halo=.false.)
 
     call interp_run(mfx_lon, mfx_lat)
     do k = mesh%full_kds, mesh%full_kde

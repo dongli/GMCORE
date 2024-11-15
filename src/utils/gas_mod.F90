@@ -24,6 +24,7 @@ module gas_mod
   real(r8), public, parameter :: kb       = 1.380649e-23_r8     ! Boltzmann constant
   real(r8), public, parameter :: na       = 6.02214076e23_r8    ! Avogadro constant
   real(r8), public, parameter :: ru       = kb * na             ! Universal gas constant
+  real(r8), public, parameter :: amu      = 1.0_r8 / na         ! Atomic mass unit (kg)
   real(r8), public, parameter :: m_o2     = 32.00e-3_r8         ! O2 molar mass (kg mol-1)
   real(r8), public, parameter :: m_n2     = 28.01e-3_r8         ! N2 molar mass (kg mol-1)
   real(r8), public, parameter :: m_ar     = 39.94e-3_r8         ! Ar molar mass (kg mol-1)

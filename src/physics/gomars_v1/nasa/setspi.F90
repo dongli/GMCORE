@@ -11,10 +11,10 @@ subroutine setspi(wnoi, dwni, wavei, planckir)
 
   implicit none
 
-  real(r8), intent(out) :: wnoi    (l_nspecti)
-  real(r8), intent(out) :: dwni    (l_nspecti)
-  real(r8), intent(out) :: wavei   (l_nspecti)
-  real(r8), intent(out) :: planckir(l_nspecti,8501)
+  real(r8), intent(out) :: wnoi    (nspecti)
+  real(r8), intent(out) :: dwni    (nspecti)
+  real(r8), intent(out) :: wavei   (nspecti)
+  real(r8), intent(out) :: planckir(nspecti,8501)
 
   real(r8) a, b, ans, y, bpa, bma, t
   real(r8) wn1, wn2
@@ -46,7 +46,7 @@ subroutine setspi(wnoi, dwni, wavei, planckir)
   ! Bin wavenumber - wavenumber [cm^(-1)] at the edges of the IR
   ! spectral bins.
 
-  real(r8) bwni(l_nspecti+1)
+  real(r8) bwni(nspecti+1)
 
   bwni = [ &
       10.000d0, & ! 1000.0 microns
@@ -59,7 +59,7 @@ subroutine setspi(wnoi, dwni, wavei, planckir)
 
   ! Set up mean wavenumbers and wavenumber deltas.  Units of 
   ! wavenumbers is cm^(-1); units of wavelengths is microns.
-  do m = 1, l_nspecti
+  do m = 1, nspecti
     wnoi (m) = 0.5 * (bwni(m+1) + bwni(m))
     dwni (m) = bwni(m+1) - bwni(m)
     wavei(m) = 1.0e+4 / wnoi(m)
@@ -69,7 +69,7 @@ subroutine setspi(wnoi, dwni, wavei, planckir)
   !  Planck function, divided by the wavelength interval, in cm-1.  The
   !  integration is in MKS units, the final answer is the same as the
   !  original planck.f; W m^-2 wavenumber^-1, where wavenumber is in CM^-1.
-  do nw = 1, l_nspecti
+  do nw = 1, nspecti
     a = 1.0d-2 / bwni(nw+1)
     b = 1.0d-2 / bwni(nw)
     bpa = (b + a) / 2.0
