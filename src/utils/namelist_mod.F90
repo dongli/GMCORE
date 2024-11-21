@@ -481,4 +481,41 @@ contains
 
   end subroutine print_namelist
 
+  subroutine namelist_add_atts(tag)
+
+    use fiona
+
+    character(*), intent(in) :: tag
+
+    call fiona_add_att(tag, 'case_name', case_name)
+    call fiona_add_att(tag, 'dt_dyn', dt_dyn / time_scale)
+    call fiona_add_att(tag, 'dt_adv', dt_adv / time_scale)
+    call fiona_add_att(tag, 'dt_phys', dt_phys / time_scale)
+    call fiona_add_att(tag, 'physics_suite', physics_suite)
+    call fiona_add_att(tag, 'filter_coef_a', filter_coef_a)
+    call fiona_add_att(tag, 'filter_coef_b', filter_coef_b)
+    call fiona_add_att(tag, 'filter_coef_c', filter_coef_c)
+    call fiona_add_att(tag, 'use_div_damp', merge(1, 0, use_div_damp))
+    if (use_div_damp) then
+      call fiona_add_att(tag, 'div_damp_coef2', div_damp_coef2)
+      call fiona_add_att(tag, 'div_damp_top', div_damp_top)
+      call fiona_add_att(tag, 'div_damp_k0', div_damp_k0)
+      call fiona_add_att(tag, 'div_damp_pole', div_damp_pole)
+      call fiona_add_att(tag, 'div_damp_lat0', div_damp_lat0)
+    end if
+    call fiona_add_att(tag, 'use_vor_damp', use_vor_damp)
+    if (use_vor_damp) then
+      call fiona_add_att(tag, 'vor_damp_coef2', vor_damp_coef2)
+      call fiona_add_att(tag, 'vor_damp_top', vor_damp_top)
+      call fiona_add_att(tag, 'vor_damp_k0', vor_damp_k0)
+      call fiona_add_att(tag, 'vor_damp_pole', vor_damp_pole)
+      call fiona_add_att(tag, 'vor_damp_lat0', vor_damp_lat0)
+    end if
+    call fiona_add_att(tag, 'use_smag_damp', use_smag_damp)
+    if (use_smag_damp) then
+      call fiona_add_att(tag, 'smag_damp_coef', smag_damp_coef)
+    end if
+
+  end subroutine namelist_add_atts
+
 end module namelist_mod

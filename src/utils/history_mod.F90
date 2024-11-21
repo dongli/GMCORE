@@ -15,7 +15,7 @@ module history_mod
   use flogger
   use string
   use const_mod
-  use namelist_mod, dt => dt_dyn
+  use namelist_mod
   use time_mod
   use latlon_parallel_mod
   use block_mod
@@ -146,7 +146,7 @@ contains
       mpi_comm=proc%comm_io, ngroups=output_ngroups, async=use_async_io)
     ! Global attributes
     call fiona_add_att('h0', 'planet', planet)
-    call fiona_add_att('h0', 'time_step_size', dt)
+    call namelist_add_atts('h0')
     ! Dimensions
     if (output_h0_new_file == history_interval(1)) then
       call fiona_add_dim('h0', 'time', size=1, add_var=.true.)
@@ -273,7 +273,7 @@ contains
 
     call fiona_create_dataset('h1', desc=case_desc, file_prefix=trim(case_name), &
       mpi_comm=proc%comm_io, ngroups=output_ngroups)
-    call fiona_add_att('h1', 'time_step_size', dt)
+    call namelist_add_atts('h1')
     call fiona_add_dim('h1', 'time' , add_var=.true.)
     call fiona_add_dim('h1', 'lon'  , size=global_mesh%full_nlon, add_var=.true., decomp=.true.)
     call fiona_add_dim('h1', 'lat'  , size=global_mesh%full_nlat, add_var=.true., decomp=.true.)

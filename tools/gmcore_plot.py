@@ -19,13 +19,29 @@ def vinterp(zi, var, zo):
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	return res
 
-def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, right_string=None, with_grid=True, font_size=12, add_cyclic_point=True, use_scientific=False, show_lat_labels=True, with_contour=True, contour_linewidth=0.5):
+def plot_contour(ax, var, cmap=None, levels=None, left_string=None, right_string=None, with_grid=True, font_size=8, add_cyclic_point=True, use_scientific=False, show_lat_labels=True, with_contour=True, contour_linewidth=0.5):
 	if left_string is not None:
 		ax.set_title(left_string)
 		# How to set title font size?
 		ax.title.set_fontsize(font_size)
+	elif 'long_name' in var.attrs:
+		ax.set_title(var.long_name)
 	else:
 		ax.set_title('')
+	if 'lon' in var.dims:
+		lon = var.lon.copy()
+	elif 'ilon' in var.dims:
+		lon = var.ilon.copy()
+	else:
+		print(f'[Error]: Variable {var.name} has no lon or ilon dimension!')
+		exit(1)
+	if 'lat' in var.dims:
+		lat = var.lat.copy()
+	elif 'ilat' in var.dims:
+		lat = var.ilat.copy()
+	else:
+		print(f'[Error]: Variable {var.name} has no lat or ilat dimension!')
+		exit(1)
 	if add_cyclic_point: var, lon = cutil.add_cyclic_point(var, coord=lon)
 	# Use transform_first as in https://scitools.org.uk/cartopy/docs/latest/gallery/scalar_data/contour_transforms.html to avoid failure in contouring.
 	lon2d, lat2d = np.meshgrid(lon, lat) # Needs 2D coordinates for transform_first=True.
@@ -56,12 +72,17 @@ def plot_contour(ax, lon, lat, var, cmap=None, levels=None, left_string=None, ri
 		circle = mpath.Path(verts * radius + center)
 		ax.set_boundary(circle, transform=ax.transAxes)
 
-def plot_time_series(ax, time, var, ylim=None, color='black'):
+def plot_time_series(ax, time, var, ylim=None, color='black', font_size=8):
 	ax.plot(time, var, '-', color=color)
+	ax.tick_params(axis='both', labelsize=font_size)
 	if ylim is not None: ax.set_ylim(ylim)
 	ax.set_title(var.long_name)
-	# locator = mdates.AutoDateLocator(maxticks=4, interval_multiples=True)
-	locator = mdates.DayLocator(interval=60)
-	formatter = mdates.AutoDateFormatter(locator)
-	ax.xaxis.set_major_locator(locator)
-	ax.xaxis.set_major_formatter(formatter)
+	if time.dtype == '<M8[ns]':
+		# locator = mdates.AutoDateLocator(maxticks=4, interval_multiples=True)
+		locator = mdates.DayLocator(interval=60)
+		formatter = mdates.AutoDateFormatter(locator)
+		ax.xaxis.set_major_locator(locator)
+		ax.xaxis.set_major_formatter(formatter)
+		ax.set_xlabel('Time')
+	else:
+		ax.set_xlabel('Sol')
