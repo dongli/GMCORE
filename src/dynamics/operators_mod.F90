@@ -182,6 +182,7 @@ contains
     call perf_start('calc_ph')
 
     associate (mesh    => block%mesh          , &
+               mg      => dstate%mg           , & ! in
                mg_lev  => dstate%mg_lev       , & ! in
                dmg     => dstate%dmg          , & ! in
                qm      => tracers(block%id)%qm, & ! in
@@ -202,10 +203,11 @@ contains
         end do
       end do
     end do
-    do k = mesh%full_kds, mesh%full_kde
+    ph%d(:,:,mesh%full_kds) = mg%d(:,:,mesh%full_kds)
+    do k = mesh%full_kds + 1, mesh%full_kde
       do j = js, je
         do i = is, ie
-          ph%d(i,j,k) = 0.5_r8 * (ph_lev%d(i,j,k) + ph_lev%d(i,j,k+1))
+          ph%d(i,j,k) = ph%d(i,j,k-1) + (mg%d(i,j,k) - mg%d(i,j,k-1)) * (1 + 0.5_r8 * (qm%d(i,j,k) + qm%d(i,j,k-1)))
         end do
       end do
     end do

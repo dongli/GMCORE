@@ -249,7 +249,7 @@ contains
         loc             ='lev'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          ='h1'                                                , &
+        output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%gz_lev                                         )
     end if
@@ -331,7 +331,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =''                                                  , &
+        output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%mgs                                            )
     end if

@@ -226,7 +226,6 @@ contains
     real(8) time1, time2
     logical :: input_zs       = .false.
     logical :: input_mgs      = .false.
-    logical :: input_phs      = .false.
     logical :: input_pt       = .false.
     logical :: input_t        = .false.
     logical :: input_qv       = .false.
@@ -289,10 +288,6 @@ contains
           call fiona_input('i0', 'mgs', mgs%d(is:ie,js:je), start=start, count=count)
           call fill_halo(mgs)
           input_mgs = .true.
-        else if (fiona_has_var('i0', 'phs')) then
-          call fiona_input('i0', 'phs', phs%d(is:ie,js:je), start=start, count=count)
-          call fill_halo(phs)
-          input_phs = .true.
         end if
         if (fiona_has_var('i0', 'pt')) then
           call fiona_input('i0', 'pt', pt%d(is:ie,js:je,ks:ke), start=start, count=count)
@@ -367,28 +362,14 @@ contains
         call fill_halo(u_lon)
         call fill_halo(v_lat)
       end if
-      ! Calculate surface dry-air weight.
-      call tracer_calc_qm(block)
-      if (input_phs .and. .not. input_mgs) then
-        call mgs%copy(phs, with_halo=.true.)
+      if (input_mgs) then
         call calc_mg (block, dstate)
         call calc_dmg(block, dstate)
-        call calc_ph (block, dstate)
-        if (input_qv) then
-          do k = mesh%full_kds, mesh%full_kde
-            do j = mesh%full_jds, mesh%full_jde
-              do i = mesh%full_ids, mesh%full_ide
-                mgs%d(i,j) = mgs%d(i,j) - (ph_lev%d(i,j,k+1) - ph_lev%d(i,j,k)) * qm%d(i,j,k)
-              end do
-            end do
-          end do
-          call fill_halo(mgs)
-          call calc_mg (block, dstate)
-          call calc_dmg(block, dstate)
-          call calc_ph (block, dstate)
-        end if
+      else
+        stop 111
       end if
       ! Convert wet mixing ratio to dry mixing ratio.
+      call tracer_calc_qm(block)
       if (input_qv) then
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -440,6 +421,7 @@ contains
         call fill_halo(q, idx_ni)
       end if
       call tracer_calc_qm(block)
+      call calc_ph(block, dstate)
       ! Calculate modified potential temperature.
       if (input_t .and. .not. input_pt) then
         do k = mesh%full_kds, mesh%full_kde
