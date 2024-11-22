@@ -248,7 +248,12 @@ contains
     call curr_time%init(tmp2, planet=planet)
     select case (tmp1)
     case ('days')
-      call curr_time%add_days(time_value)
+      select case (planet)
+      case ('earth')
+        call curr_time%add_days(time_value)
+      case ('mars')
+        call curr_time%add_sol(time_value)
+      end select
     case ('sol')
       call curr_time%add_sol(time_value)
     case ('hours')
