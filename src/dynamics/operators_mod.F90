@@ -450,7 +450,7 @@ contains
       end do
     end if
 
-    if (substep < total_substeps) then
+    if (save_dyn_calc .and. substep < total_substeps) then
       call perf_stop('calc_ke')
       return
     end if
@@ -861,7 +861,7 @@ contains
     real(r8) b
     integer i, j, k
 
-    if (substep < total_substeps) then
+    if (save_dyn_calc .and. substep < total_substeps) then
       call interp_pv_midpoint(block, dstate, dt, substep)
       return
     end if

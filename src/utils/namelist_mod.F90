@@ -108,7 +108,7 @@ module namelist_mod
 
   character(30)   :: pv_scheme            = 'upwind' ! midpoint, upwind, ffsl
   logical         :: pv_pole_stokes       = .true.
-  integer         :: upwind_order_pv      = 3
+  integer         :: upwind_order_pv      = 5
   real(r8)        :: upwind_wgt_pv        = 1
   real(r8)        :: pv_pole_wgt          = 1.0_r8
 
@@ -116,8 +116,8 @@ module namelist_mod
   integer         :: coriolis_scheme      = 1
 
   character(30)   :: bg_adv_scheme        = 'ffsl'
-  character(30)   :: pt_adv_scheme        = 'upwind:ffsl'
-  character(30)   :: nh_adv_scheme        = 'upwind:ffsl'
+  character(30)   :: pt_adv_scheme        = 'upwind'
+  character(30)   :: nh_adv_scheme        = 'upwind'
   character(8)    :: limiter_type         = 'mono'
   character(8)    :: ffsl_flux_type       = 'ppm'
   character(8)    :: tvd_limiter_type     = 'van_leer'
@@ -125,15 +125,16 @@ module namelist_mod
   character(8)    :: zonal_tridiag_solver = 'spk' ! mkl, spk
 
   integer         :: weno_order           = -1 ! -1, 3
-  integer         :: upwind_order         = 3  ! -1, 1, 3
+  integer         :: upwind_order         = 5  ! -1, 1, 3, 5
   real(r8)        :: upwind_wgt           = 0.75_r8
 
   character(30)   :: time_scheme          = 'wrfrk3'
+  logical         :: save_dyn_calc        = .false.
 
   ! Filter settings
   real(r8)        :: filter_wave_speed    = 300.0_r8
-  real(r8)        :: filter_coef_a        = 3.5_r8
-  real(r8)        :: filter_coef_b        = 0.5_r8
+  real(r8)        :: filter_coef_a        = 3.2_r8
+  real(r8)        :: filter_coef_b        = 0.2_r8
   real(r8)        :: filter_coef_c        = 0.5_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 0.0_r8
@@ -145,10 +146,10 @@ module namelist_mod
   logical         :: use_div_damp         = .false.
   integer         :: div_damp_cycles      = 1
   integer         :: div_damp_order       = 2
-  real(r8)        :: div_damp_top         = 1
+  real(r8)        :: div_damp_top         = 3
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 50
-  real(r8)        :: div_damp_lat0        = 80
+  real(r8)        :: div_damp_pole        = 10
+  real(r8)        :: div_damp_lat0        = 70
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
   logical         :: use_vor_damp         = .false.
@@ -157,8 +158,8 @@ module namelist_mod
   real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 50
-  real(r8)        :: vor_damp_lat0        = 80
+  real(r8)        :: vor_damp_pole        = 10
+  real(r8)        :: vor_damp_lat0        = 70
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
   logical         :: use_p_damp           = .false.
@@ -267,6 +268,7 @@ module namelist_mod
     upwind_order              , &
     upwind_wgt                , &
     time_scheme               , &
+    save_dyn_calc             , &
     filter_wave_speed         , &
     filter_coef_a             , &
     filter_coef_b             , &
@@ -408,6 +410,7 @@ contains
       write(*, *) 'dt_adv              = ', to_str(dt_adv , 2)
       write(*, *) 'dt_phys             = ', to_str(dt_phys, 2)
       write(*, *) 'time_scheme         = ', trim(time_scheme)
+      write(*, *) 'save_dyn_calc       = ', to_str(save_dyn_calc)
       write(*, *) 'pdc_type            = ', to_str(pdc_type)
       write(*, *) 'filter_wave_speed   = ', filter_wave_speed
       write(*, *) 'filter_coef_a       = ', filter_coef_a
