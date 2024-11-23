@@ -172,12 +172,9 @@ function new_MGPacker(pcols, pver, mgcols, top_lev)
 
 end function new_MGPacker
 
-! Rely on the fact that intent(out) forces the compiler to deallocate all
-! allocatable components and restart the type from scratch. Although
-! compiler support for finalization varies, this seems to be one of the few
-! cases where all major compilers are reliable, and humans are not.
 subroutine MGPacker_finalize(self)
-  class(MGPacker), intent(out) :: self
+  class(MGPacker), intent(inout) :: self
+  if (allocated(self%mgcols)) deallocate(self%mgcols)
 end subroutine MGPacker_finalize
 
 function pack_1D(self, unpacked) result(packed)
