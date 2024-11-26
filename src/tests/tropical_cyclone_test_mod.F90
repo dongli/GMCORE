@@ -46,12 +46,14 @@ module tropical_cyclone_test_mod
   use flogger
   use const_mod, only: r8, pi, rad, deg, rd, g, cpd, omega, a => radius
   use namelist_mod
+  use tracer_mod
   use latlon_parallel_mod
 
   implicit none
 
   private
 
+  public tropical_cyclone_test_init
   public tropical_cyclone_test_set_ic
 
   integer , parameter :: ngauss = 20
@@ -115,6 +117,12 @@ module tropical_cyclone_test_mod
   real(r8) ptrop             ! Tropopause pressure
 
 contains
+
+  subroutine tropical_cyclone_test_init()
+
+    call tracer_add('q', dt_adv, 'qv', 'kg/kg', 'Water vapor mixing ratio')
+
+  end subroutine tropical_cyclone_test_init
 
   real(r8) function get_dry_air_pressure(lon, lat, ptop, ztop, z) result(res)
 
@@ -366,18 +374,6 @@ contains
           end if
         end do
         z = zn
-
-        ! n = 1
-        ! 20 continue
-        ! n = n + 1
-        ! zn = z - fpif(p, gr, z) / fpidfdz(gr, z)
-        ! if (n > 20) then
-        !   write(*, *) 'FPI did not converge after 20 interations in q & T!!!'
-        ! else if (abs(zn - z) / abs(zn) > deltaz) then
-        !   z = zn
-        !   goto 20
-        ! end if
-        ! z = zn
       end if
     end if
 

@@ -87,6 +87,8 @@ contains
       case ('wrf_l64')
         call hybrid_coord_wrf_l64(p0, ptop, hyai, hybi)
         local_ptop = ptop
+      case ('supercell_l40')
+        call hybrid_coord_supercell_l40(p0, ptop, hyai, hybi)
       case ('schar_l40')
         call hybrid_coord_schar_l40(p0, ptop, hyai, hybi)
       case ('dcmip21_l60')

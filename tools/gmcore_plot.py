@@ -12,6 +12,7 @@ import cartopy.crs as ccrs
 import cartopy.util as cutil
 from metpy.interpolate import interpolate_1d
 from metpy.units import units
+import os
 
 def vinterp(zi, var, zo):
 	plev = np.array([zo]) * units.hPa

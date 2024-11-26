@@ -38,7 +38,9 @@ contains
 
     call simple_physics_final()
 
-    call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    if (idx_qv == 0) then
+      call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    end if
 
     if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
     allocate(physics_use_wet_tracers(1))
