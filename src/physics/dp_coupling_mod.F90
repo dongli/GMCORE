@@ -86,7 +86,7 @@ contains
             pstate%u     (icol,k) = aux    %u     %d(i,j,k)
             pstate%v     (icol,k) = aux    %v     %d(i,j,k)
             pstate%t     (icol,k) = aux    %t     %d(i,j,k)
-            pstate%pt    (icol,k) = dstate %pt    %d(i,j,k)
+            pstate%pt    (icol,k) = dstate %pt    %d(i,j,k) ! FIXME: pt is potential temperature or virtual potential temperature or modified potential temperature?
             pstate%p     (icol,k) = dstate %ph    %d(i,j,k)
             pstate%p_lev (icol,k) = dstate %ph_lev%d(i,j,k)
             pstate%pk    (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0

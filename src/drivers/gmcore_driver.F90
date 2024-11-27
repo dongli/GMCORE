@@ -73,7 +73,7 @@ program gmcore_driver
   case ('tropical_cyclone')
     call tropical_cyclone_test_init()
   case ('supercell')
-    call supercell_test_init()
+    call supercell_test_init(namelist_path)
   end select
 
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then

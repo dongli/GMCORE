@@ -57,6 +57,15 @@ contains
 
   end function dry_potential_temperature
 
+  pure elemental real(r8) function potential_temperature(t, p) result(res)
+
+    real(r8), intent(in) :: t   ! Temperature (K)
+    real(r8), intent(in) :: p   ! Full pressure (Pa)
+
+    res = t * (p0 / p)**rd_o_cpd
+
+  end function potential_temperature
+
   pure elemental real(r8) function modified_potential_temperature(t, p, qv) result(res)
 
     real(r8), intent(in) :: t   ! Temperature (K)

@@ -76,7 +76,7 @@ module supercell_test_mod
 !    Test case parameters
 !=======================================================================
   integer(4), parameter ::            &
-       nz         = 30         ,      & ! number of vertical levels in init
+       nz         = 40         ,      & ! number of vertical levels in init
        nphi       = 16                  ! number of meridional points in init
 
   real(8), parameter ::               &
@@ -141,6 +141,10 @@ module supercell_test_mod
      0.0406014298003869 , 0.0406014298003869, &
      0.0176140071391521 , 0.0176140071391521]
 
+  integer :: pert = 1
+
+  namelist /supercell_test_control/ pert
+
 contains
 
   subroutine supercell_test_set_params()
@@ -152,7 +156,13 @@ contains
 
   end subroutine supercell_test_set_params
 
-  subroutine supercell_test_init()
+  subroutine supercell_test_init(file_path)
+
+    character(*), intent(in) :: file_path
+
+    open(11, file=file_path, status='old', action='read')
+    read(11, nml=supercell_test_control)
+    close(11)
 
     call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg/kg')
 
@@ -243,13 +253,17 @@ contains
 
   subroutine supercell_test_set_ic(block)
 
+    use mpi
+    use string
     use block_mod
 
     type(block_type), intent(inout), target :: block
 
     integer i, j, k
     real(8) thetav, rho, qv
-    integer pert
+    real(8) time1, time2
+
+    time1 = MPI_Wtime()
 
     associate (mesh   => block%mesh            , &
                lon    => block%mesh%full_lon   , &
@@ -266,7 +280,6 @@ contains
                t      => block%aux      %t     , &
                pt     => block%dstate(1)%pt    , &
                q      => tracers(block%id)%q   )
-    pert = 1
     if (proc%is_root()) call log_notice('Calculate model top height.')
     do j = mesh%full_jds, mesh%full_jde
       do i = mesh%full_ids, mesh%full_ide
@@ -340,6 +353,9 @@ contains
     z_lev%d = z_lev%d * g
     call fill_halo(z_lev)
     end associate
+
+    time2 = MPI_Wtime()
+    if (proc%is_root()) call log_notice('Time to set supercell IC: ' // to_str(time2 - time1, 5) // ' seconds')
 
   end subroutine supercell_test_set_ic
 

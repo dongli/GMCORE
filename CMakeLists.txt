@@ -308,6 +308,7 @@ target_sources(gmcore PRIVATE
   src/physics/physics_mesh_mod.F90
   src/physics/physics_types_mod.F90
   src/physics/simple_physics/simple_physics_v6.f90
+  src/physics/simple_physics/kessler.f90
   src/physics/simple_physics/simple_physics_types_mod.F90
   src/physics/simple_physics/simple_physics_objects_mod.F90
   src/physics/simple_physics/simple_physics_output_mod.F90

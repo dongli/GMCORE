@@ -49,7 +49,7 @@ contains
     character(*), intent(in) :: namelist_path
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_init_stage1(namelist_path, dt_adv, dt_phys)
     end select
 
@@ -111,7 +111,7 @@ contains
     deallocate(ncol, lon, lat, area)
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_init_stage2(mesh)
     case ('cam')
 #ifdef HAS_CAM
@@ -159,7 +159,7 @@ contains
     call dp_coupling_d2p(block, itime)
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_run()
 #ifdef HAS_CAM
     case ('cam')
@@ -248,7 +248,7 @@ contains
     if (allocated(mesh)) deallocate(mesh)
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_final()
 #ifdef HAS_CAM
     case ('cam')
@@ -271,7 +271,7 @@ contains
     if (physics_suite == 'N/A') return
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_add_output(tag, output_h0_dtype)
 #ifdef HAS_CAM
     case ('cam')
@@ -291,7 +291,7 @@ contains
     if (physics_suite == 'N/A') return
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call simple_physics_output(tag, iblk)
 #ifdef HAS_CAM
     case ('cam')
