@@ -388,6 +388,7 @@ endif ()
 
 add_subdirectory(src/physics/gomars_v1)
 add_subdirectory(src/physics/gomars_v2)
+add_subdirectory(src/physics/testbed)
 
 if (HAS_RRTMGP AND HAS_NOAHMP)
   target_sources(gmcore PRIVATE

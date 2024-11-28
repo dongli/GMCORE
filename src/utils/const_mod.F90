@@ -103,7 +103,7 @@ contains
       g          = 3.72d0
       lv         = 2.84d6
       lapse_rate = 5.06d-3
-      p0         = 701
+      p0         = 610
     case default
       call log_error('Invalid planet!')
     end select
