@@ -21,11 +21,22 @@ module gomars_v1_mp_mod
 
   public mp_init
   public mp_final
+  public rad_rt, radb_rt
+  public qextv_dst, qscatv_dst, gv_dst
+  public qexti_dst, qscati_dst, gi_dst
+  public qextv_cld, qscatv_cld, gv_cld
+  public qexti_cld, qscati_cld, gi_cld
+  public cor_ratio
 
   real(r8), parameter :: rmin  = 0.1e-6_r8
   real(r8), parameter :: rmax  = 10.0e-6_r8
   real(r8), parameter :: rbmin = 0.0001e-6_r8
   real(r8), parameter :: rbmax = 1.0e-2_r8
+  real(r8), parameter :: cor_ratio(nratio) = [   &
+    0.10_r8, 0.20_r8, 0.25_r8, 0.30_r8, 0.35_r8, &
+    0.40_r8, 0.45_r8, 0.50_r8, 0.55_r8, 0.60_r8, &
+    0.65_r8, 0.70_r8, 0.80_r8, 0.90_r8, 0.99_r8  &
+  ]
 
   real(r8), allocatable, dimension(:    ) :: aerdens
   real(r8), allocatable, dimension(:    ) :: stdv
@@ -82,7 +93,7 @@ contains
 
     do i = 1, nbin_rt - 1
       rad_rt(i+1) = rad_rt(i) * vrat_rt**athird
-      radb_rt(i+1) = ((2 * vrat_rt) / (vrat_rt + 1))**(athird) * radb_rt(i)
+      radb_rt(i+1) = ((2 * vrat_rt) / (vrat_rt + 1))**athird * radb_rt(i)
     end do
 
     allocate(qextv_cld (nratio,nbin_rt,nspectv))

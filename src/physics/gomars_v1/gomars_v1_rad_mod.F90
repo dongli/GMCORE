@@ -60,8 +60,8 @@ module gomars_v1_rad_mod
 
   real(r8), allocatable, dimension(:,:) :: planckir
 
-  real(r8), allocatable, dimension(:) :: tauref(:)
-  real(r8), allocatable, dimension(:) :: pfgasref(:)
+  real(r8), allocatable, dimension(:) :: tauref
+  real(r8), allocatable, dimension(:) :: pfgasref
 
   real(r8), parameter :: gweight(ngauss) = [   &
     4.8083554740D-02, 1.0563099137D-01,        &

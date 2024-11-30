@@ -22,14 +22,17 @@ module gomars_v1_const_mod
   integer , parameter :: nl        = 40
   ! Number of aerosol tracers
   integer , parameter :: naer      = 5
+  ! Tracer size bin for radiation
   integer , parameter :: nbin_rt   = 20
   integer , parameter :: nratio    = 15
   ! Number of dust particle sizes
   integer , parameter :: ndp       = 2
   integer , parameter :: ndp_dt    = ndp
-  ! Number of spectral intervals in the visible
+  ! Number of spectral intervals in the infrared band
   integer , parameter :: nspecti   = 5
+  ! Number of spectral intervals in the visible band
   integer , parameter :: nspectv   = 7
+  ! Number of Gauss quadrature points
   integer , parameter :: ngauss    = 17
   integer , parameter :: npref     = 11
   integer , parameter :: ntref     = 7

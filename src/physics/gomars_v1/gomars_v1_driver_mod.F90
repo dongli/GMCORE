@@ -154,9 +154,9 @@ contains
       solar(is) = solar_1au(is) * rsdist
     end do
 
-    do iblk = 1, size(objects)
+    blocks: do iblk = 1, size(objects)
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
-      do icol = 1, mesh%nlev
+      columns: do icol = 1, mesh%nlev
         cosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time_of_day)
         if (cosz >= 1.0e-5_r8) then
           call dsolflux(solar, cosz, gweight, fzerov, state%detau(icol,:,:), directsol)
@@ -304,11 +304,66 @@ contains
         end if
         if (.not. active_dust) then
 
+        else
+          call opt_dst(          &
+            state%q(icol,:,:)  , &
+            state%pl           , &
+            state%qxvdst       , &
+            state%qsvdst       , &
+            state%gvdst        , &
+            state%qxidst       , &
+            state%qsidst       , &
+            state%gidst        , &
+            state%qextrefdst   , &
+            state%tauref       , &
+            state%taudst(icol,2) &
+          )
+          do k = 1, 3
+            state%tauref(k) = 0
+            state%taucum(k) = 0
+          end do
+          do k = 4, 2 * mesh%nlev + 3
+            state%taucum(k) = state%taucum(k-1) + state%tauref(k)
+          end do
         end if
-        ! Call opt_dst.
-      end do
+        ! Fill special bottom radiation level to zero.
+        state%tauref(2*mesh%nlev+4) = 0
+        state%tausurf(icol) = state%taucum(2*mesh%nlev+3)
+        if (cloudon) then
+          call opt_cld(          &
+            state%q(icol,:,:)  , &
+            state%pl           , &
+            state%qxvcld       , &
+            state%qsvcld       , &
+            state%gvcld        , &
+            state%qxicld       , &
+            state%qsicld       , &
+            state%gicld        , &
+            state%qextrefcld   , &
+            state%taurefcld    , &
+            state%taucld(icol,2) &
+          )
+        else
+          state%taurefcld = 0
+        end if
+        if (cosz >= 1.0e-5) then
+          ! Check for ground ice. Change albedo if there is any ice.
+          state%surfalb(icol) = state%alsp(icol)
+          if (state%co2ice(icol) > 0) then
+            if (mesh%lat(icol) > 0) then
+              state%surfalb(icol) = alicen
+            else
+              state%surfalb(icol) = alices
+            end if
+          else if (albfeed .and. state%qpig(iMa_vap) > icethresh_kgm2 .and. state%npcflag(icol)) then
+            state%surfalb(icol) = icealb
+          end if
+          ! Calculate optical depth due to all sources.
+          ! call optcv
+        end if
+      end do columns
       end associate
-    end do
+    end do blocks
 
   end subroutine gomars_v1_run
 

@@ -76,7 +76,14 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:      ) :: dnirflux
     !
     real(r8), allocatable, dimension(:,    :) :: srfdnflx
+    !
+    real(r8), allocatable, dimension(  :    ) :: tauref
+    !
+    real(r8), allocatable, dimension(  :    ) :: taucum
+    !
+    real(r8), allocatable, dimension(:      ) :: tausurf
     real(r8), allocatable, dimension(:,    :) :: taudst
+    real(r8), allocatable, dimension(:,    :) :: taucld
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
     ! Solar flux at the current Mars distance
@@ -176,7 +183,11 @@ contains
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
     allocate(this%srfdnflx  (mesh%ncol,          ntracers)); this%srfdnflx   = 0
+    allocate(this%tauref    (2*mesh%nlev+4               )); this%tauref     = 0
+    allocate(this%taucum    (2*mesh%nlev+3               )); this%taucum     = 0
+    allocate(this%tausurf   (mesh%ncol                   )); this%tausurf    = 0
     allocate(this%taudst    (mesh%ncol,                 2)); this%taudst     = 0
+    allocate(this%taucld    (mesh%ncol,                 2)); this%taucld     = 0
     allocate(this%detau     (mesh%ncol,nspectv,ngauss    )); this%detau      = 0
     allocate(this%solar     (nspectv                     )); this%solar      = 0
     allocate(this%ssun      (mesh%ncol                   )); this%ssun       = 0
@@ -239,7 +250,11 @@ contains
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
     if (allocated(this%srfdnflx  )) deallocate(this%srfdnflx  )
+    if (allocated(this%tauref    )) deallocate(this%tauref    )
+    if (allocated(this%taucum    )) deallocate(this%taucum    )
+    if (allocated(this%tausurf   )) deallocate(this%tausurf   )
     if (allocated(this%taudst    )) deallocate(this%taudst    )
+    if (allocated(this%taucld    )) deallocate(this%taucld    )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )
