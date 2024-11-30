@@ -36,13 +36,17 @@ module gomars_v1_const_mod
   integer , parameter :: ngauss    = 17
   integer , parameter :: npref     = 11
   integer , parameter :: ntref     = 7
-  integer , parameter :: l_taumax  = 35
-  integer , parameter :: l_pint    = 51
-  integer , parameter :: l_refh2o  = 10
+  integer , parameter :: ntaumax   = 35
+  integer , parameter :: npint     = 51
+  integer , parameter :: nrefh2o   = 10
   integer , parameter :: nrefi     = 4
   integer , parameter :: nrefv     = 6
   ! Number of vertical layers
   integer :: nlev = 0
+  ! Number of vertical layers in the radiation code
+  integer :: nlayrad = 0
+  ! Number of vertical levels
+  integer :: nlevrad = 0
 
   ! Avogadro constant (mol-1)
   real(r8), parameter :: nav        = na

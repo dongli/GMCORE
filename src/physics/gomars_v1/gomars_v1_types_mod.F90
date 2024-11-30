@@ -66,8 +66,6 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(  :,:  ) :: gicld
     !
     real(r8), allocatable, dimension(  :    ) :: qextrefcld
-    !
-    real(r8), allocatable, dimension(  :    ) :: taurefcld
     ! Downward diffuse visible (solar) flux at the surface
     real(r8), allocatable, dimension(:      ) :: dndiffv
     ! Downward visible flux at the surface
@@ -77,13 +75,23 @@ module gomars_v1_types_mod
     !
     real(r8), allocatable, dimension(:,    :) :: srfdnflx
     !
-    real(r8), allocatable, dimension(  :    ) :: tauref
+    real(r8), allocatable, dimension(  :    ) :: taurefdst
+    !
+    real(r8), allocatable, dimension(  :    ) :: taurefcld
     !
     real(r8), allocatable, dimension(  :    ) :: taucum
+    !
+    real(r8), allocatable, dimension(    :,:) :: taugsurf
     !
     real(r8), allocatable, dimension(:      ) :: tausurf
     real(r8), allocatable, dimension(:,    :) :: taudst
     real(r8), allocatable, dimension(:,    :) :: taucld
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: dtauv
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: tauv
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: taucumv
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
     ! Solar flux at the current Mars distance
@@ -178,16 +186,20 @@ contains
     allocate(this%qsicld    (2*mesh%nlev+4,nspecti       )); this%qsicld     = 0
     allocate(this%gicld     (2*mesh%nlev+4,nspecti       )); this%gicld      = 0
     allocate(this%qextrefcld(2*mesh%nlev+4               )); this%qextrefcld = 0
-    allocate(this%taurefcld (2*mesh%nlev+4               )); this%taurefcld  = 0
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
     allocate(this%srfdnflx  (mesh%ncol,          ntracers)); this%srfdnflx   = 0
-    allocate(this%tauref    (2*mesh%nlev+4               )); this%tauref     = 0
+    allocate(this%taurefdst (2*mesh%nlev+4               )); this%taurefdst  = 0
+    allocate(this%taurefcld (2*mesh%nlev+4               )); this%taurefcld  = 0
     allocate(this%taucum    (2*mesh%nlev+3               )); this%taucum     = 0
+    allocate(this%taugsurf  (        nspectv,ngauss-1    )); this%taugsurf   = 0
     allocate(this%tausurf   (mesh%ncol                   )); this%tausurf    = 0
     allocate(this%taudst    (mesh%ncol,                 2)); this%taudst     = 0
     allocate(this%taucld    (mesh%ncol,                 2)); this%taucld     = 0
+    allocate(this%dtauv     (nlayrad,nspectv,ngauss      )); this%dtauv      = 0
+    allocate(this%tauv      (nlevrad,nspectv,ngauss      )); this%tauv       = 0
+    allocate(this%taucumv   (2*mesh%nlev+3,nspectv,ngauss)); this%taucumv    = 0
     allocate(this%detau     (mesh%ncol,nspectv,ngauss    )); this%detau      = 0
     allocate(this%solar     (nspectv                     )); this%solar      = 0
     allocate(this%ssun      (mesh%ncol                   )); this%ssun       = 0
@@ -250,11 +262,16 @@ contains
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
     if (allocated(this%srfdnflx  )) deallocate(this%srfdnflx  )
-    if (allocated(this%tauref    )) deallocate(this%tauref    )
+    if (allocated(this%taurefdst )) deallocate(this%taurefdst )
+    if (allocated(this%taurefcld )) deallocate(this%taurefcld )
     if (allocated(this%taucum    )) deallocate(this%taucum    )
+    if (allocated(this%taugsurf  )) deallocate(this%taugsurf  )
     if (allocated(this%tausurf   )) deallocate(this%tausurf   )
     if (allocated(this%taudst    )) deallocate(this%taudst    )
     if (allocated(this%taucld    )) deallocate(this%taucld    )
+    if (allocated(this%dtauv     )) deallocate(this%dtauv     )
+    if (allocated(this%tauv      )) deallocate(this%tauv      )
+    if (allocated(this%taucumv   )) deallocate(this%taucumv   )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )

@@ -15,10 +15,10 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
 
   implicit none
 
-  real(r8), intent(out) :: co2i(ntref,l_pint,l_refh2o,nspecti,ngauss)
-  real(r8), intent(out) :: co2v(ntref,l_pint,l_refh2o,nspectv,ngauss)
+  real(r8), intent(out) :: co2i(ntref,npint,nrefh2o,nspecti,ngauss)
+  real(r8), intent(out) :: co2v(ntref,npint,nrefh2o,nspectv,ngauss)
   real(r8), intent(out) :: tgasref(ntref)
-  real(r8), intent(out) :: pfgasref(l_pint)
+  real(r8), intent(out) :: pfgasref(npint)
   real(r8), intent(out) :: qextv(nspectv)
   real(r8), intent(out) :: qscatv(nspectv)
   real(r8), intent(out) :: wv(nspectv)
@@ -148,7 +148,7 @@ subroutine setrad(tgasref, pfgasref, co2v, co2i, qextv, qscatv, wv, gv, &
   end do
 
   ! Interpolate CO2 k coefficients to the finer pressure grid.
-  call laginterp(ntref, npref, l_pint, nspecti, nspectv, ngauss, &
+  call laginterp(ntref, npref, npint, nspecti, nspectv, ngauss, &
                  pgasref, pfgasref, co2i, co2v, fzeroi, fzerov)
 
 end subroutine setrad

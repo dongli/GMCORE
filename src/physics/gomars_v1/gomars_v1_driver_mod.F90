@@ -58,6 +58,9 @@ contains
     character(*), intent(in), optional :: model_root
 
     dt = dt_phys
+    nlev = mesh(1)%nlev
+    nlayrad = nlev + 1
+    nlevrad = nlev + 2
 
     call gomars_v1_tracers_init(dt_adv)
     call gomars_v1_objects_init(mesh)
@@ -315,19 +318,19 @@ contains
             state%qsidst       , &
             state%gidst        , &
             state%qextrefdst   , &
-            state%tauref       , &
+            state%taurefdst    , &
             state%taudst(icol,2) &
           )
           do k = 1, 3
-            state%tauref(k) = 0
+            state%taurefdst(k) = 0
             state%taucum(k) = 0
           end do
           do k = 4, 2 * mesh%nlev + 3
-            state%taucum(k) = state%taucum(k-1) + state%tauref(k)
+            state%taucum(k) = state%taucum(k-1) + state%taurefdst(k)
           end do
         end if
         ! Fill special bottom radiation level to zero.
-        state%tauref(2*mesh%nlev+4) = 0
+        state%taurefdst(2*mesh%nlev+4) = 0
         state%tausurf(icol) = state%taucum(2*mesh%nlev+3)
         if (cloudon) then
           call opt_cld(          &
@@ -359,7 +362,24 @@ contains
             state%surfalb(icol) = icealb
           end if
           ! Calculate optical depth due to all sources.
-          ! call optcv
+          call optcv( &
+            state%pl        , &
+            state%tl        , &
+            state%qh2o      , &
+            state%qxvdst    , &
+            state%qsvdst    , &
+            state%gvdst     , &
+            state%qxvcld    , &
+            state%qsvcld    , &
+            state%gvcld     , &
+            state%qextrefcld, &
+            state%dtauv     , &
+            state%tauv      , &
+            state%taucumv   , &
+            state%taugsurf  , &
+            state%taurefdst , &
+            state%taurefcld   &
+          )
         end if
       end do columns
       end associate

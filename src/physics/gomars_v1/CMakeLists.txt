@@ -40,4 +40,6 @@ target_sources(gmcore PRIVATE
   nasa/potemp2.F90
   nasa/opt_dst.F90
   nasa/opt_cld.F90
+  nasa/tpindex.F90
+  nasa/optcv.F90
 )

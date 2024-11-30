@@ -23,6 +23,8 @@ module gomars_v1_rad_mod
   public qexti, qscati, gi, wi, fzeroi
   public qextv, qscatv, gv, wv, fzerov
   public solar_1au, solar, gweight
+  public co2v, co2i, tgasref, pgasref, pfgasref, tauray
+  public wrefco2, wrefh2o
 
   real(r8), parameter :: ubari = 0.5_r8
   real(r8), parameter :: tlimits = 1.0e-3_r8
@@ -60,7 +62,6 @@ module gomars_v1_rad_mod
 
   real(r8), allocatable, dimension(:,:) :: planckir
 
-  real(r8), allocatable, dimension(:) :: tauref
   real(r8), allocatable, dimension(:) :: pfgasref
 
   real(r8), parameter :: gweight(ngauss) = [   &
@@ -74,12 +75,12 @@ module gomars_v1_rad_mod
     5.5595258613D-03, 2.5307134073D-03,  0.0D0 &
   ]
 
-  real(r8), parameter :: wrefco2(l_refh2o) = [      &
+  real(r8), parameter :: wrefco2(nrefh2o) = [      &
     9.999999D-1, 9.99999D-1, 9.9999D-1, 9.999D-1,   &
     9.99D-1, 9.9D-1, 9.0D-1, 8.0D-1, 7.0D-1, 6.0D-1 &
   ]
 
-  real(r8), parameter :: wrefh2o(l_refh2o) = [      &
+  real(r8), parameter :: wrefh2o(nrefh2o) = [      &
     1.0D-7, 1.0D-6, 1.0D-5, 1.0D-4, 1.0D-3, 1.0D-2, &
     1.0D-1, 2.0D-1, 3.0D-1, 4.0D-1                  &
   ]
@@ -100,8 +101,8 @@ contains
     allocate(solar    (nspectv))
     allocate(tauray   (nspectv))
 
-    allocate(co2i(ntref,l_pint,l_refh2o,nspecti,ngauss))
-    allocate(co2v(ntref,l_pint,l_refh2o,nspectv,ngauss))
+    allocate(co2i(ntref,npint,nrefh2o,nspecti,ngauss))
+    allocate(co2v(ntref,npint,nrefh2o,nspectv,ngauss))
 
     allocate(fzeroi(nspecti))
     allocate(fzerov(nspectv))
@@ -120,7 +121,7 @@ contains
 
     allocate(planckir(nspecti,8501))
 
-    allocate(pfgasref(l_pint))
+    allocate(pfgasref(npint))
 
     call setspv(wnov, dwnv, wavev, solar_1au, tauray)
     call setspi(wnoi, dwni, wavei, planckir)
