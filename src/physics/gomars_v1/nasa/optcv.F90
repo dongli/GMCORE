@@ -1,6 +1,9 @@
-subroutine optcv(pl, tl, qh2o, qxvdst, qsvdst, gvdst, qxvcld, qsvcld, gvcld, &
-                 qextrefcld, dtauv, tauv, taucumv, &
-                 taugsurf, taurefdst, taurefcld)
+subroutine optcv( &
+  pl, tl, qh2o, &
+  qxvdst, qsvdst, gvdst, &
+  qxvcld, qsvcld, gvcld, qextrefcld, &
+  wbarv, cosbv, dtauv, tauv, taucumv, &
+  taugsurf, taurefdst, taurefcld)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -21,10 +24,12 @@ subroutine optcv(pl, tl, qh2o, qxvdst, qsvdst, gvdst, qxvcld, qsvcld, gvcld, &
   real(r8), intent(in   ) :: qsvcld    (2*nlev+4,nspectv)
   real(r8), intent(in   ) :: gvcld     (2*nlev+4,nspectv)
   real(r8), intent(in   ) :: qextrefcld(2*nlev+4)
-  real(r8), intent(  out) :: dtauv     (nlayrad ,nspectv,ngauss)
-  real(r8), intent(  out) :: tauv      (nlevrad ,nspectv,ngauss)
-  real(r8), intent(  out) :: taucumv   (2*nlev+3,nspectv,ngauss)
-  real(r8), intent(  out) :: taugsurf  (nspectv,ngauss-1)
+  real(r8), intent(  out) :: wbarv     (nlayrad ,nspectv,ngauss  )
+  real(r8), intent(  out) :: cosbv     (nlayrad ,nspectv,ngauss  )
+  real(r8), intent(  out) :: dtauv     (nlayrad ,nspectv,ngauss  )
+  real(r8), intent(  out) :: tauv      (nlevrad ,nspectv,ngauss  )
+  real(r8), intent(  out) :: taucumv   (2*nlev+3,nspectv,ngauss  )
+  real(r8), intent(  out) :: taugsurf  (         nspectv,ngauss-1)
   real(r8), intent(inout) :: taurefdst (2*nlev+4)
   real(r8), intent(inout) :: taurefcld (2*nlev+4)
 
@@ -36,13 +41,10 @@ subroutine optcv(pl, tl, qh2o, qxvdst, qsvdst, gvdst, qxvcld, qsvcld, gvcld, &
   real(r8) lcoef (4,2*nlev+3)
   real(r8) taurefdst_save(2*nlev+4)
   real(r8) taurefcld_save(2*nlev+4)
-  real(r8) qextref       (2*nlev+4)
   real(r8) tray  (2*nlev+3,nspectv)
   real(r8) tdst  (2*nlev+3,nspectv)
   real(r8) tcld  (2*nlev+3,nspectv)
   real(r8) dtaukv(2*nlev+4,nspectv,ngauss)
-  real(r8) cosbv (nlayrad ,nspectv,ngauss)
-  real(r8) wbarv (nlayrad ,nspectv,ngauss)
   real(r8) dp, ans
   real(r8) trayaer ! Tau Rayleigh scattering plus aerosol opacity
   real(r8) kcoef(4)
@@ -61,8 +63,7 @@ subroutine optcv(pl, tl, qh2o, qxvdst, qsvdst, gvdst, qxvcld, qsvcld, gvcld, &
 
   do k = 2, n
     call tpindex(tl(k), pl(k), qh2o(k), lcoef(:,k), idx_t(k), idx_p(k), idx_h2o(k), wratio(k))
-    qextref(k) = qxvdst(k,nrefv)
-    taurefdst(k) = taurefdst(k) / qextref(k)
+    taurefdst(k) = taurefdst(k) / qxvdst(k,nrefv)
     taurefcld(k) = taurefcld(k) / qextrefcld(k)
     do s = 1, nspectv
       tray(k,s) = tauray(s) * (pl(k) - pl(k-1))

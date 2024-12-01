@@ -25,10 +25,15 @@ module gomars_v1_rad_mod
   public solar_1au, solar, gweight
   public co2v, co2i, tgasref, pgasref, pfgasref, tauray
   public wrefco2, wrefh2o
+  public wnov, dwnv, wavev
+  public wnoi, dwni, wavei
 
-  real(r8), parameter :: ubari = 0.5_r8
-  real(r8), parameter :: tlimits = 1.0e-3_r8
-  real(r8), parameter :: tlimiti = 5.0e-3_r8
+  real(r8), public, parameter :: ubari = 0.5_r8
+  ! If optical depth is less than this value, place the Gauss-point into the
+  ! "zero" channel.
+  real(r8), public, parameter :: tlimits = 1.0e-3_r8
+  real(r8), public, parameter :: tlimiti = 5.0e-3_r8
+  real(r8), public, parameter :: maxexp  = 35.0_r8
 
   real(r8), allocatable, dimension(:) :: wnoi
   real(r8), allocatable, dimension(:) :: dwni

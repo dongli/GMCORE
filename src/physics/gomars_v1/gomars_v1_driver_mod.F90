@@ -373,6 +373,8 @@ contains
             state%qsvcld    , &
             state%gvcld     , &
             state%qextrefcld, &
+            state%wbarv     , &
+            state%cosbv     , &
             state%dtauv     , &
             state%tauv      , &
             state%taucumv   , &
@@ -380,6 +382,8 @@ contains
             state%taurefdst , &
             state%taurefcld   &
           )
+          ! Calculate the fluxes in the visible bands.
+          ! call sfluxv
         end if
       end do columns
       end associate

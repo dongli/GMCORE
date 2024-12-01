@@ -66,6 +66,10 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(  :,:  ) :: gicld
     !
     real(r8), allocatable, dimension(  :    ) :: qextrefcld
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: wbarv
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: cosbv
     ! Downward diffuse visible (solar) flux at the surface
     real(r8), allocatable, dimension(:      ) :: dndiffv
     ! Downward visible flux at the surface
@@ -84,7 +88,9 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(    :,:) :: taugsurf
     !
     real(r8), allocatable, dimension(:      ) :: tausurf
+    !
     real(r8), allocatable, dimension(:,    :) :: taudst
+    !
     real(r8), allocatable, dimension(:,    :) :: taucld
     !
     real(r8), allocatable, dimension(  :,:,:) :: dtauv
@@ -186,6 +192,8 @@ contains
     allocate(this%qsicld    (2*mesh%nlev+4,nspecti       )); this%qsicld     = 0
     allocate(this%gicld     (2*mesh%nlev+4,nspecti       )); this%gicld      = 0
     allocate(this%qextrefcld(2*mesh%nlev+4               )); this%qextrefcld = 0
+    allocate(this%wbarv     (nlayrad,nspectv,ngauss      )); this%wbarv      = 0
+    allocate(this%cosbv     (nlayrad,nspectv,ngauss      )); this%cosbv      = 0
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
@@ -257,6 +265,8 @@ contains
     if (allocated(this%qsicld    )) deallocate(this%qsicld    )
     if (allocated(this%gicld     )) deallocate(this%gicld     )
     if (allocated(this%qextrefcld)) deallocate(this%qextrefcld)
+    if (allocated(this%wbarv     )) deallocate(this%wbarv     )
+    if (allocated(this%cosbv     )) deallocate(this%cosbv     )
     if (allocated(this%taurefcld )) deallocate(this%taurefcld )
     if (allocated(this%dndiffv   )) deallocate(this%dndiffv   )
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
