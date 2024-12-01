@@ -70,6 +70,26 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(  :,:,:) :: wbarv
     !
     real(r8), allocatable, dimension(  :,:,:) :: cosbv
+    !
+    real(r8), allocatable, dimension(  :    ) :: fluxupv
+    !
+    real(r8), allocatable, dimension(  :    ) :: fluxdnv
+    !
+    real(r8), allocatable, dimension(  :    ) :: fmnetv
+    !
+    real(r8), allocatable, dimension(:      ) :: fuptopv
+    !
+    real(r8), allocatable, dimension(:      ) :: fdntopv
+    !
+    real(r8), allocatable, dimension(:      ) :: fupsfcv
+    !
+    real(r8), allocatable, dimension(:      ) :: fdnsfcv
+    !
+    real(r8), allocatable, dimension(:      ) :: fuptopi
+    !
+    real(r8), allocatable, dimension(:      ) :: fupsfci
+    !
+    real(r8), allocatable, dimension(:      ) :: fdnsfci
     ! Downward diffuse visible (solar) flux at the surface
     real(r8), allocatable, dimension(:      ) :: dndiffv
     ! Downward visible flux at the surface
@@ -100,6 +120,8 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(  :,:,:) :: taucumv
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
+    !
+    real(r8), allocatable, dimension(  :    ) :: suntot
     ! Solar flux at the current Mars distance
     real(r8), allocatable, dimension(    :  ) :: solar
     ! Total absorption of solar energy by the atmosphere (?)
@@ -194,6 +216,16 @@ contains
     allocate(this%qextrefcld(2*mesh%nlev+4               )); this%qextrefcld = 0
     allocate(this%wbarv     (nlayrad,nspectv,ngauss      )); this%wbarv      = 0
     allocate(this%cosbv     (nlayrad,nspectv,ngauss      )); this%cosbv      = 0
+    allocate(this%fluxupv   (nlayrad                     )); this%fluxupv    = 0
+    allocate(this%fluxdnv   (nlayrad                     )); this%fluxdnv    = 0
+    allocate(this%fmnetv    (nlayrad                     )); this%fmnetv     = 0
+    allocate(this%fuptopv   (mesh%ncol                   )); this%fuptopv    = 0
+    allocate(this%fdntopv   (mesh%ncol                   )); this%fdntopv    = 0
+    allocate(this%fupsfcv   (mesh%ncol                   )); this%fupsfcv    = 0
+    allocate(this%fdnsfcv   (mesh%ncol                   )); this%fdnsfcv    = 0
+    allocate(this%fuptopi   (mesh%ncol                   )); this%fuptopi    = 0
+    allocate(this%fupsfci   (mesh%ncol                   )); this%fupsfci    = 0
+    allocate(this%fdnsfci   (mesh%ncol                   )); this%fdnsfci    = 0
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
@@ -209,6 +241,7 @@ contains
     allocate(this%tauv      (nlevrad,nspectv,ngauss      )); this%tauv       = 0
     allocate(this%taucumv   (2*mesh%nlev+3,nspectv,ngauss)); this%taucumv    = 0
     allocate(this%detau     (mesh%ncol,nspectv,ngauss    )); this%detau      = 0
+    allocate(this%suntot    (2*mesh%nlev+3               )); this%suntot     = 0
     allocate(this%solar     (nspectv                     )); this%solar      = 0
     allocate(this%ssun      (mesh%ncol                   )); this%ssun       = 0
     allocate(this%fa        (mesh%ncol                   )); this%fa         = 0
@@ -267,6 +300,16 @@ contains
     if (allocated(this%qextrefcld)) deallocate(this%qextrefcld)
     if (allocated(this%wbarv     )) deallocate(this%wbarv     )
     if (allocated(this%cosbv     )) deallocate(this%cosbv     )
+    if (allocated(this%fluxupv   )) deallocate(this%fluxupv   )
+    if (allocated(this%fluxdnv   )) deallocate(this%fluxdnv   )
+    if (allocated(this%fmnetv    )) deallocate(this%fmnetv    )
+    if (allocated(this%fuptopv   )) deallocate(this%fuptopv   )
+    if (allocated(this%fdntopv   )) deallocate(this%fdntopv   )
+    if (allocated(this%fupsfcv   )) deallocate(this%fupsfcv   )
+    if (allocated(this%fdnsfcv   )) deallocate(this%fdnsfcv   )
+    if (allocated(this%fuptopi   )) deallocate(this%fuptopi   )
+    if (allocated(this%fupsfci   )) deallocate(this%fupsfci   )
+    if (allocated(this%fdnsfci   )) deallocate(this%fdnsfci   )
     if (allocated(this%taurefcld )) deallocate(this%taurefcld )
     if (allocated(this%dndiffv   )) deallocate(this%dndiffv   )
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
@@ -283,6 +326,7 @@ contains
     if (allocated(this%tauv      )) deallocate(this%tauv      )
     if (allocated(this%taucumv   )) deallocate(this%taucumv   )
     if (allocated(this%detau     )) deallocate(this%detau     )
+    if (allocated(this%suntot    )) deallocate(this%suntot    )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )
     if (allocated(this%fa        )) deallocate(this%fa        )

@@ -22,7 +22,7 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
   real(r8), intent(out) :: taurefcld (2*nlev+4)
   real(r8), intent(out) :: taucld    (2)
 
-  integer n, k, l, i, s, b
+  integer n, k, l, i, is, ib
   integer irap
   real(r8) dev2, cst
   real(r8) mantletocore
@@ -36,19 +36,19 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
     taurefcld (k) = 0
   end do
 
-  do s = 1, nspectv
+  do is = 1, nspectv
     do k = 1, n + 1
-      qxv(k,s) = qextrefcld(k)
-      qsv(k,s) = qextrefcld(k) * 0.99_r8
-      gv (k,s) = 0
+      qxv(k,is) = qextrefcld(k)
+      qsv(k,is) = qextrefcld(k) * 0.99_r8
+      gv (k,is) = 0
     end do
   end do
 
-  do s = 1, nspecti
+  do is = 1, nspecti
     do k = 1, n + 1
-      qxi(k,s) = qextrefcld(k)
-      qsi(k,s) = qextrefcld(k) * 0.99_r8
-      gi (k,s) = 0
+      qxi(k,is) = qextrefcld(k)
+      qsi(k,is) = qextrefcld(k) * 0.99_r8
+      gi (k,is) = 0
     end do
   end do
 
@@ -85,30 +85,30 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
       ! Define the cross-section weighted distribution, i.e. surface/size bin. Change Rs to Reff.
       Rs = Rs * exp(1.5_r8 * dev_ice**2)
       Rs = 1.0_r8 / min(max(Rs, 1.0e-7_r8), 100.0e-6_r8)
-      do b = 1, nbin_rt
-        surf(b) = 0.5_r8 * (erf(log(radb_rt(b+1) * Rs) * dev2) - erf(log(radb_rt(b) * Rs) * dev2))
+      do ib = 1, nbin_rt
+        surf(ib) = 0.5_r8 * (erf(log(radb_rt(ib+1) * Rs) * dev2) - erf(log(radb_rt(ib) * Rs) * dev2))
       end do
       ! Calculate the averaged values of the optical properties for the whole distribution.
       do k = 2 * l + 2, 2 * l + 3
-        do s = 1, nspectv
-          qxv(k,s) = 0
-          qsv(k,s) = 0
-          do b = 1, nbin_rt
-            qxv(k,s) = qxv(k,s) + surf(b) * qextv_cld (irap,b,s)
-            qsv(k,s) = qsv(k,s) + surf(b) * qscatv_cld(irap,b,s)
-            gv (k,s) = gv (k,s) + surf(b) * gv_cld    (irap,b,s)
+        do is = 1, nspectv
+          qxv(k,is) = 0
+          qsv(k,is) = 0
+          do ib = 1, nbin_rt
+            qxv(k,is) = qxv(k,is) + surf(ib) * qextv_cld (irap,ib,is)
+            qsv(k,is) = qsv(k,is) + surf(ib) * qscatv_cld(irap,ib,is)
+            gv (k,is) = gv (k,is) + surf(ib) * gv_cld    (irap,ib,is)
           end do
-          qsv(k,s) = min(qsv(k,s), 0.99999_r8 * qxv(k,s))
+          qsv(k,is) = min(qsv(k,is), 0.99999_r8 * qxv(k,is))
         end do
-        do s = 1, nspecti
-          qxi(k,s) = 0
-          qsi(k,s) = 0
-          do b = 1, nbin_rt
-            qxi(k,s) = qxi(k,s) + surf(b) * qexti_cld (irap,b,s)
-            qsi(k,s) = qsi(k,s) + surf(b) * qscati_cld(irap,b,s)
-            gi (k,s) = gi (k,s) + surf(b) * gi_cld    (irap,b,s)
+        do is = 1, nspecti
+          qxi(k,is) = 0
+          qsi(k,is) = 0
+          do ib = 1, nbin_rt
+            qxi(k,is) = qxi(k,is) + surf(ib) * qexti_cld (irap,ib,is)
+            qsi(k,is) = qsi(k,is) + surf(ib) * qscati_cld(irap,ib,is)
+            gi (k,is) = gi (k,is) + surf(ib) * gi_cld    (irap,ib,is)
           end do
-          qsi(k,s) = min(qsi(k,s), 0.99999_r8 * qxi(k,s))
+          qsi(k,is) = min(qsi(k,is), 0.99999_r8 * qxi(k,is))
         end do
         qextrefcld(k) = qxv(k,nrefv)
         taurefcld (k) = Ao * qextrefcld(k) * (pl(k) - pl(k-1)) / g

@@ -34,6 +34,7 @@ module gomars_v1_rad_mod
   real(r8), public, parameter :: tlimits = 1.0e-3_r8
   real(r8), public, parameter :: tlimiti = 5.0e-3_r8
   real(r8), public, parameter :: maxexp  = 35.0_r8
+  real(r8), public, parameter :: taumax  = 35.0_r8
 
   real(r8), allocatable, dimension(:) :: wnoi
   real(r8), allocatable, dimension(:) :: dwni

@@ -145,7 +145,8 @@ contains
 
     integer iblk, icol, k, l, is, ig, m
     integer l_scavup, l_scavdn
-    real(r8) ls, time_of_day, rsdist, cosz, directsol, tsat, rho
+    real(r8) ls, time_of_day, rsdist, cosz, tsat, rho
+    real(r8) directsol, nfluxtopv, diffvt, albi
 
     ls = time%solar_longitude()
     time_of_day = time%time_of_day()
@@ -361,7 +362,7 @@ contains
           else if (albfeed .and. state%qpig(iMa_vap) > icethresh_kgm2 .and. state%npcflag(icol)) then
             state%surfalb(icol) = icealb
           end if
-          ! Calculate optical depth due to all sources.
+          ! Calculate optical depth due to all sources in the visible bands.
           call optcv( &
             state%pl        , &
             state%tl        , &
@@ -383,8 +384,59 @@ contains
             state%taurefcld   &
           )
           ! Calculate the fluxes in the visible bands.
-          ! call sfluxv
+          call sfluxv(            &
+            state%dtauv         , &
+            state%tauv          , &
+            state%taucumv       , &
+            state%taugsurf      , &
+            solar               , &
+            cosz                , &
+            state%surfalb(icol) , &
+            state%wbarv         , &
+            state%cosbv         , &
+            state%fluxupv       , &
+            state%fluxdnv       , &
+            state%fmnetv        , &
+            nfluxtopv           , &
+            diffvt              , &
+            state%detau(icol,:,:) &
+          )
+          state%suntot(3) = state%fmnetv(1) - nfluxtopv
+          do l = 2, nlayrad
+            k = 2 * l + 1
+            state%suntot(k) = state%fmnetv(l) - state%fmnetv(l-1)
+          end do
+        else
+          ! If the sun is down, no solar flux, nor downward flux.
+          do l = 1, nlayrad
+            k = 2 * l + 1
+            state%suntot (k) = 0
+            state%fluxdnv(l) = 0
+          end do
+          diffvt = 0
+          state%fluxupv(1) = 0
+          state%fluxdnv(1) = 0
+          state%fluxupv(nlayrad) = 0
+          state%fluxdnv(nlayrad) = 0
         end if
+        state%dnvflux(icol) = state%fluxdnv(nlayrad)
+        state%dndiffv(icol) = diffvt
+        state%fuptopv(icol) = state%fluxupv(1)
+        state%fdntopv(icol) = state%fluxdnv(1)
+        state%fupsfcv(icol) = state%fluxupv(nlayrad)
+        state%fdnsfcv(icol) = state%fluxdnv(nlayrad)
+        ! Set up and solve for the infrared fluxes.
+        ! Check for ground ice, and change albedo if there is any ice.
+        albi = 1 - egognd
+        if (state%co2ice(icol) > 0) then
+          if (mesh%lat(icol) > 0) then
+            albi = 1 - egoco2n
+          else
+            albi = 1 - egoco2s
+          end if
+        end if
+        ! Calculate the optical depth due to all sources in the infrared bands.
+        ! call optci
       end do columns
       end associate
     end do blocks

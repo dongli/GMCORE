@@ -36,7 +36,6 @@ module gomars_v1_const_mod
   integer , parameter :: ngauss    = 17
   integer , parameter :: npref     = 11
   integer , parameter :: ntref     = 7
-  integer , parameter :: ntaumax   = 35
   integer , parameter :: npint     = 51
   integer , parameter :: nrefh2o   = 10
   integer , parameter :: nrefi     = 4

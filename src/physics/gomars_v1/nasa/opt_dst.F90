@@ -22,7 +22,7 @@ subroutine opt_dst(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefdst, taurefdst, tau
   real(r8), intent(out) :: taurefdst (2*nlev+4)
   real(r8), intent(out) :: taudst    (2)
 
-  integer n, k, l, s, b
+  integer n, k, l, is, ib
   real(r8) dev2, cst
   real(r8) Mo, No, Rs, Ao
   real(r8) surf(nbin_rt)
@@ -34,18 +34,18 @@ subroutine opt_dst(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefdst, taurefdst, tau
     taurefdst (k) = 0
   end do
 
-  do s = 1, nspectv
+  do is = 1, nspectv
     do k = 1, n + 1
-      qxv(k,s) = qextrefdst(k)
-      qsv(k,s) = qextrefdst(k) * 0.99_r8
-      gv (k,s) = 0
+      qxv(k,is) = qextrefdst(k)
+      qsv(k,is) = qextrefdst(k) * 0.99_r8
+      gv (k,is) = 0
     end do
   end do
-  do s = 1, nspecti
+  do is = 1, nspecti
     do k = 1, n + 1
-      qxi(k,s) = qextrefdst(k)
-      qsi(k,s) = qextrefdst(k) * 0.99_r8
-      gi (k,s) = 0
+      qxi(k,is) = qextrefdst(k)
+      qsi(k,is) = qextrefdst(k) * 0.99_r8
+      gi (k,is) = 0
     end do
   end do
 
@@ -65,30 +65,30 @@ subroutine opt_dst(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefdst, taurefdst, tau
       ! Define the cross-section weighted distribution, i.e. surface/size bin. Change Rs to Reff.
       Rs = Rs * exp(1.5_r8 * dev_dt**2)
       Rs = 1.0_r8 / min(max(Rs, 1.0e-7_r8), 50.0e-6_r8)
-      do b = 1, nbin_rt
-        surf(b) = 0.5_r8 * (erf(log(radb_rt(b+1) * Rs) * dev2) - erf(log(radb_rt(b) * Rs) * dev2))
+      do ib = 1, nbin_rt
+        surf(ib) = 0.5_r8 * (erf(log(radb_rt(ib+1) * Rs) * dev2) - erf(log(radb_rt(ib) * Rs) * dev2))
       end do
       ! Calculate the averaged values of the optical properties for the whole distribution.
       do k = 2 * l + 2, 2 * l + 3
-        do s = 1, nspectv
-          qxv(k,s) = 0
-          qsv(k,s) = 0
-          do b = 1, nbin_rt
-            qxv(k,s) = qxv(k,s) + qextv_dst (b,s) * surf(b)
-            qsv(k,s) = qsv(k,s) + qscatv_dst(b,s) * surf(b)
-            gv (k,s) = gv (k,s) + gv_dst    (b,s) * surf(b)
+        do is = 1, nspectv
+          qxv(k,is) = 0
+          qsv(k,is) = 0
+          do ib = 1, nbin_rt
+            qxv(k,is) = qxv(k,is) + qextv_dst (ib,is) * surf(ib)
+            qsv(k,is) = qsv(k,is) + qscatv_dst(ib,is) * surf(ib)
+            gv (k,is) = gv (k,is) + gv_dst    (ib,is) * surf(ib)
           end do
-          qsv(k,s) = min(qsv(k,s), 0.99999_r8 * qxv(k,s))
+          qsv(k,is) = min(qsv(k,is), 0.99999_r8 * qxv(k,is))
         end do
-        do s = 1, nspecti
-          qxi(k,s) = 0
-          qsi(k,s) = 0
-          do b = 1, nbin_rt
-            qxi(k,s) = qxi(k,s) + qexti_dst (b,s) * surf(b)
-            qsi(k,s) = qsi(k,s) + qscati_dst(b,s) * surf(b)
-            gi (k,s) = gi (k,s) + gi_dst    (b,s) * surf(b)
+        do is = 1, nspecti
+          qxi(k,is) = 0
+          qsi(k,is) = 0
+          do ib = 1, nbin_rt
+            qxi(k,is) = qxi(k,is) + qexti_dst (ib,is) * surf(ib)
+            qsi(k,is) = qsi(k,is) + qscati_dst(ib,is) * surf(ib)
+            gi (k,is) = gi (k,is) + gi_dst    (ib,is) * surf(ib)
           end do
-          qsi(k,s) = min(qsi(k,s), 0.99999_r8 * qxi(k,s))
+          qsi(k,is) = min(qsi(k,is), 0.99999_r8 * qxi(k,is))
         end do
         qextrefdst(k) = qxv(k,nrefv)
         taurefdst (k) = Ao * qextrefdst(k) * (pl(k) - pl(k-1)) / g
