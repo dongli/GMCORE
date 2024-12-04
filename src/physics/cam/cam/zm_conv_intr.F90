@@ -326,14 +326,24 @@ contains
     end if
 
     if (masterproc) then
-      write(iulog, *) 'ZM_CONV_INIT: Deep convection will be capped at interface ',limcnv, &
-            ' which is ', pref_edge(limcnv),' Pa'
+      write(iulog, *) 'ZM_CONV_INIT: Deep convection will be capped at interface ', limcnv, &
+            ' which is ', pref_edge(limcnv), ' Pa'
     end if
 
     no_deep_pbl = phys_deepconv_pbl()
-    call zm_convi(limcnv,zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_ke_lnd, &
-                  zmconv_momcu, zmconv_momcd, zmconv_num_cin, zmconv_org, &
-                  zmconv_microp, no_deep_pbl_in = no_deep_pbl)
+    call zm_convi(    &
+      limcnv        , &
+      zmconv_c0_lnd , &
+      zmconv_c0_ocn , &
+      zmconv_ke     , &
+      zmconv_ke_lnd , &
+      zmconv_momcu  , &
+      zmconv_momcd  , &
+      zmconv_num_cin, &
+      zmconv_org    , &
+      zmconv_microp , &
+      no_deep_pbl_in=no_deep_pbl &
+    )
 
     cld_idx     = pbuf_get_index('CLD')
     fracis_idx  = pbuf_get_index('FRACIS')
@@ -342,11 +352,23 @@ contains
 
   end subroutine zm_conv_init
 
-  subroutine zm_conv_tend(pblh    ,mcon     ,cme     , &
-                          tpert   ,pflx     ,zdu     , &
-                          rliq    ,rice     ,ztodt   , &
-                          jctop   ,jcbot    , &
-                          state   ,ptend_all,landfrac,  pbuf)
+  subroutine zm_conv_tend( &
+    pblh     , &
+    mcon     , &
+    cme      , &
+    tpert    , &
+    pflx     , &
+    zdu      , &
+    rliq     , &
+    rice     , &
+    ztodt    , &
+    jctop    , &
+    jcbot    , &
+    state    , &
+    ptend_all, &
+    landfrac , &
+    pbuf       &
+  )
 
     use cam_history   , only: outfld
     use physics_types , only: physics_state, physics_ptend
@@ -363,33 +385,20 @@ contains
     type(physics_ptend), intent(out)        :: ptend_all
     type(physics_buffer_desc), pointer      :: pbuf(:)
 
-    real(r8), intent(in) :: ztodt
-    real(r8), intent(in), dimension(pcols) :: pblh        ! Planetary boundary layer height
-    real(r8), intent(in), dimension(pcols) :: tpert       ! Thermal temperature excess
-    real(r8), intent(in), dimension(pcols) :: landfrac
-    real(r8), intent(out), dimension(pcols,pverp) :: mcon ! Convective mass flux--m sub c
-    real(r8), intent(out), dimension(pcols,pverp) :: pflx ! Scattered precip flux at each level
-    real(r8), intent(out), dimension(pcols,pver ) :: cme  ! Cmf condensation - evaporation
-    real(r8), intent(out), dimension(pcols,pver ) :: zdu  ! Detraining mass flux
-    real(r8), intent(out), dimension(pcols) :: rliq       ! Reserved liquid (not yet in cldliq) for energy integrals
-    real(r8), intent(out), dimension(pcols) :: rice       ! Reserved ice (not yet in cldice) for energy integrals
+    real(r8), intent(in ) :: ztodt
+    real(r8), intent(in ), dimension(pcols      ) :: pblh     ! Planetary boundary layer height
+    real(r8), intent(in ), dimension(pcols      ) :: tpert    ! Thermal temperature excess
+    real(r8), intent(in ), dimension(pcols      ) :: landfrac
+    real(r8), intent(out), dimension(pcols,pverp) :: mcon     ! Convective mass flux--m sub c
+    real(r8), intent(out), dimension(pcols,pverp) :: pflx     ! Scattered precip flux at each level
+    real(r8), intent(out), dimension(pcols,pver ) :: cme      ! Cmf condensation - evaporation
+    real(r8), intent(out), dimension(pcols,pver ) :: zdu      ! Detraining mass flux
+    real(r8), intent(out), dimension(pcols      ) :: rliq     ! Reserved liquid (not yet in cldliq) for energy integrals
+    real(r8), intent(out), dimension(pcols      ) :: rice     ! Reserved ice (not yet in cldice) for energy integrals
+    real(r8), intent(out), dimension(pcols      ) :: jctop    ! o row of top-of-deep-convection indices passed out.
+    real(r8), intent(out), dimension(pcols      ) :: jcbot    ! o row of base of cloud indices passed out.
 
     type(zm_conv_t) conv
-
-    integer i, k, l, m
-    integer nstep
-    integer ixcldice, ixcldliq                 ! Constituent indices for cloud liquid and ice water.
-    integer lchnk                              ! Chunk identifier
-    integer ncol                               ! Number of atmospheric columns
-    integer itim_old                           ! For physics buffer fields
-
-    real(r8), dimension(pcols,pver) :: ftem             ! Temporary workspace for outfld variables
-    real(r8), dimension(pcols,pver) :: ntprprd          ! Evap outfld: net precip production in layer
-    real(r8), dimension(pcols,pver) :: ntsnprd          ! Evap outfld: net snow production in layer
-    real(r8), dimension(pcols,pver) :: tend_s_snwprd    ! Heating rate of snow production
-    real(r8), dimension(pcols,pver) :: tend_s_snwevmlt  ! Heating rate of evap/melting of snow
-    real(r8), dimension(pcols,pver) :: fake_dpdry       ! Used in convtran call
-
     type(physics_state) state1                 ! Locally modify for evaporation to use, not returned
     type(physics_ptend), target :: ptend_loc   ! Package tendencies
 
@@ -410,29 +419,32 @@ contains
     real(r8), pointer, dimension(:,:  ) :: dnif        ! Detrained convective cloud ice num concen.
     real(r8), pointer, dimension(:,:  ) :: lambdadpcu  ! Slope of cloud liquid size distr
     real(r8), pointer, dimension(:,:  ) :: mudpcu      ! Width parameter of droplet size distr
+    real(r8), pointer, dimension(:,:  ) :: zm_org2d
+    real(r8), pointer, dimension(:,:  ) :: orgt
+    real(r8), pointer, dimension(:,:  ) :: org
+    real(r8), pointer, dimension(:,:  ) :: mu
+    real(r8), pointer, dimension(:,:  ) :: eu
+    real(r8), pointer, dimension(:,:  ) :: du
+    real(r8), pointer, dimension(:,:  ) :: md
+    real(r8), pointer, dimension(:,:  ) :: ed
+    real(r8), pointer, dimension(:,:  ) :: dp
+    real(r8), pointer, dimension(:    ) :: dsubcld
+    integer,  pointer, dimension(:    ) :: jt
+    integer,  pointer, dimension(:    ) :: maxg
+    integer,  pointer, dimension(:    ) :: ideep
 
-    real(r8), pointer, dimension(:,:) :: mu
-    real(r8), pointer, dimension(:,:) :: eu
-    real(r8), pointer, dimension(:,:) :: du
-    real(r8), pointer, dimension(:,:) :: md
-    real(r8), pointer, dimension(:,:) :: ed
-    real(r8), pointer, dimension(:,:) :: dp
-    real(r8), pointer, dimension(:  ) :: dsubcld
-    integer,  pointer, dimension(:  ) :: jt
-    integer,  pointer, dimension(:  ) :: maxg
-    integer,  pointer, dimension(:  ) :: ideep
-    integer  lengath
-    real(r8), dimension(pcols) :: jctop  ! o row of top-of-deep-convection indices passed out.
-    real(r8), dimension(pcols) :: jcbot  ! o row of base of cloud indices passed out.
-    real(r8), dimension(pcols) :: pcont
-    real(r8), dimension(pcols) :: pconb
-    real(r8), dimension(pcols) :: freqzm
-
-    real(r8), dimension(pcols     ) :: cape
-    real(r8), dimension(pcols,pver) :: mu_out
-    real(r8), dimension(pcols,pver) :: md_out
-
-    ! Used in momentum transport calculation
+    real(r8), dimension(pcols,pver  ) :: ftem             ! Temporary workspace for outfld variables
+    real(r8), dimension(pcols,pver  ) :: ntprprd          ! Evap outfld: net precip production in layer
+    real(r8), dimension(pcols,pver  ) :: ntsnprd          ! Evap outfld: net snow production in layer
+    real(r8), dimension(pcols,pver  ) :: tend_s_snwprd    ! Heating rate of snow production
+    real(r8), dimension(pcols,pver  ) :: tend_s_snwevmlt  ! Heating rate of evap/melting of snow
+    real(r8), dimension(pcols,pver  ) :: fake_dpdry       ! Used in convtran call
+    real(r8), dimension(pcols       ) :: pcont
+    real(r8), dimension(pcols       ) :: pconb
+    real(r8), dimension(pcols       ) :: freqzm
+    real(r8), dimension(pcols       ) :: cape
+    real(r8), dimension(pcols,pver  ) :: mu_out
+    real(r8), dimension(pcols,pver  ) :: md_out
     real(r8), dimension(pcols,pver,2) :: winds
     real(r8), dimension(pcols,pver,2) :: wind_tends
     real(r8), dimension(pcols,pver,2) :: pguall
@@ -440,15 +452,16 @@ contains
     real(r8), dimension(pcols,pver,2) :: icwu
     real(r8), dimension(pcols,pver,2) :: icwd
     real(r8), dimension(pcols,pver  ) :: seten
-    logical  l_windt(2)
-    real(r8) tfinal1, tfinal2
-    integer  ii
 
-    real(r8), pointer, dimension(:,:) :: zm_org2d
-    real(r8), pointer, dimension(:,:) :: orgt
-    real(r8), pointer, dimension(:,:) :: org
-
+    logical l_windt(2)
     logical lq(pcnst)
+    integer i, k, l, m
+    integer lengath
+    integer nstep
+    integer ixcldice, ixcldliq                 ! Constituent indices for cloud liquid and ice water.
+    integer lchnk                              ! Chunk identifier
+    integer ncol                               ! Number of atmospheric columns
+    integer itim_old                           ! For physics buffer fields
 
     lchnk = state%lchnk
     ncol  = state%ncol
@@ -649,9 +662,8 @@ contains
     ! + convert from mb/s to kg/m^2/s
     do i = 1, lengath
       do k = 1, pver
-        ii = ideep(i)
-        mu_out(ii,k) = mu(i,k) * 100.0_r8 / gravit
-        md_out(ii,k) = md(i,k) * 100.0_r8 / gravit
+        mu_out(ideep(i),k) = mu(i,k) * 100.0_r8 / gravit
+        md_out(ideep(i),k) = md(i,k) * 100.0_r8 / gravit
       end do
     end do
 
