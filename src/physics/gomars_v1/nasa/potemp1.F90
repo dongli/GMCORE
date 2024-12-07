@@ -22,19 +22,24 @@ subroutine potemp1(ps, tstrat, t, aadj, badj, plogadj, pl, om, tl, teta)
   n = 2 * nlev + 3
 
   pl(2) = ptrop * 0.5_r8
+  om(2) = (pl(2) / p0)**rd_o_cpd ! FIXME: Should we must use ps instead of p0?
+  ! Set pressure on the half levels.
   do k = 3, n, 2
     pl(k) = vert_coord_calc_mg_lev((k - 1) / 2, ps)
     om(k) = (pl(k) / p0)**rd_o_cpd
   end do
+  ! Set pressure on the full levels.
   do k = 4, n - 1, 2
     pl(k) = vert_coord_calc_mg((k - 2) / 2, ps)
     om(k) = (pl(k) / p0)**rd_o_cpd
   end do
   
   tl(2) = tstrat
+  ! Set temperature on the full levels.
   do k = 4, n - 1, 2
     tl(k) = t((k - 2) / 2)
   end do
+  ! Set potential temperature on the full levels.
   do k = 2, n - 1, 2
     teta(k) = tl(k) / om(k)
   end do

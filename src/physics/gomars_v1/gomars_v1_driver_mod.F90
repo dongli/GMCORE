@@ -24,6 +24,7 @@ module gomars_v1_driver_mod
   use gomars_v1_pbl_mod
   use gomars_v1_lsm_mod
   use gomars_v1_mp_mod
+  use gomars_v1_pbl_mod
   use gomars_v1_damp_mod
 
   implicit none
@@ -112,7 +113,7 @@ contains
         do icol = 1, mesh%ncol
           state%tstrat(icol) = state%t(icol,mesh%nlev)
           state%co2ice(icol) = 0
-          state%gt    (icol) = state%t(icol,mesh%nlev)
+          state%tg    (icol) = state%t(icol,mesh%nlev)
         end do
       end if
       call ini_optdst(qextv, qscatv, gv, qexti, qscati, gi, &
@@ -143,24 +144,21 @@ contains
 
     type(datetime_type), intent(in) :: time
 
-    integer iblk, icol, k, l, is, ig, m
-    integer l_scavup, l_scavdn
-    real(r8) ls, time_of_day, rsdist, cosz, tsat, rho
-    real(r8) directsol, nfluxtopv, diffvt, albi
+    integer iblk, icol, k, l, m
+    real(r8) ls, time_of_day, cosz, tsat, rho
+    real(r8) directsol, nfluxtopv, nfluxtopi, diffvt, albi, sunlte
 
     ls = time%solar_longitude()
     time_of_day = time%time_of_day()
     call update_solar_decl_angle(ls)
-    rsdist = solar_dist(ls)**2
 
-    ! Calculate solar flux at the current Mars distance.
-    do is = 1, nspectv
-      solar(is) = solar_1au(is) * rsdist
-    end do
+    call update_solar(ls)    
 
     blocks: do iblk = 1, size(objects)
-      associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
+      associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state, tend => objects(iblk)%tend)
       columns: do icol = 1, mesh%nlev
+        ! ----------------------------------------------------------------------
+        ! Calculate the direct solar flux.
         cosz = solar_cos_zenith_angle(mesh%lon(icol), mesh%lat(icol), time_of_day)
         if (cosz >= 1.0e-5_r8) then
           call dsolflux(solar, cosz, gweight, fzerov, state%detau(icol,:,:), directsol)
@@ -168,49 +166,49 @@ contains
           directsol = 0
         end if
         state%dnvflux(icol) = state%dndiffv(icol) + directsol
-        ! Calculate the ground temperature.
-        call tempgr( &
-          mesh%lat       (icol                  ), &
-          state%ps       (icol                  ), &
-          state%t        (icol,mesh%nlev        ), &
-          state%q        (icol,mesh%nlev,iMa_vap), &
-          state%qcond    (icol,          iMa_vap), &
-          state%alsp     (icol                  ), &
-          state%npcflag  (icol                  ), &
-          state%rhouch   (icol                  ), &
-          state%co2ice   (icol                  ), &
-          state%fa       (icol                  ), &
-          state%dnirflux (icol                  ), &
-          state%dnvflux  (icol                  ), &
-          state%subflux  (icol                  ), &
-          state%gndice   (icol                  ), &
-          state%rhosoil  (icol,:                ), &
-          state%cpsoil   (icol,:                ), &
-          state%scond    (icol,:                ), &
-          state%stemp    (icol,:                ), &
-          sthick                                 , &
-          state%zin      (icol,1                ), &
-          state%gt       (icol                  ), &
-          state%surfalb  (icol                  )  &
-        )
         ! Calculate the average cosine of the solar zenith angle.
-        call solarza(                              &
-          mesh%lon       (icol                  ), &
-          mesh%cos_lat   (icol                  ), &
-          mesh%sin_lat   (icol                  ), &
-          cos_decl                               , &
-          sin_decl                               , &
-          time_of_day                            , &
-          cosz                                     &
+        call solarza(                &
+          mesh%lon       (icol    ), &
+          mesh%cos_lat   (icol    ), &
+          mesh%sin_lat   (icol    ), &
+          cos_decl                 , &
+          sin_decl                 , &
+          time_of_day              , &
+          cosz                       &
         )
+        ! ----------------------------------------------------------------------
+        ! Calculate the ground temperature.
+        call tempgr(                    &
+          mesh%lat       (icol       ), &
+          state%ps       (icol       ), &
+          state%t        (icol,nlev  ), &
+          state%q        (icol,nlev,:), &
+          state%qcond    (icol,     :), &
+          state%alsp     (icol       ), &
+          state%polarcap (icol       ), &
+          state%rhouch   (icol       ), &
+          state%co2ice   (icol       ), &
+          state%fa       (icol       ), &
+          state%dnirflux (icol       ), &
+          state%dnvflux  (icol       ), &
+          state%subflux  (icol       ), &
+          state%gndice   (icol       ), &
+          state%rhosoil  (icol,:     ), &
+          state%cpsoil   (icol,:     ), &
+          state%scond    (icol,:     ), &
+          state%stemp    (icol,:     ), &
+          state%zin      (icol,1     ), &
+          state%tg       (icol       ), &
+          state%als      (icol       )  &
+        )
+        ! FIXME: Do we need to check tg again?
         ! Calculate the CO2 condensation temperature at the surface.
         tsat = 3182.48_r8 / (23.3494_r8 - log(state%ps(icol) / 100.0_r8))
-        if (state%gt(icol) < tsat .or. state%co2ice(icol) > 0) then
-          state%gt(icol) = tsat
+        if (state%tg(icol) < tsat .or. state%co2ice(icol) > 0) then
+          state%tg(icol) = tsat
         end if
+        ! ----------------------------------------------------------------------
         ! Calculate the ice cloud optical depth, where present.
-        ! FIXME: Is this finished?
-        ! Call gridvel.
         call potemp1(            &
           state%ps     (icol  ), &
           state%tstrat (icol  ), &
@@ -223,20 +221,20 @@ contains
           state%tl             , &
           state%teta             &
         )
-        ! Save initial values for teta, upi, vpi and qpi.
-
-        call coldair(            &
-          state%tstrat (icol  ), &
-          state%dp     (icol,:), &
-          state%pl             , &
-          state%tl             , &
-          state%gt     (icol  ), &
-          state%co2ice (icol  ), &
-          state%zin    (icol,:), &
-          state%dmadt  (icol  ), &
-          state%atmcond(icol,:)  &
+        call coldair(              &
+          state%tstrat (icol    ), &
+          state%dp     (icol,:  ), &
+          state%pl               , &
+          state%tl               , &
+          state%tg     (icol    ), &
+          state%co2ice (icol    ), &
+          state%q      (icol,:,:), &
+          state%tmg    (icol,  :), &
+          state%tmfdns (icol,  :), &
+          state%zin    (icol,:  ), &
+          state%dmadt  (icol    ), &
+          state%atmcond(icol,:  )  &
         )
-
         call potemp2(            &
           state%ps     (icol  ), &
           state%tstrat (icol  ), &
@@ -249,61 +247,29 @@ contains
           state%tl             , &
           state%teta             &
         )
-        ! Radiation calculation.
-
-        ! Aerosol scavenging by CO2 snow fall.
-        if (co2scav) then
-          l_scavup = 0
-          l_scavdn = 0
-          do l = 1, mesh%nlev
-            if (state%atmcond(icol,l) > 0) then
-              l_scavup = l
-              exit
-            end if
-          end do
-          do l = mesh%nlev, 1, -1
-            if (state%atmcond(icol,l) > 0) then
-              l_scavdn = l
-              exit
-            end if
-          end do
-          if (l_scavup /= 0 .and. l_scavdn /= 0) then
-            do l = l_scavup, l_scavdn
-              k = 2 * l + 2
-              if (l_scavdn == mesh%nlev) then
-                ! If condensation occurs down to the surface, put all aerosols on the surface (in fact, only the cloud mass matters).
-                rho = (state%pl(k+1) - state%pl(k-1)) / g
-                state%qpig(iMa_vap) = state%qpig(iMa_vap) + scaveff * state%qpi(k,iMa_cld) * rho
-                state%qpig(iMa_dt ) = state%qpig(iMa_dt ) + scaveff * state%qpi(k,iMa_dt ) * rho
-                state%qpig(iMa_cor) = state%qpig(iMa_cor) + scaveff * state%qpi(k,iMa_cor) * rho
-                state%srfdnflx(icol,iMa_dt ) = state%srfdnflx(icol,iMa_dt ) + scaveff * state%qpi(k,iMa_dt ) * rho / dt
-                state%srfdnflx(icol,iMa_cor) = state%srfdnflx(icol,iMa_cor) + scaveff * state%qpi(k,iMa_cor) * rho / dt
-                state%srfdnflx(icol,iMa_cld) = state%srfdnflx(icol,iMa_cld) + scaveff * state%qpi(k,iMa_cld) * rho / dt
-              else
-                ! If condensation occurs in a restricted portion, put aerosols in the highest layer unaffected by CO2 condensation.
-                do m = 1, naer
-                  state%qpi(2*l_scavdn+4,m) = state%qpi(2*l_scavdn+4,m) + scaveff * state%qpi(k,m) * &
-                    (state%pl(k+1) - state%pl(k-1)) / (state%pl(2*l_scavdn+5) - state%pl(2*l_scavdn+3))
-                end do
-              end if
-              do m = 1, naer
-                state%qpi(k,m) = state%qpi(k,m) * (1 - scaveff)
-              end do
-              state%atmcond(icol,l) = 0
-            end do
-          end if
-        end if ! co2scav
+        ! ----------------------------------------------------------------------
+        ! Radiation calculation
+        call fillpt(             &
+          state%pl             , &
+          state%tl             , &
+          state%tg      (icol) , &
+          state%tstrat  (icol) , &
+          state%plev_rad       , &
+          state%tlev_rad       , &
+          state%pmid_rad       , &
+          state%tmid_rad         &
+        )
         if (active_water) then
-          do l = 1, mesh%nlev
-            k = 2 * l + 2
-            state%qh2o(k) = mwratio * state%q(icol,l,iMa_vap)
-            state%qh2o(k+1) = state%qh2o(k)
+          do k = 1, mesh%nlev
+            l = 2 * k + 2
+            state%qh2o(l  ) = mwratio * state%q(icol,k,iMa_vap)
+            state%qh2o(l+1) = state%qh2o(l)
           end do
         else
-          do l = 1, mesh%nlev
-            k = 2 * l + 2
-            state%qh2o(k) = 1.0e-7_r8
-            state%qh2o(k+1) = state%qh2o(k)
+          do k = 1, mesh%nlev
+            l = 2 * k + 2
+            state%qh2o(l  ) = 1.0e-7_r8
+            state%qh2o(l+1) = state%qh2o(l)
           end do
         end if
         if (.not. active_dust) then
@@ -322,12 +288,12 @@ contains
             state%taurefdst    , &
             state%taudst(icol,2) &
           )
-          do k = 1, 3
-            state%taurefdst(k) = 0
-            state%taucum(k) = 0
+          do l = 1, 3
+            state%taurefdst(l) = 0
+            state%taucum   (l) = 0
           end do
-          do k = 4, 2 * mesh%nlev + 3
-            state%taucum(k) = state%taucum(k-1) + state%taurefdst(k)
+          do l = 4, 2 * mesh%nlev + 3
+            state%taucum(l) = state%taucum(l-1) + state%taurefdst(l)
           end do
         end if
         ! Fill special bottom radiation level to zero.
@@ -352,20 +318,17 @@ contains
         end if
         if (cosz >= 1.0e-5) then
           ! Check for ground ice. Change albedo if there is any ice.
-          state%surfalb(icol) = state%alsp(icol)
+          state%als(icol) = state%alsp(icol)
           if (state%co2ice(icol) > 0) then
-            if (mesh%lat(icol) > 0) then
-              state%surfalb(icol) = alicen
-            else
-              state%surfalb(icol) = alices
-            end if
-          else if (albfeed .and. state%qpig(iMa_vap) > icethresh_kgm2 .and. state%npcflag(icol)) then
-            state%surfalb(icol) = icealb
+            state%als(icol) = merge(alices, alicen, mesh%lat(icol) < 0)
+          else if (albfeed .and. state%tmg(icol,iMa_vap) > icethresh_kgm2 .and. state%polarcap(icol)) then
+            state%als(icol) = icealb
           end if
           ! Calculate optical depth due to all sources in the visible bands.
           call optcv( &
-            state%pl        , &
-            state%tl        , &
+            state%plev_rad  , &
+            state%pmid_rad  , &
+            state%tmid_rad  , &
             state%qh2o      , &
             state%qxvdst    , &
             state%qsvdst    , &
@@ -391,7 +354,7 @@ contains
             state%taugsurf      , &
             solar               , &
             cosz                , &
-            state%surfalb(icol) , &
+            state%als(icol) , &
             state%wbarv         , &
             state%cosbv         , &
             state%fluxupv       , &
@@ -402,16 +365,16 @@ contains
             state%detau(icol,:,:) &
           )
           state%suntot(3) = state%fmnetv(1) - nfluxtopv
-          do l = 2, nlayrad
-            k = 2 * l + 1
-            state%suntot(k) = state%fmnetv(l) - state%fmnetv(l-1)
+          do k = 2, nlayrad
+            l = 2 * k + 1
+            state%suntot(l) = state%fmnetv(k) - state%fmnetv(k-1)
           end do
         else
           ! If the sun is down, no solar flux, nor downward flux.
-          do l = 1, nlayrad
-            k = 2 * l + 1
-            state%suntot (k) = 0
-            state%fluxdnv(l) = 0
+          do k = 1, nlayrad
+            l = 2 * k + 1
+            state%suntot (l) = 0
+            state%fluxdnv(k) = 0
           end do
           diffvt = 0
           state%fluxupv(1) = 0
@@ -429,14 +392,80 @@ contains
         ! Check for ground ice, and change albedo if there is any ice.
         albi = 1 - egognd
         if (state%co2ice(icol) > 0) then
-          if (mesh%lat(icol) > 0) then
-            albi = 1 - egoco2n
-          else
-            albi = 1 - egoco2s
-          end if
+          albi = 1 - merge(egoco2s, egoco2n, mesh%lat(icol) < 0)
         end if
         ! Calculate the optical depth due to all sources in the infrared bands.
-        ! call optci
+        call optci(         &
+          state%plev_rad  , &
+          state%pmid_rad  , &
+          state%tmid_rad  , &
+          state%qh2o      , &
+          state%qxidst    , &
+          state%qsidst    , &
+          state%gidst     , &
+          state%qextrefdst, &
+          state%qxicld    , &
+          state%qsicld    , &
+          state%gicld     , &
+          state%qextrefcld, &
+          state%wbari     , &
+          state%cosbi     , &
+          state%dtaui     , &
+          state%taui      , &
+          state%taucumi   , &
+          state%taugsurf  , &
+          state%taurefdst , &
+          state%taurefcld   &
+        )
+        ! Calculate the fluxes in the infrared bands.
+        call sfluxi( &
+          state%plev_rad  , &
+          state%tlev_rad  , &
+          state%dtaui     , &
+          state%taucumi   , &
+          state%taugsurf  , &
+          albi            , &
+          state%wbari     , &
+          state%cosbi     , &
+          state%fluxupi   , &
+          state%fluxdni   , &
+          state%fmneti    , &
+          nfluxtopi         &
+        )
+        state%irtot(3) = state%fmneti(1) - nfluxtopi
+        do k = 2, nlayrad
+          state%irtot(2*k+1) = state%fmneti(k) - state%fmneti(k-1)
+        end do
+        state%dnirflux(icol) = state%fluxdni(nlayrad)
+        state%fluxsfc (icol) = (1 - state%als(icol)) * state%fluxdnv(nlayrad)
+        state%fuptopi (icol) = state%fluxupi(1)
+        state%fupsfci (icol) = state%fluxupi(nlayrad)
+        state%fdnsfci (icol) = state%fluxdni(nlayrad)
+        ! Change atmospheric temperature for solar and infrared heating.
+        ! Include heating rates in boundary layer scheme.
+        ! Store total radiative heating rates in qrad and later pass them into the new boundary layer scheme.
+        ! Also add in the non-LTE correction.
+        do l = 2, 2 * mesh%nlev + 2, 2
+          sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
+          rho = (state%pl(l+1) - state%pl(l-1)) / g
+          state%qrad(l) = (sunlte + state%irtot(l+1)) / (cpd * rho * state%om(l))
+        end do
+        ! Non-LTE fudge only the stratosphere.
+        l = 2
+        sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
+        rho = (state%pl(l+1) - state%pl(l-1)) / g
+        state%teta(l) = state%teta(l) + dt * (sunlte + state%irtot(l+1)) / (cpd * rho * state%om(l))
+        ! Update stratospheric temperature change.
+        l = 2
+        state%teta_save(l) = state%teta(l)
+        ! ----------------------------------------------------------------------
+        ! Planetary boundary layer calculation
+        state%z0(icol) = z00
+        if (state%co2ice(icol) > 0) state%z0(icol) = 1.0e-4_r8
+        if (state%tmg(icol,iMa_vap) > 100 .or. state%polarcap(icol)) state%z0(icol) = 1.0e-4_r8
+        ! call newpbl
+        ! ----------------------------------------------------------------------
+        ! Microphysics calculation
       end do columns
       end associate
     end do blocks

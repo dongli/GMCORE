@@ -24,6 +24,7 @@ module gomars_v1_namelist_mod
   logical  :: co2scav          = .false.
   logical  :: active_water     = .false.
   logical  :: albfeed          = .false.
+  logical  :: latent_heat      = .true.
 
   namelist /gomars_v1_control/ &
     psf                      , &
@@ -33,7 +34,8 @@ module gomars_v1_namelist_mod
     active_dust              , &
     co2scav                  , &
     active_water             , &
-    albfeed
+    albfeed                  , &
+    latent_heat
 
 contains
 

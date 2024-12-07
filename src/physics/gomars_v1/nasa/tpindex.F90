@@ -1,4 +1,4 @@
-subroutine tpindex(t, p, qh2o, coef, idx_t, idx_p, idx_h2o, wratio)
+subroutine tpindex(p, t, qh2o, coef, idx_t, idx_p, idx_h2o, wratio)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -9,8 +9,8 @@ subroutine tpindex(t, p, qh2o, coef, idx_t, idx_p, idx_h2o, wratio)
 
   implicit none
 
+  real(r8), intent(in ) :: p          ! FIXME: Check units.
   real(r8), intent(in ) :: t
-  real(r8), intent(in ) :: p
   real(r8), intent(in ) :: qh2o
   real(r8), intent(out) :: coef(4)
   integer , intent(out) :: idx_t      ! Temperature-grid index

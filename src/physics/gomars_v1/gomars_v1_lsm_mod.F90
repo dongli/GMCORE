@@ -31,8 +31,8 @@ contains
 
     call gomars_v1_lsm_final()
 
-    allocate(sthick(nl))
-    allocate(sdepth(nl))
+    allocate(sthick(nsoil))
+    allocate(sdepth(nsoil))
 
   end subroutine gomars_v1_lsm_init
 

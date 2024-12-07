@@ -21,14 +21,18 @@ module gomars_v1_pbl_mod
   public gomars_v1_pbl_init
   public gomars_v1_pbl_final
 
-  real(r8), parameter :: rmu    = 1.0_r8
-  real(r8), parameter :: z0     = 0.01_r8
-  real(r8), parameter :: epsl0  = 0.1_r8
-  real(r8), parameter :: vk     = 0.4_r8
-  real(r8), parameter :: alphl0 = 0.1_r8
-  real(r8), parameter :: ric    = 0.195_r8
-  real(r8), parameter :: factl  = 0.25_r8
-  real(r8), parameter :: factm  = 1.2_r8
+  integer , public, parameter :: nvar   = 4
+
+  real(r8), public, parameter :: rmu    = 1.0_r8
+  real(r8), public, parameter :: z00    = 0.01_r8
+  real(r8), public, parameter :: epsl0  = 0.1_r8
+  ! Maximum mixing length (m)
+  real(r8), public, parameter :: ml0    = 150.0_r8
+  real(r8), public, parameter :: alphl0 = 0.1_r8
+  ! Critical Richardson number above which turbulence is suppressed
+  real(r8), public, parameter :: ric    = 0.195_r8
+  real(r8), public, parameter :: factl  = 0.25_r8
+  real(r8), public, parameter :: factm  = 1.2_r8
 
   real(r8), parameter :: rmu1mu = (1 - rmu) / rmu
   real(r8) dtmu

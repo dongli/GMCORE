@@ -28,7 +28,6 @@ subroutine gfluxv(dtdel, tdel, taucumin, wdel, cdel, cosz, sol, als, &
   real(r8), intent(out) :: detau
 
   integer , parameter :: nlp = 101 ! Must be larger than 2*nlev+3
-  real(r8), parameter :: sqrt3 = sqrt(3.0_r8)
   integer k, l
   real(r8) factor
   real(r8) tau   (nlevrad)

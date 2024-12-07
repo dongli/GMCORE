@@ -19,7 +19,7 @@ module gomars_v1_const_mod
   implicit none
 
   ! Number of soil layers
-  integer , parameter :: nl        = 40
+  integer , parameter :: nsoil     = 40
   ! Number of aerosol tracers
   integer , parameter :: naer      = 5
   ! Tracer size bin for radiation
@@ -103,6 +103,10 @@ module gomars_v1_const_mod
   real(r8), parameter :: scaveff   = 0.6_r8
   ! 1/3
   real(r8), parameter :: athird    = 1.0_r8 / 3.0_r8
+  ! sqrt(2)
+  real(r8), parameter :: sqrt2     = sqrt(2.0_r8)
+  ! sqrt(3)
+  real(r8), parameter :: sqrt3     = sqrt(3.0_r8)
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop

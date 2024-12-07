@@ -31,35 +31,35 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
 
   n = 2 * nlev + 3
 
-  do k = 1, n + 1
-    qextrefcld(k) = 1
-    taurefcld (k) = 0
+  do l = 1, n + 1
+    qextrefcld(l) = 1
+    taurefcld (l) = 0
   end do
 
   do is = 1, nspectv
-    do k = 1, n + 1
-      qxv(k,is) = qextrefcld(k)
-      qsv(k,is) = qextrefcld(k) * 0.99_r8
-      gv (k,is) = 0
+    do l = 1, n + 1
+      qxv(l,is) = qextrefcld(l)
+      qsv(l,is) = qextrefcld(l) * 0.99_r8
+      gv (l,is) = 0
     end do
   end do
 
   do is = 1, nspecti
-    do k = 1, n + 1
-      qxi(k,is) = qextrefcld(k)
-      qsi(k,is) = qextrefcld(k) * 0.99_r8
-      gi (k,is) = 0
+    do l = 1, n + 1
+      qxi(l,is) = qextrefcld(l)
+      qsi(l,is) = qextrefcld(l) * 0.99_r8
+      gi (l,is) = 0
     end do
   end do
 
-  dev2 = 1.0_r8 / (sqrt(2.0_r8) * dev_ice)
+  dev2 = 1.0_r8 / (sqrt2 * dev_ice)
 
   taucld = 0
 
-  do l = 1, nlev
-    if (q(l,iMa_cld) + q(l,iMa_cor) > 1.0e-7 .and. q(l,iNb_cld) > 1) then
+  do k = 1, nlev
+    if (q(k,iMa_cld) + q(k,iMa_cor) > 1.0e-7 .and. q(k,iNb_cld) > 1) then
       ! Determine the ratio of dust core over that of ice mantle.
-      mantletocore = (q(l,iMa_cor) / dpden_dt / (q(l,iMa_cld) / dpden_ice + q(l,iMa_cor) / dpden_dt))**athird
+      mantletocore = (q(k,iMa_cor) / dpden_dt / (q(k,iMa_cld) / dpden_ice + q(k,iMa_cor) / dpden_dt))**athird
       ! Find the index to which corresponds the optical properties of the core to mantle ratio.
       ! Those properties were determined off-line using the Toon and Ackerman coated spheres code.
       irap = nratio
@@ -76,9 +76,9 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
         end if
       end do
       ! Calculate the cross-section mean radius (Rs) of the log-normal distribution.
-      Mo = q(l,iMa_cld) + q(l,iMa_cor)
-      No = q(l,iNb_cld)
-      cst = 0.75_r8 / (pi * (q(l,iMa_cld) / dpden_ice + q(l,iMa_cor) / dpden_dt) / Mo)
+      Mo = q(k,iMa_cld) + q(k,iMa_cor)
+      No = q(k,iNb_cld)
+      cst = 0.75_r8 / (pi * (q(k,iMa_cld) / dpden_ice + q(k,iMa_cor) / dpden_dt) / Mo)
       Rs = (Mo / No * cst)**athird * exp(-0.5_r8 * dev_ice**2)
       ! Calculate the total cross sectional area (Ao) of water ice particles.
       Ao = No * pi * Rs**2
@@ -89,32 +89,32 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
         surf(ib) = 0.5_r8 * (erf(log(radb_rt(ib+1) * Rs) * dev2) - erf(log(radb_rt(ib) * Rs) * dev2))
       end do
       ! Calculate the averaged values of the optical properties for the whole distribution.
-      do k = 2 * l + 2, 2 * l + 3
+      do l = 2 * k + 2, 2 * k + 3
         do is = 1, nspectv
-          qxv(k,is) = 0
-          qsv(k,is) = 0
+          qxv(l,is) = 0
+          qsv(l,is) = 0
           do ib = 1, nbin_rt
-            qxv(k,is) = qxv(k,is) + surf(ib) * qextv_cld (irap,ib,is)
-            qsv(k,is) = qsv(k,is) + surf(ib) * qscatv_cld(irap,ib,is)
-            gv (k,is) = gv (k,is) + surf(ib) * gv_cld    (irap,ib,is)
+            qxv(l,is) = qxv(l,is) + surf(ib) * qextv_cld (irap,ib,is)
+            qsv(l,is) = qsv(l,is) + surf(ib) * qscatv_cld(irap,ib,is)
+            gv (l,is) = gv (l,is) + surf(ib) * gv_cld    (irap,ib,is)
           end do
-          qsv(k,is) = min(qsv(k,is), 0.99999_r8 * qxv(k,is))
+          qsv(l,is) = min(qsv(l,is), 0.99999_r8 * qxv(l,is))
         end do
         do is = 1, nspecti
-          qxi(k,is) = 0
-          qsi(k,is) = 0
+          qxi(l,is) = 0
+          qsi(l,is) = 0
           do ib = 1, nbin_rt
-            qxi(k,is) = qxi(k,is) + surf(ib) * qexti_cld (irap,ib,is)
-            qsi(k,is) = qsi(k,is) + surf(ib) * qscati_cld(irap,ib,is)
-            gi (k,is) = gi (k,is) + surf(ib) * gi_cld    (irap,ib,is)
+            qxi(l,is) = qxi(l,is) + surf(ib) * qexti_cld (irap,ib,is)
+            qsi(l,is) = qsi(l,is) + surf(ib) * qscati_cld(irap,ib,is)
+            gi (l,is) = gi (l,is) + surf(ib) * gi_cld    (irap,ib,is)
           end do
-          qsi(k,is) = min(qsi(k,is), 0.99999_r8 * qxi(k,is))
+          qsi(l,is) = min(qsi(l,is), 0.99999_r8 * qxi(l,is))
         end do
-        qextrefcld(k) = qxv(k,nrefv)
-        taurefcld (k) = Ao * qextrefcld(k) * (pl(k) - pl(k-1)) / g
+        qextrefcld(l) = qxv(l,nrefv)
+        taurefcld (l) = Ao * qextrefcld(l) * (pl(l) - pl(l-1)) / g
         ! For diagnostics: cloud opacity at reference wavelengths (vis and ir).
-        taucld(1) = taucld(1) + taurefcld(k)
-        taucld(2) = taucld(2) + taurefcld(k) / qextrefcld(k) * (qxi(k,4) - qsi(k,4))
+        taucld(1) = taucld(1) + taurefcld(l)
+        taucld(2) = taucld(2) + taurefcld(l) / qextrefcld(l) * (qxi(l,4) - qsi(l,4))
       end do
     end if
   end do

@@ -13,6 +13,7 @@
 module gomars_v1_rad_mod
 
   use gomars_v1_const_mod
+  use gomars_v1_orbit_mod
 
   implicit none
 
@@ -20,6 +21,7 @@ module gomars_v1_rad_mod
 
   public gomars_v1_rad_init
   public gomars_v1_rad_final
+  public update_solar
   public qexti, qscati, gi, wi, fzeroi
   public qextv, qscatv, gv, wv, fzerov
   public solar_1au, solar, gweight
@@ -27,6 +29,7 @@ module gomars_v1_rad_mod
   public wrefco2, wrefh2o
   public wnov, dwnv, wavev
   public wnoi, dwni, wavei
+  public planckir
 
   real(r8), public, parameter :: ubari = 0.5_r8
   ! If optical depth is less than this value, place the Gauss-point into the
@@ -167,5 +170,21 @@ contains
     if (allocated(pfgasref )) deallocate(pfgasref )
 
   end subroutine gomars_v1_rad_final
+
+  subroutine update_solar(ls)
+
+    real(r8), intent(in) :: ls
+
+    integer is
+    real(r8) rsdist
+
+    rsdist = solar_dist(ls)**2
+    
+    ! Calculate solar flux at the current Mars distance.
+    do is = 1, nspectv
+      solar(is) = solar_1au(is) * rsdist
+    end do
+
+  end subroutine update_solar
 
 end module gomars_v1_rad_mod

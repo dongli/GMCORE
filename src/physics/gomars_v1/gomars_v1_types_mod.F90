@@ -28,8 +28,6 @@ module gomars_v1_types_mod
   type, extends(physics_state_type) :: gomars_v1_state_type
     ! Stratospheric temperature (K)
     real(r8), allocatable, dimension(:      ) :: tstrat
-    ! Surface temperature (K)
-    real(r8), allocatable, dimension(:      ) :: gt
     ! Surface CO2 ice (?)
     real(r8), allocatable, dimension(:      ) :: co2ice
     !
@@ -71,11 +69,21 @@ module gomars_v1_types_mod
     !
     real(r8), allocatable, dimension(  :,:,:) :: cosbv
     !
+    real(r8), allocatable, dimension(  :,:,:) :: wbari
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: cosbi
+    !
     real(r8), allocatable, dimension(  :    ) :: fluxupv
     !
     real(r8), allocatable, dimension(  :    ) :: fluxdnv
     !
     real(r8), allocatable, dimension(  :    ) :: fmnetv
+    !
+    real(r8), allocatable, dimension(  :    ) :: fluxupi
+    !
+    real(r8), allocatable, dimension(  :    ) :: fluxdni
+    !
+    real(r8), allocatable, dimension(  :    ) :: fmneti
     !
     real(r8), allocatable, dimension(:      ) :: fuptopv
     !
@@ -97,8 +105,6 @@ module gomars_v1_types_mod
     ! Downward IR flux at the surface
     real(r8), allocatable, dimension(:      ) :: dnirflux
     !
-    real(r8), allocatable, dimension(:,    :) :: srfdnflx
-    !
     real(r8), allocatable, dimension(  :    ) :: taurefdst
     !
     real(r8), allocatable, dimension(  :    ) :: taurefcld
@@ -118,24 +124,44 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(  :,:,:) :: tauv
     !
     real(r8), allocatable, dimension(  :,:,:) :: taucumv
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: dtaui
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: taui
+    !
+    real(r8), allocatable, dimension(  :,:,:) :: taucumi
     ! Delta-Eddington optical depth (???)
     real(r8), allocatable, dimension(:,  :,:) :: detau
     !
     real(r8), allocatable, dimension(  :    ) :: suntot
+    !
+    real(r8), allocatable, dimension(  :    ) :: irtot
     ! Solar flux at the current Mars distance
     real(r8), allocatable, dimension(    :  ) :: solar
     ! Total absorption of solar energy by the atmosphere (?)
     real(r8), allocatable, dimension(:      ) :: ssun
+    !
+    real(r8), allocatable, dimension(:      ) :: fluxsfc
+    !
+    real(r8), allocatable, dimension(  :    ) :: qrad
     ! Exchange of heat between surface and air (W m-2)
     real(r8), allocatable, dimension(:      ) :: fa
-    ! Surface albedo
+    ! Surface albedo from data
     real(r8), allocatable, dimension(:      ) :: alsp
-    !
-    real(r8), allocatable, dimension(:      ) :: surfalb
-    ! North pole cap flag
-    logical , allocatable, dimension(:      ) :: npcflag
+    ! Surface albedo considering surface CO2 ice
+    real(r8), allocatable, dimension(:      ) :: als
+    ! Polar cap flag
+    logical , allocatable, dimension(:      ) :: polarcap
     !
     real(r8), allocatable, dimension(:      ) :: rhouch
+    ! Squared wind shear (s-1)
+    real(r8), allocatable, dimension(:,:    ) :: shr2
+    ! Gradient Richardson number
+    real(r8), allocatable, dimension(:,:    ) :: ri
+    ! Eddy mixing coefficient for momentum (m2 s-1)
+    real(r8), allocatable, dimension(:,:    ) :: km
+    ! Eddy mixing coefficient for heat (m2 s-1)
+    real(r8), allocatable, dimension(:,:    ) :: kh
     ! Thermal inertia (J m-2 K-1 s-1/2)
     real(r8), allocatable, dimension(:,:    ) :: zin
     real(r8), allocatable, dimension(:,:    ) :: rhosoil
@@ -144,7 +170,7 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:,:    ) :: scond
     !
     real(r8), allocatable, dimension(:,:    ) :: stemp
-    !
+    ! Downward flux of water at the surface (???) FIXME: Is subflux in tmfdns?
     real(r8), allocatable, dimension(:      ) :: subflux
     !
     real(r8), allocatable, dimension(:      ) :: gndice
@@ -154,22 +180,26 @@ module gomars_v1_types_mod
     real(r8) :: rsdist
     ! Temperature at all levels with two extra levels at the top (K)
     real(r8), allocatable, dimension(    :  ) :: tl
+    ! Temperature at radiation levels (K)
+    real(r8), allocatable, dimension(    :  ) :: tlev_rad
+    ! Temperature at radiation levels (K)
+    real(r8), allocatable, dimension(    :  ) :: tmid_rad
     ! Potential temperature at all levels with two extra levels at the top (K)
     real(r8), allocatable, dimension(    :  ) :: teta
+    real(r8), allocatable, dimension(    :  ) :: teta_save
     ! Pressure at all levels with two extra levels at the top (Pa)
     real(r8), allocatable, dimension(    :  ) :: pl
     real(r8), allocatable, dimension(    :  ) :: plogadj
-    ! Zonal wind at all levels with two extra levels at the top (m s-1)
-    real(r8), allocatable, dimension(    :  ) :: upi
-    ! Meridional wind at all levels with two extra levels at the top (m s-1)
-    real(r8), allocatable, dimension(    :  ) :: vpi
-    ! Tracer mixing ratio at all levels with two extra levels at the top (kg kg-1)
-    real(r8), allocatable, dimension(    :,:) :: qpi
-    real(r8), allocatable, dimension(    :  ) :: qpig
+    ! Pressure at radiation levels (Pa)
+    real(r8), allocatable, dimension(    :  ) :: plev_rad
+    ! Pressure at radiation levels (Pa)
+    real(r8), allocatable, dimension(    :  ) :: pmid_rad
+    ! Condensated mass of tracers on the surface (kg m-2)
+    real(r8), allocatable, dimension(:,  :  ) :: tmg
     real(r8), allocatable, dimension(    :  ) :: aadj
     real(r8), allocatable, dimension(    :  ) :: badj
     real(r8), allocatable, dimension(    :  ) :: om
-    !
+    ! Water mixing ratio on the full and half levels (kg kg-1)
     real(r8), allocatable, dimension(    :  ) :: qh2o
   contains
     procedure :: init  => gomars_v1_state_init
@@ -178,6 +208,8 @@ module gomars_v1_types_mod
   end type gomars_v1_state_type
 
   type, extends(physics_tend_type) :: gomars_v1_tend_type
+    ! Wind speed tendency due to planetary boundary layer (m s-1 s-1)
+    real(r8), allocatable, dimension(:,:) :: dudt_pbl
   contains
     procedure :: init  => gomars_v1_tend_init
     procedure :: clear => gomars_v1_tend_clear
@@ -194,12 +226,10 @@ contains
     call this%clear()
 
     allocate(this%tstrat    (mesh%ncol                   )); this%tstrat     = 0
-    allocate(this%gt        (mesh%ncol                   )); this%gt         = 0
     allocate(this%co2ice    (mesh%ncol                   )); this%co2ice     = 0
     allocate(this%latheat   (mesh%ncol                   )); this%latheat    = 0
     allocate(this%atmcond   (mesh%ncol,mesh%nlev         )); this%atmcond    = 0
     allocate(this%qcond     (mesh%ncol,ntracers          )); this%qcond      = 0
-
     allocate(this%qxvdst    (2*mesh%nlev+4,nspectv       )); this%qxvdst     = 0
     allocate(this%qsvdst    (2*mesh%nlev+4,nspectv       )); this%qsvdst     = 0
     allocate(this%gvdst     (2*mesh%nlev+4,nspectv       )); this%gvdst      = 0
@@ -216,9 +246,14 @@ contains
     allocate(this%qextrefcld(2*mesh%nlev+4               )); this%qextrefcld = 0
     allocate(this%wbarv     (nlayrad,nspectv,ngauss      )); this%wbarv      = 0
     allocate(this%cosbv     (nlayrad,nspectv,ngauss      )); this%cosbv      = 0
+    allocate(this%wbari     (nlayrad,nspecti,ngauss      )); this%wbari      = 0
+    allocate(this%cosbi     (nlayrad,nspecti,ngauss      )); this%cosbi      = 0
     allocate(this%fluxupv   (nlayrad                     )); this%fluxupv    = 0
     allocate(this%fluxdnv   (nlayrad                     )); this%fluxdnv    = 0
     allocate(this%fmnetv    (nlayrad                     )); this%fmnetv     = 0
+    allocate(this%fluxupi   (nlayrad                     )); this%fluxupi    = 0
+    allocate(this%fluxdni   (nlayrad                     )); this%fluxdni    = 0
+    allocate(this%fmneti    (nlayrad                     )); this%fmneti     = 0
     allocate(this%fuptopv   (mesh%ncol                   )); this%fuptopv    = 0
     allocate(this%fdntopv   (mesh%ncol                   )); this%fdntopv    = 0
     allocate(this%fupsfcv   (mesh%ncol                   )); this%fupsfcv    = 0
@@ -229,7 +264,6 @@ contains
     allocate(this%dndiffv   (mesh%ncol                   )); this%dndiffv    = 0
     allocate(this%dnvflux   (mesh%ncol                   )); this%dnvflux    = 0
     allocate(this%dnirflux  (mesh%ncol                   )); this%dnirflux   = 0
-    allocate(this%srfdnflx  (mesh%ncol,          ntracers)); this%srfdnflx   = 0
     allocate(this%taurefdst (2*mesh%nlev+4               )); this%taurefdst  = 0
     allocate(this%taurefcld (2*mesh%nlev+4               )); this%taurefcld  = 0
     allocate(this%taucum    (2*mesh%nlev+3               )); this%taucum     = 0
@@ -240,31 +274,43 @@ contains
     allocate(this%dtauv     (nlayrad,nspectv,ngauss      )); this%dtauv      = 0
     allocate(this%tauv      (nlevrad,nspectv,ngauss      )); this%tauv       = 0
     allocate(this%taucumv   (2*mesh%nlev+3,nspectv,ngauss)); this%taucumv    = 0
+    allocate(this%dtaui     (nlayrad,nspecti,ngauss      )); this%dtaui      = 0
+    allocate(this%taui      (nlevrad,nspecti,ngauss      )); this%taui       = 0
+    allocate(this%taucumi   (2*mesh%nlev+3,nspecti,ngauss)); this%taucumi    = 0
     allocate(this%detau     (mesh%ncol,nspectv,ngauss    )); this%detau      = 0
     allocate(this%suntot    (2*mesh%nlev+3               )); this%suntot     = 0
+    allocate(this%irtot     (2*mesh%nlev+3               )); this%irtot      = 0
     allocate(this%solar     (nspectv                     )); this%solar      = 0
     allocate(this%ssun      (mesh%ncol                   )); this%ssun       = 0
+    allocate(this%fluxsfc   (mesh%ncol                   )); this%fluxsfc    = 0
+    allocate(this%qrad      (2*mesh%nlev+3               )); this%qrad       = 0
     allocate(this%fa        (mesh%ncol                   )); this%fa         = 0
     allocate(this%alsp      (mesh%ncol                   )); this%alsp       = 0
-    allocate(this%surfalb   (mesh%ncol                   )); this%surfalb    = 0
-    allocate(this%npcflag   (mesh%ncol                   )); this%npcflag    = .false.
+    allocate(this%als       (mesh%ncol                   )); this%als        = 0
+    allocate(this%polarcap  (mesh%ncol                   )); this%polarcap   = .false.
     allocate(this%rhouch    (mesh%ncol                   )); this%rhouch     = 0
-    allocate(this%zin       (mesh%ncol,nl                )); this%zin        = 0
-    allocate(this%rhosoil   (mesh%ncol,nl                )); this%rhosoil    = 0
-    allocate(this%cpsoil    (mesh%ncol,nl                )); this%cpsoil     = 0
-    allocate(this%scond     (mesh%ncol,2*nl+1            )); this%scond      = 0
-    allocate(this%stemp     (mesh%ncol,2*nl+1            )); this%stemp      = 0
+    allocate(this%shr2      (mesh%ncol,mesh%nlev+1       )); this%shr2       = 0
+    allocate(this%ri        (mesh%ncol,mesh%nlev+1       )); this%ri         = 0
+    allocate(this%km        (mesh%ncol,mesh%nlev+1       )); this%km         = 0
+    allocate(this%kh        (mesh%ncol,mesh%nlev+1       )); this%kh         = 0
+    allocate(this%zin       (mesh%ncol,nsoil             )); this%zin        = 0
+    allocate(this%rhosoil   (mesh%ncol,nsoil             )); this%rhosoil    = 0
+    allocate(this%cpsoil    (mesh%ncol,nsoil             )); this%cpsoil     = 0
+    allocate(this%scond     (mesh%ncol,2*nsoil+1         )); this%scond      = 0
+    allocate(this%stemp     (mesh%ncol,2*nsoil+1         )); this%stemp      = 0
     allocate(this%subflux   (mesh%ncol                   )); this%subflux    = 0
     allocate(this%gndice    (mesh%ncol                   )); this%gndice     = 0
     allocate(this%dmadt     (mesh%ncol                   )); this%dmadt      = 0
     allocate(this%tl        (2*mesh%nlev+3               )); this%tl         = 0
+    allocate(this%tlev_rad  (2*mesh%nlev+3               )); this%tlev_rad   = 0
+    allocate(this%tmid_rad  (2*mesh%nlev+3               )); this%tmid_rad   = 0
     allocate(this%teta      (2*mesh%nlev+3               )); this%teta       = 0
+    allocate(this%teta_save (2*mesh%nlev+3               )); this%teta_save  = 0
     allocate(this%pl        (2*mesh%nlev+3               )); this%pl         = 0
     allocate(this%plogadj   (2*mesh%nlev+3               )); this%plogadj    = 0
-    allocate(this%upi       (2*mesh%nlev+3               )); this%upi        = 0
-    allocate(this%vpi       (2*mesh%nlev+3               )); this%vpi        = 0
-    allocate(this%qpi       (2*mesh%nlev+3,ntracers      )); this%qpi        = 0
-    allocate(this%qpig      (              ntracers      )); this%qpig       = 0
+    allocate(this%plev_rad  (2*mesh%nlev+3               )); this%plev_rad   = 0
+    allocate(this%pmid_rad  (2*mesh%nlev+3               )); this%pmid_rad   = 0
+    allocate(this%tmg       (mesh%ncol,    ntracers      )); this%tmg        = 0
     allocate(this%aadj      (2*mesh%nlev+3               )); this%aadj       = 0
     allocate(this%badj      (2*mesh%nlev+3               )); this%badj       = 0
     allocate(this%om        (2*mesh%nlev+3               )); this%om         = 0
@@ -279,7 +325,6 @@ contains
     class(gomars_v1_state_type), intent(inout) :: this
 
     if (allocated(this%tstrat    )) deallocate(this%tstrat    )
-    if (allocated(this%gt        )) deallocate(this%gt        )
     if (allocated(this%co2ice    )) deallocate(this%co2ice    )
     if (allocated(this%latheat   )) deallocate(this%latheat   )
     if (allocated(this%atmcond   )) deallocate(this%atmcond   )
@@ -300,9 +345,14 @@ contains
     if (allocated(this%qextrefcld)) deallocate(this%qextrefcld)
     if (allocated(this%wbarv     )) deallocate(this%wbarv     )
     if (allocated(this%cosbv     )) deallocate(this%cosbv     )
+    if (allocated(this%wbari     )) deallocate(this%wbari     )
+    if (allocated(this%cosbi     )) deallocate(this%cosbi     )
     if (allocated(this%fluxupv   )) deallocate(this%fluxupv   )
     if (allocated(this%fluxdnv   )) deallocate(this%fluxdnv   )
     if (allocated(this%fmnetv    )) deallocate(this%fmnetv    )
+    if (allocated(this%fluxupi   )) deallocate(this%fluxupi   )
+    if (allocated(this%fluxdni   )) deallocate(this%fluxdni   )
+    if (allocated(this%fmneti    )) deallocate(this%fmneti    )
     if (allocated(this%fuptopv   )) deallocate(this%fuptopv   )
     if (allocated(this%fdntopv   )) deallocate(this%fdntopv   )
     if (allocated(this%fupsfcv   )) deallocate(this%fupsfcv   )
@@ -314,7 +364,6 @@ contains
     if (allocated(this%dndiffv   )) deallocate(this%dndiffv   )
     if (allocated(this%dnvflux   )) deallocate(this%dnvflux   )
     if (allocated(this%dnirflux  )) deallocate(this%dnirflux  )
-    if (allocated(this%srfdnflx  )) deallocate(this%srfdnflx  )
     if (allocated(this%taurefdst )) deallocate(this%taurefdst )
     if (allocated(this%taurefcld )) deallocate(this%taurefcld )
     if (allocated(this%taucum    )) deallocate(this%taucum    )
@@ -325,15 +374,25 @@ contains
     if (allocated(this%dtauv     )) deallocate(this%dtauv     )
     if (allocated(this%tauv      )) deallocate(this%tauv      )
     if (allocated(this%taucumv   )) deallocate(this%taucumv   )
+    if (allocated(this%dtaui     )) deallocate(this%dtaui     )
+    if (allocated(this%taui      )) deallocate(this%taui      )
+    if (allocated(this%taucumi   )) deallocate(this%taucumi   )
     if (allocated(this%detau     )) deallocate(this%detau     )
     if (allocated(this%suntot    )) deallocate(this%suntot    )
+    if (allocated(this%irtot     )) deallocate(this%irtot     )
     if (allocated(this%solar     )) deallocate(this%solar     )
     if (allocated(this%ssun      )) deallocate(this%ssun      )
+    if (allocated(this%fluxsfc   )) deallocate(this%fluxsfc   )
+    if (allocated(this%qrad      )) deallocate(this%qrad      )
     if (allocated(this%fa        )) deallocate(this%fa        )
     if (allocated(this%alsp      )) deallocate(this%alsp      )
-    if (allocated(this%surfalb   )) deallocate(this%surfalb   )
-    if (allocated(this%npcflag   )) deallocate(this%npcflag   )
+    if (allocated(this%als       )) deallocate(this%als       )
+    if (allocated(this%polarcap  )) deallocate(this%polarcap  )
     if (allocated(this%rhouch    )) deallocate(this%rhouch    )
+    if (allocated(this%shr2      )) deallocate(this%shr2      )
+    if (allocated(this%ri        )) deallocate(this%ri        )
+    if (allocated(this%km        )) deallocate(this%km        )
+    if (allocated(this%kh        )) deallocate(this%kh        )
     if (allocated(this%zin       )) deallocate(this%zin       )
     if (allocated(this%rhosoil   )) deallocate(this%rhosoil   )
     if (allocated(this%cpsoil    )) deallocate(this%cpsoil    )
@@ -343,12 +402,15 @@ contains
     if (allocated(this%gndice    )) deallocate(this%gndice    )
     if (allocated(this%dmadt     )) deallocate(this%dmadt     )
     if (allocated(this%tl        )) deallocate(this%tl        )
+    if (allocated(this%tlev_rad  )) deallocate(this%tlev_rad  )
+    if (allocated(this%tmid_rad  )) deallocate(this%tmid_rad  )
     if (allocated(this%teta      )) deallocate(this%teta      )
+    if (allocated(this%teta_save )) deallocate(this%teta_save )
     if (allocated(this%pl        )) deallocate(this%pl        )
     if (allocated(this%plogadj   )) deallocate(this%plogadj   )
-    if (allocated(this%upi       )) deallocate(this%upi       )
-    if (allocated(this%vpi       )) deallocate(this%vpi       )
-    if (allocated(this%qpi       )) deallocate(this%qpi       )
+    if (allocated(this%plev_rad  )) deallocate(this%plev_rad  )
+    if (allocated(this%pmid_rad  )) deallocate(this%pmid_rad  )
+    if (allocated(this%tmg       )) deallocate(this%tmg       )
     if (allocated(this%aadj      )) deallocate(this%aadj      )
     if (allocated(this%badj      )) deallocate(this%badj      )
     if (allocated(this%om        )) deallocate(this%om        )
@@ -373,11 +435,15 @@ contains
 
     call this%physics_tend_init(mesh)
 
+    allocate(this%dudt_pbl(mesh%ncol,2*mesh%nlev+1))
+
   end subroutine gomars_v1_tend_init
 
   subroutine gomars_v1_tend_clear(this)
 
     class(gomars_v1_tend_type), intent(inout) :: this
+
+    if (allocated(this%dudt_pbl)) deallocate(this%dudt_pbl)
 
   end subroutine gomars_v1_tend_clear
 

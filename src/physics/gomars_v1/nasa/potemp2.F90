@@ -1,4 +1,13 @@
-subroutine potemp2(ps, tstrat, aadj, badj, plogadj, pl, om, tl, teta)
+subroutine potemp2( &
+  ps              , &
+  tstrat          , &
+  aadj            , &
+  badj            , &
+  plogadj         , &
+  pl              , &
+  om              , &
+  tl              , &
+  teta            )
 
   use gomars_v1_const_mod
   use vert_coord_mod
@@ -7,13 +16,13 @@ subroutine potemp2(ps, tstrat, aadj, badj, plogadj, pl, om, tl, teta)
 
   real(r8), intent(in   ) :: ps
   real(r8), intent(in   ) :: tstrat
-  real(r8), intent(in   ), dimension(2*nlev+3) :: aadj
-  real(r8), intent(in   ), dimension(2*nlev+3) :: badj
-  real(r8), intent(  out), dimension(2*nlev+3) :: plogadj
-  real(r8), intent(  out), dimension(2*nlev+3) :: pl
-  real(r8), intent(  out), dimension(2*nlev+3) :: om
-  real(r8), intent(inout), dimension(2*nlev+3) :: tl
-  real(r8), intent(  out), dimension(2*nlev+3) :: teta
+  real(r8), intent(in   ) :: aadj   (2*nlev+3)
+  real(r8), intent(in   ) :: badj   (2*nlev+3)
+  real(r8), intent(  out) :: plogadj(2*nlev+3)
+  real(r8), intent(  out) :: pl     (2*nlev+3)
+  real(r8), intent(  out) :: om     (2*nlev+3)
+  real(r8), intent(inout) :: tl     (2*nlev+3)
+  real(r8), intent(  out) :: teta   (2*nlev+3)
 
   integer n, k
   real(r8) dps, slope
@@ -21,6 +30,7 @@ subroutine potemp2(ps, tstrat, aadj, badj, plogadj, pl, om, tl, teta)
   n = 2 * nlev + 3
 
   pl(2) = ptrop * 0.5_r8
+  om(2) = (pl(2) / p0)**rd_o_cpd
   do k = 3, n, 2
     pl(k) = vert_coord_calc_mg_lev((k - 1) / 2, ps)
     om(k) = (pl(k) / p0)**rd_o_cpd
