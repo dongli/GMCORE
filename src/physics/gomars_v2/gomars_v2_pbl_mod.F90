@@ -138,7 +138,7 @@ contains
           kh(icol,k) = kh0 * (1 - ri / ric)
         end if
         ! Limit the coefficients.
-        kmin = merge(0.1_r8, 0.001_r8, z(icol,k) < 300)
+        kmin = merge(0.1_r8, 0.001_r8, z_lev(icol,k) < 300)
         km(icol,k) = max(km(icol,k), kmin)
         kh(icol,k) = max(kh(icol,k), kmin)
       end do

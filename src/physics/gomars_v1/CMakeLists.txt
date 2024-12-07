@@ -54,5 +54,6 @@ target_sources(gmcore PRIVATE
   nasa/gfluxi.F90
   nasa/sfluxi.F90
   nasa/eddycoef.F90
+  nasa/bndcond.F90
   nasa/newpbl.F90
 )
