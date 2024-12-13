@@ -36,8 +36,10 @@ module physics_types_mod
     real(r8), allocatable, dimension(:    ) :: tg
     ! Lowest model level temperature (K)
     real(r8), pointer    , dimension(:    ) :: t_bot
-    ! Potential temperature (K)
+    ! Potential temperature on full levels (K)
     real(r8), allocatable, dimension(:,:  ) :: pt
+    ! Potential temperature on half levels (K)
+    real(r8), allocatable, dimension(:,:  ) :: pt_lev
     ! Tracer mixing ratio (wet)
     real(r8), allocatable, dimension(:,:,:) :: q
     ! Tracer mass down flux on the surface (kg m-2 s-1)
@@ -166,6 +168,7 @@ contains
     allocate(this%t         (mesh%ncol,mesh%nlev         ))
     allocate(this%tg        (mesh%ncol                   ))
     allocate(this%pt        (mesh%ncol,mesh%nlev         ))
+    allocate(this%pt_lev    (mesh%ncol,mesh%nlev+1       ))
     allocate(this%q         (mesh%ncol,mesh%nlev,ntracers))
     allocate(this%tmfdns    (mesh%ncol,          ntracers))
     allocate(this%p         (mesh%ncol,mesh%nlev         ))
@@ -225,6 +228,7 @@ contains
     if (allocated(this%t        )) deallocate(this%t        )
     if (allocated(this%tg       )) deallocate(this%tg       )
     if (allocated(this%pt       )) deallocate(this%pt       )
+    if (allocated(this%pt_lev   )) deallocate(this%pt_lev   )
     if (allocated(this%q        )) deallocate(this%q        )
     if (allocated(this%tmfdns   )) deallocate(this%tmfdns   )
     if (allocated(this%p        )) deallocate(this%p        )

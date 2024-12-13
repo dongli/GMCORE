@@ -88,9 +88,8 @@ module supercell_test_mod
        theta0     = 300.d0     ,      & ! theta at the equatorial surface
        theta_tr   = 343.d0     ,      & ! theta at the tropopause
        z_tr       = 12000.d0   ,      & ! altitude at the tropopause
-       T_tr       = 213.d0     ,      & ! temperature at the tropopause
+       t_tr       = 213.d0     ,      & ! temperature at the tropopause
        pseq       = 100000.0d0          ! surface pressure at equator (Pa)
-       !pseq       = 95690.0d0           ! surface pressure at equator (Pa)
 
   real(8), parameter ::               &
        us         = 30.d0      ,      & ! maximum zonal wind velocity
@@ -641,7 +640,7 @@ contains
 
     ! Temperature
     if (present(t)) then
-      t = thetav / (1.d0 + 0.61d0 * qv) * (p / p0)**(Rd/cp)
+      t = thetav / (1.d0 + 0.61d0 * qv) * (p / p0)**(Rd / cp)
     end if
 
   end subroutine supercell_test

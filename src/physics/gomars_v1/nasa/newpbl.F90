@@ -1,62 +1,143 @@
 subroutine newpbl( &
-  z0, ps, tg, pl, teta, om, u, v, q, z, z_lev, dz_lev, &
-  shr2, ri, km, kh, ustar, tstar)
+  z0, tg, ht_rad, ps, ts, u, v, pt, pt_lev, q, dmg, &
+  z, dz, z_lev, dz_lev, shr2, ri, km, kh, ustar, tstar, &
+  taux, tauy, ht_pbl, rhouch, tmg, h2oflx_sfc_up)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
   ! NASA Ames Research Center
 
+  use formula_mod
   use gomars_v1_const_mod
   use gomars_v1_tracers_mod
   use gomars_v1_pbl_mod
 
   implicit none
 
-  real(r8), intent(in ) :: z0
-  real(r8), intent(in ) :: ps
-  real(r8), intent(in ) :: tg
-  real(r8), intent(in ) :: pl    (2*nlev+3)
-  real(r8), intent(in ) :: teta  (2*nlev+3)
-  real(r8), intent(in ) :: om    (2*nlev+3)
-  real(r8), intent(in ) :: u     (  nlev  )
-  real(r8), intent(in ) :: v     (  nlev  )
-  real(r8), intent(in ) :: q     (  nlev  ,ntracers)
-  real(r8), intent(in ) :: z     (  nlev  )
-  real(r8), intent(in ) :: z_lev (  nlev+1)
-  real(r8), intent(in ) :: dz_lev(  nlev+1)
-  real(r8), intent(in ) :: shr2  (  nlev+1)
-  real(r8), intent(out) :: ri    (  nlev+1)
-  real(r8), intent(out) :: km    (  nlev+1)
-  real(r8), intent(out) :: kh    (  nlev+1)
-  real(r8), intent(out) :: ustar
-  real(r8), intent(out) :: tstar
+  real(r8), intent(in   ) :: z0                       ! Roughness length (m)
+  real(r8), intent(in   ) :: tg                       ! Ground temperature (K)
+  real(r8), intent(in   ) :: ht_rad(0:nlev  )         ! Radiative heating rate on full levels including TOA (K s-1)
+  real(r8), intent(in   ) :: ps                       ! Surface pressure (Pa)
+  real(r8), intent(in   ) :: ts                       ! Surface air temperature (K)
+  real(r8), intent(inout) :: u     (  nlev  )
+  real(r8), intent(inout) :: v     (  nlev  )
+  real(r8), intent(inout) :: pt    (  nlev  )
+  real(r8), intent(in   ) :: pt_lev(  nlev+1)
+  real(r8), intent(inout) :: q     (  nlev,ntracers)
+  real(r8), intent(in   ) :: dmg   (  nlev  )         ! Dry-air weight (Pa)
+  real(r8), intent(in   ) :: z     (  nlev  )
+  real(r8), intent(in   ) :: dz    (  nlev  )
+  real(r8), intent(in   ) :: z_lev (  nlev+1)
+  real(r8), intent(in   ) :: dz_lev(  nlev+1)
+  real(r8), intent(inout) :: shr2  (  nlev+1)
+  real(r8), intent(  out) :: ri    (  nlev+1)
+  real(r8), intent(  out) :: km    (  nlev+1)
+  real(r8), intent(  out) :: kh    (  nlev+1)
+  real(r8), intent(  out) :: ustar
+  real(r8), intent(  out) :: tstar
+  real(r8), intent(  out) :: taux                     ! Wind stress in x direction (N m-2)
+  real(r8), intent(  out) :: tauy                     ! Wind stress in y direction (N m-2)
+  real(r8), intent(  out) :: ht_pbl                   ! Heat rate at the surface (K s-1)
+  real(r8), intent(  out) :: rhouch
+  real(r8), intent(inout) :: tmg   (ntracers)         ! Tracer mass on the ground (kg)
+  real(r8), intent(inout) :: h2oflx_sfc_up                  ! Water ice upward sublimation flux at the surface (kg m-2 s-1)
 
-  integer k, l
+  integer i, n
   real(r8) lnzz
-  real(r8) psi  (2*nlev+1,nvar)
-  real(r8) rho  (2*nlev+1)
+  real(r8) rhos
   real(r8) cdm
   real(r8) cdh
+  real(r8) alpha
+  real(r8) qsat
+  real(r8) coef
+  real(r8) kdf(nlev+1,nvar)
+  real(r8) var(nlev  ,nvar)
+  real(r8) bnd(       nvar)
+  real(r8) rhs(nlev  ,nvar)
 
-  do k = 1, nlev
-    l = 2 * k
-    psi(l,1) = u   (k)
-    psi(l,2) = v   (k)
-    psi(l,3) = teta(l+2)
-    psi(l,4) = q   (k,iMa_vap)
+  n = nlev
+
+  lnzz = log(z(n) / z0)
+
+  call eddycoef(z_lev, dz_lev, u, v, pt, q, pt_lev, shr2, ri, km, kh)
+  call bndcond(u, v, pt, tg, z, lnzz, z0, cdm, cdh, ustar, tstar)
+
+  rhos = dry_air_density(ps, ts)
+
+  alpha  = atan2(v(n), u(n))
+  taux   =  rhos * ustar**2 * cos(alpha)
+  tauy   =  rhos * ustar**2 * sin(alpha)
+  ht_pbl = -rhos * cpd * ustar * tstar
+  rhouch =  rhos * cpd * ustar * cdh
+  qsat   = water_vapor_saturation_mixing_ratio_mars(tg, ps)
+
+  ! Reduce the sublimation flux by a coefficient. It is a tunable parameter to
+  ! avoid the formation of low-lying clouds in summer above the north permanent cap.
+  coef = merge(1.0_r8, 1.0_r8, qsat > q(n,iMa_vap))
+
+  i = 1
+  ! Zonal wind
+  i = i + 1
+  kdf(:,i) = km
+  bnd(  i) = ustar * dt / dz(n) * sqrt(cdm)
+  rhs(:,i) = 0
+  var(:,i) = dmg * u
+  ! Meridional wind
+  i = i + 1
+  kdf(:,i) = km
+  bnd(  i) = bnd(1)
+  rhs(:,i) = 0
+  var(:,i) = dmg * v
+  ! Potential temperature
+  i = i + 1
+  kdf(:,i) = kh
+  bnd(  i) = ustar * dt / dz(n) * cdh
+  rhs(:,i) = ht_rad * dt
+  rhs(n,i) = rhs(n,i) + bnd(i) * dmg(n) * tg
+  var(:,i) = dmg * pt
+  ! Water vapor
+  i = i + 1
+  kdf(:,i) = kh
+  bnd(  i) = ustar * dt / dz(n) * cdh * coef
+  rhs(:,i) = 0
+  rhs(n,i) = rhs(n,i) + bnd(i) * dmg(n) * qsat
+  var(:,i) = dmg * q(:,iMa_vap)
+
+  do i = 1, nvar
+    call pbl_solve(kdf(:,i), bnd(i), rhs(:,i), var(:,i))
   end do
-  do k = 1, nlev + 1
-    l = 2 * k - 1
-    psi(l,3) = teta(l+2)
-  end do
 
-  lnzz = log(z(nlev) / z0)
+  u            = var(:,1) / dmg
+  v            = var(:,2) / dmg
+  pt           = var(:,3) / dmg
+  q(:,iMa_vap) = var(:,4) / dmg
 
-  do k = 1, 2 * nlev + 1
-    rho(k) = pl(k+2) / rd / (om(k+2) * teta(k+2))
-  end do
+contains
 
-  call eddycoef(z_lev, dz_lev, psi, shr2, ri, km, kh)
-  call bndcond(tg, z, lnzz, z0, psi, cdm, cdh, ustar, tstar)
+  subroutine pbl_solve(kdf, bnd, rhs, var)
+
+    real(r8), intent(in   ) :: kdf(nlev+1)
+    real(r8), intent(in   ) :: bnd         ! Lower boundary condition for coefficient c
+    real(r8), intent(in   ) :: rhs(nlev  ) ! Right hand side
+    real(r8), intent(inout) :: var(nlev  )
+
+    integer k
+    real(r8) a(nlev), b(nlev), c(nlev), d(nlev)
+
+    ! Setup the tridiagonal matrix.
+    a(1) = 0
+    do k = 2, nlev
+      a(k) = -dt * kdf(k  ) / dz(k) / dz_lev(k  )
+    end do
+    do k = 1, nlev - 1
+      c(k) = -dt * kdf(k+1) / dz(k) / dz_lev(k+1)
+    end do
+    c(nlev) = bnd
+    do k = 1, nlev
+      b(k) = 1 - a(k) - c(k)
+    end do
+    d = var + rhs
+
+  end subroutine pbl_solve
 
 end subroutine newpbl

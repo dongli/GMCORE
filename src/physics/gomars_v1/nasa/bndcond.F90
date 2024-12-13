@@ -1,4 +1,4 @@
-subroutine bndcond(tg, z, lnzz, z0, psi, cdm, cdh, ustar, tstar)
+subroutine bndcond(u, v, pt, tg, z, lnzz, z0, cdm, cdh, ustar, tstar)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -9,11 +9,13 @@ subroutine bndcond(tg, z, lnzz, z0, psi, cdm, cdh, ustar, tstar)
 
   implicit none
 
+  real(r8), intent(in ) :: u  (nlev)
+  real(r8), intent(in ) :: v  (nlev)
+  real(r8), intent(in ) :: pt (nlev)
   real(r8), intent(in ) :: tg
   real(r8), intent(in ) :: z  (nlev)
   real(r8), intent(in ) :: lnzz
   real(r8), intent(in ) :: z0
-  real(r8), intent(in ) :: psi(2*nlev+1,nvar)
   real(r8), intent(out) :: cdm
   real(r8), intent(out) :: cdh
   real(r8), intent(out) :: ustar
@@ -26,10 +28,10 @@ subroutine bndcond(tg, z, lnzz, z0, psi, cdm, cdh, ustar, tstar)
   real(r8) fh
 
   ! For now, use psi at the bottom full level. Later interpolate to the surface.
-  dpt = psi(2*nlev,3) - tg
+  dpt = pt(nlev) - tg
   ! Calculate the bulk Richardson number.
-  wsp = sqrt(psi(2*nlev,1)**2 + psi(2*nlev,2)**2)
-  rib = g * dpt * z(nlev) / (psi(2*nlev,3) * wsp**2 + 1.0e-9_r8)
+  wsp = sqrt(u(nlev)**2 + v(nlev)**2)
+  rib = g * dpt * z(nlev) / (pt(nlev) * wsp**2 + 1.0e-9_r8)
   ! Calculate the stability functions.
   if (rib >= 0) then
     fm = 1.0_r8 / (1 + 10 * rib / sqrt(1 + 5 * rib))

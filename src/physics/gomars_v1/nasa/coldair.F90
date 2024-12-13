@@ -4,7 +4,7 @@ subroutine coldair( &
   pl              , &
   tl              , &
   tg              , &
-  co2ice          , &
+  co2ice_sfc      , &
   q               , &
   tmg             , &
   tmfdns          , &
@@ -20,6 +20,7 @@ subroutine coldair( &
   ! the amount of CO2 condensation is calculated and appropriate adjustments
   ! are made.
 
+  use formula_mod
   use gomars_v1_const_mod
   use gomars_v1_namelist_mod, only: co2scav
   use gomars_v1_tracers_mod
@@ -31,7 +32,7 @@ subroutine coldair( &
   real(r8), intent(in   ) :: pl     (2*nlev+3)
   real(r8), intent(inout) :: tl     (2*nlev+3)
   real(r8), intent(inout) :: tg
-  real(r8), intent(inout) :: co2ice
+  real(r8), intent(inout) :: co2ice_sfc
   real(r8), intent(inout) :: q      (nlev,ntracers)
   real(r8), intent(  out) :: tmg    (     ntracers)
   real(r8), intent(  out) :: tmfdns (     ntracers)
@@ -41,7 +42,6 @@ subroutine coldair( &
 
   integer k, l, m, n
   integer k_scavup, k_scavdn
-  real(r8) psat
   real(r8) tsat
   real(r8) condens
   real(r8) acondns
@@ -53,8 +53,7 @@ subroutine coldair( &
   condens = 0
 
   ! Calculate stratospheric condensation.
-  psat = pl(2)
-  tsat = 3182.48_r8 / (23.3494_r8 - log(psat / 100.0_r8))
+  tsat = dewpoint_temperature_mars(pl(2))
   if (tstrat < tsat) then
     acondns = cpd * (tsat - tstrat) * (ptrop / g) / xlhtc
     tstrat = tsat
@@ -64,8 +63,7 @@ subroutine coldair( &
   ! Calculate tropospheric condensation.
   do k = 1, nlev
     l = 2 * k + 2
-    psat = pl(l)
-    tsat = 3182.48_r8 / (23.3494_r8 - log(psat / 100.0_r8))
+    tsat = dewpoint_temperature_mars(pl(l))
     if (tl(l) < tsat) then
       acondns    = cpd * (tsat - tl(l)) * (dp(k) / g) / xlhtc
       tl(l)      = tsat
@@ -76,12 +74,11 @@ subroutine coldair( &
 
   if (condens > 0) then
     ! CO2 frost point at this surface pressure.
-    psat = pl(n)
-    tsat = 3182.48_r8 / (23.3494_r8 - log(psat / 100.0_r8))
-    if (co2ice > 0) then
+    tsat = dewpoint_temperature_mars(pl(n))
+    if (co2ice_sfc > 0) then
       ! Case 1: CO2 ice already on the ground.
       ! Add condensation to existing CO2 ice mass.
-      co2ice = co2ice + dt * condens
+      co2ice_sfc = co2ice_sfc + dt * condens
       tg = tsat
     else
       ! Case 2: No CO2 ice on the ground; Ground is warmer.
@@ -92,14 +89,14 @@ subroutine coldair( &
       if (tgp >= tsat) then
         ! Case 2A: All CO2 ice sublimes; No net condensation.
         condens = 0
-        tg      = tgp
-        co2ice  = 0
+        tg = tgp
+        co2ice_sfc = 0
       else
         ! Case 2B: Ground cooled to CO2 frost point and some CO2 ice remains.
         ! Calculate how much CO2 ice remains.
         condens = condens * (tsat - tgp) / (tg - tgp)
-        tg      = tsat
-        co2ice  = condens * dt
+        tg = tsat
+        co2ice_sfc = condens * dt
       end if
     end if
   end if

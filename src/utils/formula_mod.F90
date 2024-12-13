@@ -27,6 +27,8 @@ module formula_mod
   public moist_air_density
   public buoyancy_frequency
   public local_richardson_number
+  public water_vapor_saturation_mixing_ratio_mars
+  public dewpoint_temperature_mars
 
 contains
 
@@ -169,5 +171,22 @@ contains
     res = n2 / (s2 + 1.0e-4_r8)
 
   end function local_richardson_number
+
+  pure elemental real(r8) function water_vapor_saturation_mixing_ratio_mars(t, p) result(res)
+
+    real(r8), intent(in) :: t ! Temperature (K)
+    real(r8), intent(in) :: p ! Full pressure (Pa)
+
+    res = 611 * exp(22.5_r8 * (1 - t0_trip / t)) / p * m_h2o / m_co2
+
+  end function water_vapor_saturation_mixing_ratio_mars
+
+  pure elemental real(r8) function dewpoint_temperature_mars(p) result(res)
+
+    real(r8), intent(in) :: p ! Full pressure (Pa)
+
+    res = 3182.48_r8 / (23.3494_r8 - log(p / 100.0_r8))
+
+  end function dewpoint_temperature_mars
 
 end module formula_mod

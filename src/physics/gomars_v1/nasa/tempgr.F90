@@ -3,16 +3,16 @@ subroutine tempgr( &
   ps             , &
   tbot           , &
   qbot           , &
-  qcond          , &
+  q_sfc          , &
   alsp           , &
   polarcap       , &
   rhouch         , &
-  co2ice         , &
-  fa             , &
-  dnirflux       , &
-  dnvflux        , &
-  subflux        , &
-  gndice         , &
+  co2ice_sfc     , &
+  ht_sfc         , &
+  irflx_sfc_dn   , &
+  vsflx_sfc_dn   , &
+  h2oflx_sfc_up  , &
+  h2oice_sfc     , &
   rhosoil        , &
   cpsoil         , &
   scond          , &
@@ -28,6 +28,7 @@ subroutine tempgr( &
   ! Calculate the ground temperature. Where CO2 ice is present on the ground, this also involves
   ! calculation of the mass of CO2 ice on the ground and surface pressure.
 
+  use formula_mod
   use gomars_v1_const_mod
   use gomars_v1_namelist_mod
   use gomars_v1_tracers_mod
@@ -39,16 +40,16 @@ subroutine tempgr( &
   real(r8), intent(in   ) :: ps
   real(r8), intent(in   ) :: tbot
   real(r8), intent(in   ) :: qbot     (ntracers)
-  real(r8), intent(in   ) :: qcond    (ntracers)
+  real(r8), intent(in   ) :: q_sfc    (ntracers)
   real(r8), intent(in   ) :: alsp
   logical , intent(in   ) :: polarcap
   real(r8), intent(in   ) :: rhouch
-  real(r8), intent(inout) :: co2ice
-  real(r8), intent(in   ) :: fa
-  real(r8), intent(in   ) :: dnirflux
-  real(r8), intent(in   ) :: dnvflux
-  real(r8), intent(  out) :: subflux
-  real(r8), intent(  out) :: gndice
+  real(r8), intent(inout) :: co2ice_sfc
+  real(r8), intent(in   ) :: ht_sfc
+  real(r8), intent(in   ) :: irflx_sfc_dn
+  real(r8), intent(in   ) :: vsflx_sfc_dn
+  real(r8), intent(  out) :: h2oflx_sfc_up
+  real(r8), intent(  out) :: h2oice_sfc
   real(r8), intent(in   ) :: rhosoil  (nsoil)
   real(r8), intent(in   ) :: cpsoil   (nsoil)
   real(r8), intent(in   ) :: scond    (2*nsoil+1)
@@ -73,8 +74,9 @@ subroutine tempgr( &
   real(r8) flux(2*nsoil+1)
 
   if (is_first_call) then
-    subflux = 0
-    gndice  = qcond(iMa_vap)
+    h2oflx_sfc_up = 0
+    ! FIXME: Could surface water vapor be considered as water ice?
+    h2oice_sfc  = q_sfc(iMa_vap)
     is_first_call = .false.
   end if
 
@@ -82,24 +84,24 @@ subroutine tempgr( &
 
   ! Set surface albedo.
   als  = alsp
-  if (co2ice > 0) then
+  if (co2ice_sfc > 0) then
     als = merge(alices, alicen, lat < 0)
-  else if (albfeed .and. qcond(iMa_vap) > icethresh_kgm2 .and. .not. polarcap) then
+  else if (albfeed .and. q_sfc(iMa_vap) > icethresh_kgm2 .and. .not. polarcap) then
     als = icealb
   end if
 
   tsat = 3182.48_r8 / (23.3494_r8 - log(ps / 100.0_r8))
 
-  if (co2ice <= 0) then
-    co2ice  = 0
+  if (co2ice_sfc <= 0) then
+    co2ice_sfc  = 0
     emg15   = eg15gnd
     emgout  = egognd
-    downir  = emg15 * dnirflux
+    downir  = emg15 * irflx_sfc_dn
     rhoucht = rhouch * tbot
 
     call newtg(      &
       als          , &
-      dnvflux      , &
+      vsflx_sfc_dn , &
       downir       , &
       rhouch       , &
       rhoucht      , &
@@ -108,9 +110,9 @@ subroutine tempgr( &
       sthick       , &
       ps           , &
       qbot(iMa_vap), &
-      gndice       , &
+      h2oice_sfc   , &
+      h2oflx_sfc_up, &
       polarcap     , &
-      subflux      , &
       tg             &
     )
 
@@ -121,30 +123,30 @@ subroutine tempgr( &
       emgout = egognd
 
       fcdn = -2 * scond(2) * (stemp(2) - tsat) / sthick(2)
-      tgp = dt * ((1 - als) * dnvflux + fa - emg15 * (stbo * tsat**4) - fcdn) / xlhtc
+      tgp = dt * ((1 - als) * vsflx_sfc_dn + ht_sfc - emg15 * (stbo * tsat**4) - fcdn) / xlhtc
 
       ! Check if there is any CO2 ice accumulation.
       if (tgp < 0) then
         dmgdt  = -tgp / dt
-        co2ice = -tgp
+        co2ice_sfc = -tgp
       else
         dmgdt  = 0
         ! This term represents the last amounts of ice evaporating resulting in an
         ! increase in Tg. It still depends on TINP until I can figure out what to do with it.
         tinp   = sqrdy / zin(1)
         tg     = tsat + tgp * xlhtc * tinp
-        co2ice = 0
+        co2ice_sfc = 0
       end if
     end if
   else ! CO2 ice on the ground
     tg = tsat
 
     ! Only modify if we have water condensation.
-    qgnd = 611.0_r8 * exp(22.5_r8 * (1 - (t0_trip / tg))) / ps / mwratio
+    qgnd = water_vapor_saturation_mixing_ratio_mars(tg, ps)
     wflux = -rhouch * (qbot(iMa_vap) - qgnd) / cpd
     if (wflux < 0) then
-      gndice  = gndice  - wflux * dt
-      subflux = subflux + wflux * dt
+      h2oice_sfc  = h2oice_sfc  - wflux * dt
+      h2oflx_sfc_up = h2oflx_sfc_up + wflux * dt
     end if
     if (lat < 0) then
       emg15  = eg15co2s
@@ -156,17 +158,17 @@ subroutine tempgr( &
 
     ! New soil scheme: surface boundary condition with ice on the ground.
     fcdn = -2 * scond(2) * (stemp(2) - tsat) / sthick(2)
-    tgp  = -co2ice + dt * ((1 - als) * dnvflux + fa - emg15 * (stbo * tsat**4) - fcdn) / xlhtc
+    tgp  = -co2ice_sfc + dt * ((1 - als) * vsflx_sfc_dn + ht_sfc - emg15 * (stbo * tsat**4) - fcdn) / xlhtc
 
     ! Check if there is still CO2 ice left.
     if (tgp < 0) then
-      dmgdt  = -(co2ice + tgp) / dt
-      co2ice = -tgp
+      dmgdt  = -(co2ice_sfc + tgp) / dt
+      co2ice_sfc = -tgp
     else
-      dmgdt  = -co2ice / dt
+      dmgdt  = -co2ice_sfc / dt
       tinp   = sqrdy / zin(1)
       tg     = tsat + tgp * xlhtc * tinp
-      co2ice = 0
+      co2ice_sfc = 0
     end if
   end if
 
@@ -182,5 +184,11 @@ subroutine tempgr( &
     l = 2 * k
     stemp(l) = stemp(l) - dt * (flux(l+1) - flux(l-1)) / (rhosoil(k) * cpsoil(k) * sthick(l))
   end do
+
+  ! Calculate the CO2 condensation temperature at the surface.
+  tsat = dewpoint_temperature_mars(ps)
+  if (tg < tsat .or. co2ice_sfc > 0) then
+    tg = tsat
+  end if
 
 end subroutine tempgr

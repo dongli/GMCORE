@@ -1,13 +1,14 @@
 subroutine funcd( &
   astar, downir, rhouch, rhoucht, &
   scond, stemp, sthick, &
-  tg, ps, q_vap_sfc, gndice, npcflag, &
+  tg, ps, q_vap_sfc, h2oice_sfc, npcflag, &
   f, df)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
   ! NASA Ames Research Center
 
+  use formula_mod
   use gomars_v1_const_mod
   use gomars_v1_namelist_mod
 
@@ -23,7 +24,7 @@ subroutine funcd( &
   real(r8), intent(in ) :: tg
   real(r8), intent(in ) :: ps
   real(r8), intent(in ) :: q_vap_sfc
-  real(r8), intent(in ) :: gndice
+  real(r8), intent(in ) :: h2oice_sfc
   logical , intent(in ) :: npcflag
   real(r8), intent(out) :: f
   real(r8), intent(out) :: df
@@ -34,8 +35,8 @@ subroutine funcd( &
   df = -rhouch - 2 * scond / sthick - 4 * stbo * tg**3
 
   if (latent_heat) then
-    if (gndice > 0 .or. npcflag) then
-      qg = (18.0_r8 / 44.0_r8) * 611 * exp(22.5_r8 * (1 - (t0_trip / tg))) / ps
+    if (h2oice_sfc > 0 .or. npcflag) then
+      qg = water_vapor_saturation_mixing_ratio_mars(tg, ps)
       f = f + rhouch * (2.8e6_r8 / cpd) * (q_vap_sfc - qg)
       df = df - 6146.1_r8 * rhouch * (2.8e6_r8 / cpd) * qg / tg**2
     end if
