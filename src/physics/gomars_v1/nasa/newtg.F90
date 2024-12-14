@@ -1,7 +1,7 @@
 subroutine newtg( &
   als, dnvflux, downir, rhouch, rhoucht, &
   scond, stemp, sthick, ps, q_vap_sfc, h2oice_sfc, &
-  h2oflx_sfc_up, polarcap, tg)
+  h2osub_sfc, polarcap, tg)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -25,7 +25,7 @@ subroutine newtg( &
   real(r8), intent(in   ) :: ps
   real(r8), intent(in   ) :: q_vap_sfc
   real(r8), intent(inout) :: h2oice_sfc
-  real(r8), intent(  out) :: h2oflx_sfc_up
+  real(r8), intent(  out) :: h2osub_sfc
   logical , intent(in   ) :: polarcap
   real(r8), intent(  out) :: tg
 
@@ -122,6 +122,6 @@ subroutine newtg( &
   end if
 
   ! NOTE: qflx > 0 is sublimation, qflx < 0 is condensation.
-  h2oflx_sfc_up = h2oflx_sfc_up + qflx * dt
+  h2osub_sfc = h2osub_sfc + qflx * dt
 
 end subroutine newtg

@@ -1,4 +1,4 @@
-subroutine gfluxv(dtdel, tdel, taucumin, wdel, cdel, cosz, sol, als, &
+subroutine gfluxv(sol, dtdel, tdel, taucumin, wdel, cdel, cosz, als, &
                   btop, bsfc, fmidp, fmidm, diffv, fluxup, fluxdn, detau)
 
   ! Legacy Mars GCM v24
@@ -10,13 +10,13 @@ subroutine gfluxv(dtdel, tdel, taucumin, wdel, cdel, cosz, sol, als, &
 
   implicit none
 
+  real(r8), intent(in ) :: sol
   real(r8), intent(in ) :: dtdel    (nlayrad)
   real(r8), intent(in ) :: tdel     (nlevrad)
   real(r8), intent(in ) :: taucumin (2*nlev+3)
   real(r8), intent(in ) :: wdel     (nlayrad)
   real(r8), intent(in ) :: cdel     (nlayrad)
   real(r8), intent(in ) :: cosz
-  real(r8), intent(in ) :: sol
   real(r8), intent(in ) :: als
   real(r8), intent(in ) :: btop
   real(r8), intent(in ) :: bsfc

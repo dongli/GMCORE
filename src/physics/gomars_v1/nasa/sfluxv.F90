@@ -1,4 +1,4 @@
-subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, sol, cosz, als, wbarv, cosbv, &
+subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, cosz, als, wbarv, cosbv, &
                   fluxupv, fluxdnv, fmnetv, nfluxtopv, diffvt, detau)
 
   ! Legacy Mars GCM v24
@@ -14,7 +14,6 @@ subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, sol, cosz, als, wbarv, cosbv, 
   real(r8), intent(in ) :: tauv    (nlevrad ,nspectv,ngauss  )
   real(r8), intent(in ) :: taucumv (2*nlev+3,nspectv,ngauss  )
   real(r8), intent(in ) :: taugsurf(         nspectv,ngauss-1)
-  real(r8), intent(in ) :: sol     (         nspectv         )
   real(r8), intent(in ) :: cosz
   real(r8), intent(in ) :: als
   real(r8), intent(in ) :: wbarv   (nlayrad ,nspectv,ngauss  )
@@ -62,24 +61,24 @@ subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, sol, cosz, als, wbarv, cosbv, 
         else
           ! Set up the top and bottom boundary conditions.
           btop = 0
-          bsfc = als * cosz * sol(is) * exp(-min(detau(is,ig) / cosz, maxexp))
+          bsfc = als * cosz * solar(is) * exp(-min(detau(is,ig) / cosz, maxexp))
           ! We can now solve for the coefficients of the two-stream problem.
-          call gfluxv( &
+          call gfluxv(        &
+            solar  (  is   ), &
             dtauv  (1,is,ig), &
             tauv   (1,is,ig), &
             taucumv(1,is,ig), &
             wbarv  (1,is,ig), &
             cosbv  (1,is,ig), &
-            cosz          , &
-            sol           , &
-            als           , &
-            btop          , &
-            bsfc          , &
-            fmupv         , &
-            fmdnv         , &
-            diffv         , &
-            fluxup        , &
-            fluxdn        , &
+            cosz            , &
+            als             , &
+            btop            , &
+            bsfc            , &
+            fmupv           , &
+            fmdnv           , &
+            diffv           , &
+            fluxup          , &
+            fluxdn          , &
             detau    (is,ig)  &
           )
           ! Calculate the cumulative visible net flux.
@@ -96,7 +95,7 @@ subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, sol, cosz, als, wbarv, cosbv, 
     else
       ! Special 17th Gauss point
       ig = ngauss
-      call getdetau(    &
+      call getdetau(      &
         dtauv  (1,is,ig), &
         tauv   (1,is,ig), &
         taucumv(1,is,ig), &
@@ -105,23 +104,23 @@ subroutine sfluxv(dtauv, tauv, taucumv, taugsurf, sol, cosz, als, wbarv, cosbv, 
         detau  (  is,ig)  &
       )
       btop = 0
-      bsfc = als * cosz * sol(is) * exp(-min(detau(is,ig) / cosz, maxexp))
-      call gfluxv(      &
+      bsfc = als * cosz * solar(is) * exp(-min(detau(is,ig) / cosz, maxexp))
+      call gfluxv(        &
+        solar  (  is   ), &
         dtauv  (1,is,ig), &
         tauv   (1,is,ig), &
         taucumv(1,is,ig), &
         wbarv  (1,is,ig), &
         cosbv  (1,is,ig), &
-        cosz          , &
-        sol           , &
-        als           , &
-        btop          , &
-        bsfc          , &
-        fmupv         , &
-        fmdnv         , &
-        diffv         , &
-        fluxup        , &
-        fluxdn        , &
+        cosz            , &
+        als             , &
+        btop            , &
+        bsfc            , &
+        fmupv           , &
+        fmdnv           , &
+        diffv           , &
+        fluxup          , &
+        fluxdn          , &
         detau    (is,ig)  &
       )
       nfluxtopv = nfluxtopv + (fluxup - fluxdn) * gweight(ig) * fzero

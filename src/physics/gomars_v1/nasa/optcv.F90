@@ -9,7 +9,7 @@ subroutine optcv( &
   ! Mars Climate Modeling Center
   ! NASA Ames Research Center
 
-  use gomars_v1_const_mod, only: r8, nlev, nspectv, ngauss, nlayrad, nlevrad, cmk, nrefv
+  use gomars_v1_const_mod
   use gomars_v1_rad_mod
 
   implicit none
@@ -111,27 +111,27 @@ subroutine optcv( &
       k = 2 * l + 1
       dtauv(l,is,ig) = dtaukv(k,is,ig) + dtaukv(k+1,is,ig)
       cosbv(l,is,ig) = (gvdst(k  ,is) * taurefdst(k  ) * qsvdst(k  ,is)  + &
-                      gvdst(k+1,is) * taurefdst(k+1) * qsvdst(k+1,is)  + &
-                      gvcld(k  ,is) * taurefcld(k  ) * qsvcld(k  ,is)  + &
-                      gvcld(k+1,is) * taurefcld(k+1) * qsvcld(k+1,is)) / &
-                     (tray(k,is) + tray(k+1,is) + &
-                      taurefdst(k  ) * qsvdst(k  ,is) + &
-                      taurefdst(k+1) * qsvdst(k+1,is) + &
-                      taurefcld(k  ) * qsvcld(k  ,is) + &
-                      taurefcld(k+1) * qsvcld(k+1,is))
+                        gvdst(k+1,is) * taurefdst(k+1) * qsvdst(k+1,is)  + &
+                        gvcld(k  ,is) * taurefcld(k  ) * qsvcld(k  ,is)  + &
+                        gvcld(k+1,is) * taurefcld(k+1) * qsvcld(k+1,is)) / &
+                       (tray(k,is) + tray(k+1,is) + &
+                        taurefdst(k  ) * qsvdst(k  ,is) + &
+                        taurefdst(k+1) * qsvdst(k+1,is) + &
+                        taurefcld(k  ) * qsvcld(k  ,is) + &
+                        taurefcld(k+1) * qsvcld(k+1,is))
       wbarv(l,is,ig) = (taurefdst(k) * qsvdst(k,is) + taurefdst(k+1) * qsvdst(k+1,is) + &
-                      taurefcld(k) * qsvcld(k,is) + taurefcld(k+1) * qsvcld(k+1,is) + &
-                      (tray(k,is) + tray(k+1,is)) * 0.9999_r8) / dtauv(l,is,ig)
+                        taurefcld(k) * qsvcld(k,is) + taurefcld(k+1) * qsvcld(k+1,is) + &
+                        (tray(k,is) + tray(k+1,is)) * 0.9999_r8) / dtauv(l,is,ig)
     end do
     ! Special bottom layer
     l = nlayrad
     k = 2 * l + 1
     dtauv(l,is,ig) = dtaukv(k,is,ig)
     cosbv(l,is,ig) = (gvdst(k,is) * taurefdst(k) * qsvdst(k,is)  + &
-                    gvcld(k,is) * taurefcld(k) * qsvcld(k,is)) / &
-                   (tray(k,is) + taurefdst(k) * qsvdst(k,is) + taurefcld(k) * qsvcld(k,is))
+                      gvcld(k,is) * taurefcld(k) * qsvcld(k,is)) / &
+                     (tray(k,is) + taurefdst(k) * qsvdst(k,is) + taurefcld(k) * qsvcld(k,is))
     wbarv(l,is,ig) = (taurefdst(k) * qsvdst(k,is) + taurefcld(k) * qsvcld(k,is) + &
-                    tray(k,is) * 0.9999_r8) / dtauv(l,is,ig)
+                      tray(k,is) * 0.9999_r8) / dtauv(l,is,ig)
     ! Now the other Gauss points, if needed
     do ig = 1, ngauss - 1
       do l = 1, nlayrad - 1
@@ -139,8 +139,8 @@ subroutine optcv( &
         dtauv(l,is,ig) = dtaukv(k,is,ig) + dtaukv(k+1,is,ig)
         cosbv(l,is,ig) = cosbv(l,is,ngauss)
         wbarv(l,is,ig) = (taurefdst(k) * qsvdst(k,is) + taurefdst(k+1) * qsvdst(k+1,is) + &
-                        taurefcld(k) * qsvcld(k,is) + taurefcld(k+1) * qsvcld(k+1,is) + &
-                        (tray(k,is) + tray(k+1,is)) * 0.9999_r8) / dtauv(l,is,ig)
+                          taurefcld(k) * qsvcld(k,is) + taurefcld(k+1) * qsvcld(k+1,is) + &
+                          (tray(k,is) + tray(k+1,is)) * 0.9999_r8) / dtauv(l,is,ig)
       end do
       ! Special bottom layer
       l = nlayrad
@@ -148,7 +148,7 @@ subroutine optcv( &
       dtauv(l,is,ig) = dtaukv(k,is,ig)
       cosbv(l,is,ig) = cosbv(l,is,ngauss)
       wbarv(l,is,ig) = (taurefdst(k) * qsvdst(k,is) + taurefcld(k) * qsvcld(k,is) + &
-                      tray(k,is) * 0.9999_r8) / dtauv(l,is,ig)
+                        tray(k,is) * 0.9999_r8) / dtauv(l,is,ig)
     end do
   end do
 

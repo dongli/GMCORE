@@ -3,7 +3,7 @@ subroutine tempgr( &
   ps             , &
   tbot           , &
   qbot           , &
-  q_sfc          , &
+  tm_sfc         , &
   alsp           , &
   polarcap       , &
   rhouch         , &
@@ -11,7 +11,7 @@ subroutine tempgr( &
   ht_sfc         , &
   irflx_sfc_dn   , &
   vsflx_sfc_dn   , &
-  h2oflx_sfc_up  , &
+  h2osub_sfc     , &
   h2oice_sfc     , &
   rhosoil        , &
   cpsoil         , &
@@ -40,7 +40,7 @@ subroutine tempgr( &
   real(r8), intent(in   ) :: ps
   real(r8), intent(in   ) :: tbot
   real(r8), intent(in   ) :: qbot     (ntracers)
-  real(r8), intent(in   ) :: q_sfc    (ntracers)
+  real(r8), intent(in   ) :: tm_sfc   (ntracers)
   real(r8), intent(in   ) :: alsp
   logical , intent(in   ) :: polarcap
   real(r8), intent(in   ) :: rhouch
@@ -48,7 +48,7 @@ subroutine tempgr( &
   real(r8), intent(in   ) :: ht_sfc
   real(r8), intent(in   ) :: irflx_sfc_dn
   real(r8), intent(in   ) :: vsflx_sfc_dn
-  real(r8), intent(  out) :: h2oflx_sfc_up
+  real(r8), intent(  out) :: h2osub_sfc
   real(r8), intent(  out) :: h2oice_sfc
   real(r8), intent(in   ) :: rhosoil  (nsoil)
   real(r8), intent(in   ) :: cpsoil   (nsoil)
@@ -70,13 +70,13 @@ subroutine tempgr( &
   real(r8) tgp
   real(r8) tinp
   real(r8) wflux
-  real(r8) qgnd
+  real(r8) qsat
   real(r8) flux(2*nsoil+1)
 
   if (is_first_call) then
-    h2oflx_sfc_up = 0
+    h2osub_sfc = 0
     ! FIXME: Could surface water vapor be considered as water ice?
-    h2oice_sfc  = q_sfc(iMa_vap)
+    h2oice_sfc = tm_sfc(iMa_vap)
     is_first_call = .false.
   end if
 
@@ -86,7 +86,7 @@ subroutine tempgr( &
   als  = alsp
   if (co2ice_sfc > 0) then
     als = merge(alices, alicen, lat < 0)
-  else if (albfeed .and. q_sfc(iMa_vap) > icethresh_kgm2 .and. .not. polarcap) then
+  else if (albfeed .and. tm_sfc(iMa_vap) > icethresh_kgm2 .and. .not. polarcap) then
     als = icealb
   end if
 
@@ -111,7 +111,7 @@ subroutine tempgr( &
       ps           , &
       qbot(iMa_vap), &
       h2oice_sfc   , &
-      h2oflx_sfc_up, &
+      h2osub_sfc   , &
       polarcap     , &
       tg             &
     )
@@ -142,12 +142,17 @@ subroutine tempgr( &
     tg = tsat
 
     ! Only modify if we have water condensation.
-    qgnd = water_vapor_saturation_mixing_ratio_mars(tg, ps)
-    wflux = -rhouch * (qbot(iMa_vap) - qgnd) / cpd
+    qsat = water_vapor_saturation_mixing_ratio_mars(tg, ps)
+    wflux = -rhouch * (qbot(iMa_vap) - qsat) / cpd
     if (wflux < 0) then
-      h2oice_sfc  = h2oice_sfc  - wflux * dt
-      h2oflx_sfc_up = h2oflx_sfc_up + wflux * dt
+      h2oice_sfc = h2oice_sfc - wflux * dt
+      h2osub_sfc = h2osub_sfc + wflux * dt
     end if
+
+    if (.not. polarcap .and. h2osub_sfc > tm_sfc(iMa_vap)) then
+      h2osub_sfc = tm_sfc(iMa_vap)
+    end if
+
     if (lat < 0) then
       emg15  = eg15co2s
       emgout = egoco2s
@@ -162,12 +167,12 @@ subroutine tempgr( &
 
     ! Check if there is still CO2 ice left.
     if (tgp < 0) then
-      dmgdt  = -(co2ice_sfc + tgp) / dt
+      dmgdt      = -(co2ice_sfc + tgp) / dt
       co2ice_sfc = -tgp
     else
-      dmgdt  = -co2ice_sfc / dt
-      tinp   = sqrdy / zin(1)
-      tg     = tsat + tgp * xlhtc * tinp
+      dmgdt      = -co2ice_sfc / dt
+      tinp       = sqrdy / zin(1)
+      tg         = tsat + tgp * xlhtc * tinp
       co2ice_sfc = 0
     end if
   end if

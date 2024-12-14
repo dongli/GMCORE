@@ -1,4 +1,4 @@
-subroutine dsolflux(sol, acosz, gweight, fzerov, detau, directsol)
+subroutine dsolflux(sol, acosz, gweight, fzerov, detau, solar_sfc_dn)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -15,22 +15,22 @@ subroutine dsolflux(sol, acosz, gweight, fzerov, detau, directsol)
   real(r8), intent(in ) :: gweight(ngauss)
   real(r8), intent(in ) :: fzerov(nspectv)
   real(r8), intent(in ) :: detau(nspectv,ngauss)
-  real(r8), intent(out) :: directsol
+  real(r8), intent(out) :: solar_sfc_dn
 
   integer is, ig
   real(r8) factor
 
-  directsol = 0
+  solar_sfc_dn = 0
   do is = 1, nspectv
     factor = acosz * sol(is)
     do ig = 1, ngauss - 1
       if (detau(is,ig) <= 5) then
-        directsol = directsol + factor * exp(-detau(is,ig) / acosz) * gweight(ig) * (1 - fzerov(is))
+        solar_sfc_dn = solar_sfc_dn + factor * exp(-detau(is,ig) / acosz) * gweight(ig) * (1 - fzerov(is))
       end if
     end do
     ig = ngauss
     if (detau(is,ig) <= 5) then
-      directsol = directsol + factor * exp(-detau(is,ig) / acosz) * fzerov(ig)
+      solar_sfc_dn = solar_sfc_dn + factor * exp(-detau(is,ig) / acosz) * fzerov(ig)
     end if
   end do
 

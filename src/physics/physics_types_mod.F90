@@ -26,24 +26,34 @@ module physics_types_mod
 
   type, abstract :: physics_state_type
     type(physics_mesh_type), pointer :: mesh => null()
+    ! U-wind speed at time level n (m s-1)
+    real(r8), allocatable, dimension(:,:  ) :: u_old
     ! U-wind speed (m s-1)
     real(r8), allocatable, dimension(:,:  ) :: u
+    ! V-wind speed at time level n (m s-1)
+    real(r8), allocatable, dimension(:,:  ) :: v_old
     ! V-wind speed (m s-1)
     real(r8), allocatable, dimension(:,:  ) :: v
+    ! Air temperature at time level n (K)
+    real(r8), allocatable, dimension(:,:  ) :: t_old
     ! Air temperature (K)
     real(r8), allocatable, dimension(:,:  ) :: t
     ! Ground temperature (K)
     real(r8), allocatable, dimension(:    ) :: tg
     ! Lowest model level temperature (K)
     real(r8), pointer    , dimension(:    ) :: t_bot
+    ! Potential temperature on full levels at time level n (K)
+    real(r8), allocatable, dimension(:,:  ) :: pt_old
     ! Potential temperature on full levels (K)
     real(r8), allocatable, dimension(:,:  ) :: pt
     ! Potential temperature on half levels (K)
     real(r8), allocatable, dimension(:,:  ) :: pt_lev
-    ! Tracer mixing ratio (wet)
+    ! Tracer wet mixing ratio (kg kg-1)
     real(r8), allocatable, dimension(:,:,:) :: q
+    ! Tracer wet mixing ratio at time level n (kg kg-1)
+    real(r8), allocatable, dimension(:,:,:) :: q_old
     ! Tracer mass down flux on the surface (kg m-2 s-1)
-    real(r8), allocatable, dimension(:,:  ) :: tmfdns
+    real(r8), allocatable, dimension(:,:  ) :: tmflx_sfc_dn
     ! Full pressure (hydrostatic) on full level (Pa)
     real(r8), allocatable, dimension(:,:  ) :: p
     ! Full pressure (hydrostatic) on half level (Pa)
@@ -163,55 +173,60 @@ contains
 
     if (ntracers < 1) call log_error('ntracers is less than 1!', __FILE__, __LINE__)
 
-    allocate(this%u         (mesh%ncol,mesh%nlev         ))
-    allocate(this%v         (mesh%ncol,mesh%nlev         ))
-    allocate(this%t         (mesh%ncol,mesh%nlev         ))
-    allocate(this%tg        (mesh%ncol                   ))
-    allocate(this%pt        (mesh%ncol,mesh%nlev         ))
-    allocate(this%pt_lev    (mesh%ncol,mesh%nlev+1       ))
-    allocate(this%q         (mesh%ncol,mesh%nlev,ntracers))
-    allocate(this%tmfdns    (mesh%ncol,          ntracers))
-    allocate(this%p         (mesh%ncol,mesh%nlev         ))
-    allocate(this%p_lev     (mesh%ncol,mesh%nlev+1       ))
-    allocate(this%pk        (mesh%ncol,mesh%nlev         ))
-    allocate(this%pk_lev    (mesh%ncol,mesh%nlev+1       ))
-    allocate(this%dp        (mesh%ncol,mesh%nlev         ))
-    allocate(this%dp_dry    (mesh%ncol,mesh%nlev         ))
-    allocate(this%omg       (mesh%ncol,mesh%nlev         ))
-    allocate(this%z         (mesh%ncol,mesh%nlev         ))
-    allocate(this%z_lev     (mesh%ncol,mesh%nlev+1       ))
-    allocate(this%dz        (mesh%ncol,mesh%nlev         ))
-    allocate(this%dz_lev    (mesh%ncol,mesh%nlev+1       ))
-    allocate(this%rho       (mesh%ncol,mesh%nlev         ))
-    allocate(this%ps        (mesh%ncol                   ))
-    allocate(this%ts        (mesh%ncol                   ))
-    allocate(this%wsp_bot   (mesh%ncol                   ))
-    allocate(this%z0        (mesh%ncol                   ))
-    allocate(this%ustar     (mesh%ncol                   ))
-    allocate(this%tstar     (mesh%ncol                   ))
-    allocate(this%wstar     (mesh%ncol                   ))
-    allocate(this%cdm       (mesh%ncol                   ))
-    allocate(this%cdh       (mesh%ncol                   ))
-    allocate(this%taux      (mesh%ncol                   ))
-    allocate(this%tauy      (mesh%ncol                   ))
-    allocate(this%psim      (mesh%ncol                   ))
-    allocate(this%psih      (mesh%ncol                   ))
-    allocate(this%fm        (mesh%ncol                   ))
-    allocate(this%fh        (mesh%ncol                   ))
-    allocate(this%pblh      (mesh%ncol                   ))
-    allocate(this%pblk      (mesh%ncol                   ))
-    allocate(this%hflx      (mesh%ncol                   ))
-    allocate(this%alb       (mesh%ncol                   ))
-    allocate(this%cosz      (mesh%ncol                   ))
-    allocate(this%fdns_toa  (mesh%ncol                   ))
-    allocate(this%fdns_dir  (mesh%ncol                   ))
-    allocate(this%fdns_dif  (mesh%ncol                   ))
-    allocate(this%fdns      (mesh%ncol                   ))
-    allocate(this%fdnl      (mesh%ncol                   ))
-    allocate(this%zs        (mesh%ncol                   ))
-    allocate(this%prect     (mesh%ncol                   ))
-    allocate(this%precc     (mesh%ncol                   ))
-    allocate(this%precl     (mesh%ncol                   ))
+    allocate(this%u_old       (mesh%ncol,mesh%nlev         )); this%u_old        = 0
+    allocate(this%u           (mesh%ncol,mesh%nlev         )); this%u            = 0
+    allocate(this%v_old       (mesh%ncol,mesh%nlev         )); this%v_old        = 0
+    allocate(this%v           (mesh%ncol,mesh%nlev         )); this%v            = 0
+    allocate(this%t_old       (mesh%ncol,mesh%nlev         )); this%t_old        = 0
+    allocate(this%t           (mesh%ncol,mesh%nlev         )); this%t            = 0
+    allocate(this%tg          (mesh%ncol                   )); this%tg           = 0
+    allocate(this%pt_old      (mesh%ncol,mesh%nlev         )); this%pt_old       = 0
+    allocate(this%pt          (mesh%ncol,mesh%nlev         )); this%pt           = 0
+    allocate(this%pt_lev      (mesh%ncol,mesh%nlev+1       )); this%pt_lev       = 0
+    allocate(this%q_old       (mesh%ncol,mesh%nlev,ntracers)); this%q_old        = 0
+    allocate(this%q           (mesh%ncol,mesh%nlev,ntracers)); this%q            = 0
+    allocate(this%tmflx_sfc_dn(mesh%ncol,          ntracers)); this%tmflx_sfc_dn = 0
+    allocate(this%p           (mesh%ncol,mesh%nlev         )); this%p            = 0
+    allocate(this%p_lev       (mesh%ncol,mesh%nlev+1       )); this%p_lev        = 0
+    allocate(this%pk          (mesh%ncol,mesh%nlev         )); this%pk           = 0
+    allocate(this%pk_lev      (mesh%ncol,mesh%nlev+1       )); this%pk_lev       = 0
+    allocate(this%dp          (mesh%ncol,mesh%nlev         )); this%dp           = 0
+    allocate(this%dp_dry      (mesh%ncol,mesh%nlev         )); this%dp_dry       = 0
+    allocate(this%omg         (mesh%ncol,mesh%nlev         )); this%omg          = 0
+    allocate(this%z           (mesh%ncol,mesh%nlev         )); this%z            = 0
+    allocate(this%z_lev       (mesh%ncol,mesh%nlev+1       )); this%z_lev        = 0
+    allocate(this%dz          (mesh%ncol,mesh%nlev         )); this%dz           = 0
+    allocate(this%dz_lev      (mesh%ncol,mesh%nlev+1       )); this%dz_lev       = 0
+    allocate(this%rho         (mesh%ncol,mesh%nlev         )); this%rho          = 0
+    allocate(this%ps          (mesh%ncol                   )); this%ps           = 0
+    allocate(this%ts          (mesh%ncol                   )); this%ts           = 0
+    allocate(this%wsp_bot     (mesh%ncol                   )); this%wsp_bot      = 0
+    allocate(this%z0          (mesh%ncol                   )); this%z0           = 0
+    allocate(this%ustar       (mesh%ncol                   )); this%ustar        = 0
+    allocate(this%tstar       (mesh%ncol                   )); this%tstar        = 0
+    allocate(this%wstar       (mesh%ncol                   )); this%wstar        = 0
+    allocate(this%cdm         (mesh%ncol                   )); this%cdm          = 0
+    allocate(this%cdh         (mesh%ncol                   )); this%cdh          = 0
+    allocate(this%taux        (mesh%ncol                   )); this%taux         = 0
+    allocate(this%tauy        (mesh%ncol                   )); this%tauy         = 0
+    allocate(this%psim        (mesh%ncol                   )); this%psim         = 0
+    allocate(this%psih        (mesh%ncol                   )); this%psih         = 0
+    allocate(this%fm          (mesh%ncol                   )); this%fm           = 0
+    allocate(this%fh          (mesh%ncol                   )); this%fh           = 0
+    allocate(this%pblh        (mesh%ncol                   )); this%pblh         = 0
+    allocate(this%pblk        (mesh%ncol                   )); this%pblk         = 0
+    allocate(this%hflx        (mesh%ncol                   )); this%hflx         = 0
+    allocate(this%alb         (mesh%ncol                   )); this%alb          = 0
+    allocate(this%cosz        (mesh%ncol                   )); this%cosz         = 0
+    allocate(this%fdns_toa    (mesh%ncol                   )); this%fdns_toa     = 0
+    allocate(this%fdns_dir    (mesh%ncol                   )); this%fdns_dir     = 0
+    allocate(this%fdns_dif    (mesh%ncol                   )); this%fdns_dif     = 0
+    allocate(this%fdns        (mesh%ncol                   )); this%fdns         = 0
+    allocate(this%fdnl        (mesh%ncol                   )); this%fdnl         = 0
+    allocate(this%zs          (mesh%ncol                   )); this%zs           = 0
+    allocate(this%prect       (mesh%ncol                   )); this%prect        = 0
+    allocate(this%precc       (mesh%ncol                   )); this%precc        = 0
+    allocate(this%precl       (mesh%ncol                   )); this%precl        = 0
 
     this%t_bot => this%t(:,mesh%nlev)
 
@@ -223,54 +238,59 @@ contains
 
     this%mesh => null()
 
-    if (allocated(this%u        )) deallocate(this%u        )
-    if (allocated(this%v        )) deallocate(this%v        )
-    if (allocated(this%t        )) deallocate(this%t        )
-    if (allocated(this%tg       )) deallocate(this%tg       )
-    if (allocated(this%pt       )) deallocate(this%pt       )
-    if (allocated(this%pt_lev   )) deallocate(this%pt_lev   )
-    if (allocated(this%q        )) deallocate(this%q        )
-    if (allocated(this%tmfdns   )) deallocate(this%tmfdns   )
-    if (allocated(this%p        )) deallocate(this%p        )
-    if (allocated(this%p_lev    )) deallocate(this%p_lev    )
-    if (allocated(this%pk       )) deallocate(this%pk       )
-    if (allocated(this%pk_lev   )) deallocate(this%pk_lev   )
-    if (allocated(this%dp       )) deallocate(this%dp       )
-    if (allocated(this%dp_dry   )) deallocate(this%dp_dry   )
-    if (allocated(this%omg      )) deallocate(this%omg      )
-    if (allocated(this%z        )) deallocate(this%z        )
-    if (allocated(this%z_lev    )) deallocate(this%z_lev    )
-    if (allocated(this%dz       )) deallocate(this%dz       )
-    if (allocated(this%rho      )) deallocate(this%rho      )
-    if (allocated(this%ps       )) deallocate(this%ps       )
-    if (allocated(this%ts       )) deallocate(this%ts       )
-    if (allocated(this%wsp_bot  )) deallocate(this%wsp_bot  )
-    if (allocated(this%z0       )) deallocate(this%z0       )
-    if (allocated(this%ustar    )) deallocate(this%ustar    )
-    if (allocated(this%tstar    )) deallocate(this%tstar    )
-    if (allocated(this%wstar    )) deallocate(this%wstar    )
-    if (allocated(this%cdm      )) deallocate(this%cdm      )
-    if (allocated(this%cdh      )) deallocate(this%cdh      )
-    if (allocated(this%taux     )) deallocate(this%taux     )
-    if (allocated(this%tauy     )) deallocate(this%tauy     )
-    if (allocated(this%psim     )) deallocate(this%psim     )
-    if (allocated(this%psih     )) deallocate(this%psih     )
-    if (allocated(this%fm       )) deallocate(this%fm       )
-    if (allocated(this%fh       )) deallocate(this%fh       )
-    if (allocated(this%pblh     )) deallocate(this%pblh     )
-    if (allocated(this%pblk     )) deallocate(this%pblk     )
-    if (allocated(this%hflx     )) deallocate(this%hflx     )
-    if (allocated(this%alb      )) deallocate(this%alb      )
-    if (allocated(this%cosz     )) deallocate(this%cosz     )
-    if (allocated(this%fdns_toa )) deallocate(this%fdns_toa )
-    if (allocated(this%fdns_dir )) deallocate(this%fdns_dir )
-    if (allocated(this%fdns_dif )) deallocate(this%fdns_dif )
-    if (allocated(this%fdns     )) deallocate(this%fdns     )
-    if (allocated(this%fdnl     )) deallocate(this%fdnl     )
-    if (allocated(this%zs       )) deallocate(this%zs       )
-    if (allocated(this%prect    )) deallocate(this%prect    )
-    if (allocated(this%precc    )) deallocate(this%precc    )
-    if (allocated(this%precl    )) deallocate(this%precl    )
+    if (allocated(this%u_old        )) deallocate(this%u_old        )
+    if (allocated(this%u            )) deallocate(this%u            )
+    if (allocated(this%v_old        )) deallocate(this%v_old        )
+    if (allocated(this%v            )) deallocate(this%v            )
+    if (allocated(this%t_old        )) deallocate(this%t_old        )
+    if (allocated(this%t            )) deallocate(this%t            )
+    if (allocated(this%tg           )) deallocate(this%tg           )
+    if (allocated(this%pt_old       )) deallocate(this%pt_old       )
+    if (allocated(this%pt           )) deallocate(this%pt           )
+    if (allocated(this%pt_lev       )) deallocate(this%pt_lev       )
+    if (allocated(this%q_old        )) deallocate(this%q_old        )
+    if (allocated(this%q            )) deallocate(this%q            )
+    if (allocated(this%tmflx_sfc_dn )) deallocate(this%tmflx_sfc_dn )
+    if (allocated(this%p            )) deallocate(this%p            )
+    if (allocated(this%p_lev        )) deallocate(this%p_lev        )
+    if (allocated(this%pk           )) deallocate(this%pk           )
+    if (allocated(this%pk_lev       )) deallocate(this%pk_lev       )
+    if (allocated(this%dp           )) deallocate(this%dp           )
+    if (allocated(this%dp_dry       )) deallocate(this%dp_dry       )
+    if (allocated(this%omg          )) deallocate(this%omg          )
+    if (allocated(this%z            )) deallocate(this%z            )
+    if (allocated(this%z_lev        )) deallocate(this%z_lev        )
+    if (allocated(this%dz           )) deallocate(this%dz           )
+    if (allocated(this%rho          )) deallocate(this%rho          )
+    if (allocated(this%ps           )) deallocate(this%ps           )
+    if (allocated(this%ts           )) deallocate(this%ts           )
+    if (allocated(this%wsp_bot      )) deallocate(this%wsp_bot      )
+    if (allocated(this%z0           )) deallocate(this%z0           )
+    if (allocated(this%ustar        )) deallocate(this%ustar        )
+    if (allocated(this%tstar        )) deallocate(this%tstar        )
+    if (allocated(this%wstar        )) deallocate(this%wstar        )
+    if (allocated(this%cdm          )) deallocate(this%cdm          )
+    if (allocated(this%cdh          )) deallocate(this%cdh          )
+    if (allocated(this%taux         )) deallocate(this%taux         )
+    if (allocated(this%tauy         )) deallocate(this%tauy         )
+    if (allocated(this%psim         )) deallocate(this%psim         )
+    if (allocated(this%psih         )) deallocate(this%psih         )
+    if (allocated(this%fm           )) deallocate(this%fm           )
+    if (allocated(this%fh           )) deallocate(this%fh           )
+    if (allocated(this%pblh         )) deallocate(this%pblh         )
+    if (allocated(this%pblk         )) deallocate(this%pblk         )
+    if (allocated(this%hflx         )) deallocate(this%hflx         )
+    if (allocated(this%alb          )) deallocate(this%alb          )
+    if (allocated(this%cosz         )) deallocate(this%cosz         )
+    if (allocated(this%fdns_toa     )) deallocate(this%fdns_toa     )
+    if (allocated(this%fdns_dir     )) deallocate(this%fdns_dir     )
+    if (allocated(this%fdns_dif     )) deallocate(this%fdns_dif     )
+    if (allocated(this%fdns         )) deallocate(this%fdns         )
+    if (allocated(this%fdnl         )) deallocate(this%fdnl         )
+    if (allocated(this%zs           )) deallocate(this%zs           )
+    if (allocated(this%prect        )) deallocate(this%prect        )
+    if (allocated(this%precc        )) deallocate(this%precc        )
+    if (allocated(this%precl        )) deallocate(this%precl        )
 
   end subroutine physics_state_clear
 

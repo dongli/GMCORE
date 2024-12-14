@@ -35,7 +35,7 @@ module gomars_v1_tracers_mod
   public gomars_v1_tracers_init
   public ntracers
 
-  integer, public :: iMa_dt  = 0
+  integer, public :: iMa_dst  = 0
   integer, public :: iNb_dt  = 0
   integer, public :: iMa_cld = 0
   integer, public :: iNb_cld = 0
@@ -51,7 +51,7 @@ contains
     ! Water vapor is not size-dependent, so there is no water vapor number mixing ratio.
     ! The number of dust cores is assumed to equal to the number of ice particles.
     call tracer_add('mars', dt_adv, 'qm_dst', 'Dust mass mixing ratio'       , 'kg kg-1')
-    iMa_dt = ntracers
+    iMa_dst = ntracers
     call tracer_add('mars', dt_adv, 'qn_dst', 'Dust number mixing ratio'     , 'kg-1'   )
     iNb_dt = ntracers
     call tracer_add('mars', dt_adv, 'qm_cld', 'Ice cloud mass mixing ratio'  , 'kg kg-1')

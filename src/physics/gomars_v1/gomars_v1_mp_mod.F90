@@ -68,13 +68,13 @@ contains
     allocate(aerdens(ntracers))
     allocate(stdv   (ntracers))
 
-    aerdens(iMa_dt ) = dpden_dt
+    aerdens(iMa_dst ) = dpden_dt
     aerdens(iNb_dt ) = dpden_dt
     aerdens(iMa_cld) = dpden_ice
     aerdens(iNb_cld) = dpden_ice
     aerdens(iMa_cor) = dpden_ice
 
-    stdv(iMa_dt ) = dev_dt
+    stdv(iMa_dst ) = dev_dt
     stdv(iNb_dt ) = dev_dt
     stdv(iMa_cld) = dev_ice
     stdv(iNb_cld) = dev_ice

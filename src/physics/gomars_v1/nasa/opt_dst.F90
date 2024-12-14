@@ -55,9 +55,9 @@ subroutine opt_dst(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefdst, taurefdst, tau
   taudst = 0
 
   do l = 1, nlev
-    if (q(l,iMa_dt) > 1.0e-8_r8 .and. q(l,iNb_dt) > 1) then
+    if (q(l,iMa_dst) > 1.0e-8_r8 .and. q(l,iNb_dt) > 1) then
       ! Calculate the cross-section mean radius (Rs) of the log-normal distribution.
-      Mo = q(l,iMa_dt)
+      Mo = q(l,iMa_dst)
       No = q(l,iNb_dt) + 1
       Rs = (Mo / No * cst)**athird * exp(-0.5_r8 * dev_dt**2)
       ! Calculate the total cross sectional area (Ao) of water ice particles.

@@ -6,8 +6,8 @@ subroutine coldair( &
   tg              , &
   co2ice_sfc      , &
   q               , &
-  tmg             , &
-  tmfdns          , &
+  tm_sfc          , &
+  tmflx_sfc_dn    , &
   zin             , &
   dmadt           , &
   atmcond         )
@@ -28,17 +28,17 @@ subroutine coldair( &
   implicit none
 
   real(r8), intent(inout) :: tstrat
-  real(r8), intent(in   ) :: dp     (nlev)
-  real(r8), intent(in   ) :: pl     (2*nlev+3)
-  real(r8), intent(inout) :: tl     (2*nlev+3)
+  real(r8), intent(in   ) :: dp          (nlev)
+  real(r8), intent(in   ) :: pl          (2*nlev+3)
+  real(r8), intent(inout) :: tl          (2*nlev+3)
   real(r8), intent(inout) :: tg
   real(r8), intent(inout) :: co2ice_sfc
-  real(r8), intent(inout) :: q      (nlev,ntracers)
-  real(r8), intent(  out) :: tmg    (     ntracers)
-  real(r8), intent(  out) :: tmfdns (     ntracers)
-  real(r8), intent(in   ) :: zin    (nsoil)
+  real(r8), intent(inout) :: q           (nlev,ntracers)
+  real(r8), intent(  out) :: tm_sfc      (     ntracers)
+  real(r8), intent(  out) :: tmflx_sfc_dn(     ntracers)
+  real(r8), intent(in   ) :: zin         (nsoil)
   real(r8), intent(  out) :: dmadt
-  real(r8), intent(inout) :: atmcond(nlev)
+  real(r8), intent(inout) :: atmcond     (nlev)
 
   integer k, l, m, n
   integer k_scavup, k_scavdn
@@ -124,12 +124,12 @@ subroutine coldair( &
       do k = k_scavup, k_scavdn
         if (k_scavdn == nlev) then
           ! If condensation occurs down to the surface, put all aerosols on the surface (in fact, only the cloud mass matters).
-          tmg   (iMa_vap) = tmg   (iMa_vap) + scaveff * q(k,iMa_cld) * dp(k) / g
-          tmg   (iMa_dt ) = tmg   (iMa_dt ) + scaveff * q(k,iMa_dt ) * dp(k) / g
-          tmg   (iMa_cor) = tmg   (iMa_cor) + scaveff * q(k,iMa_cor) * dp(k) / g
-          tmfdns(iMa_dt ) = tmfdns(iMa_dt ) + scaveff * q(k,iMa_dt ) * dp(k) / g / dt
-          tmfdns(iMa_cor) = tmfdns(iMa_cor) + scaveff * q(k,iMa_cor) * dp(k) / g / dt
-          tmfdns(iMa_cld) = tmfdns(iMa_cld) + scaveff * q(k,iMa_cld) * dp(k) / g / dt
+          tm_sfc      (iMa_vap) = tm_sfc      (iMa_vap) + scaveff * q(k,iMa_cld) * dp(k) / g
+          tm_sfc      (iMa_dst) = tm_sfc      (iMa_dst) + scaveff * q(k,iMa_dst) * dp(k) / g
+          tm_sfc      (iMa_cor) = tm_sfc      (iMa_cor) + scaveff * q(k,iMa_cor) * dp(k) / g
+          tmflx_sfc_dn(iMa_dst) = tmflx_sfc_dn(iMa_dst) + scaveff * q(k,iMa_dst) * dp(k) / g / dt
+          tmflx_sfc_dn(iMa_cor) = tmflx_sfc_dn(iMa_cor) + scaveff * q(k,iMa_cor) * dp(k) / g / dt
+          tmflx_sfc_dn(iMa_cld) = tmflx_sfc_dn(iMa_cld) + scaveff * q(k,iMa_cld) * dp(k) / g / dt
         else
           ! If condensation occurs in a restricted portion, put aerosols in the highest layer unaffected by CO2 condensation.
           do m = 1, ntracers

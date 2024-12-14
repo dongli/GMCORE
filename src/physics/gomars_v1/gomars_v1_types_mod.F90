@@ -26,16 +26,20 @@ module gomars_v1_types_mod
   public physics_use_wet_tracers
 
   type, extends(physics_state_type) :: gomars_v1_state_type
+    ! Surface pressure at time level n (Pa)
+    real(r8), allocatable, dimension(:      ) :: ps_old
+    ! Pressure of planetary boundary layer top (Pa)
+    real(r8), allocatable, dimension(:      ) :: p_pbl_top
     ! Stratospheric temperature (K)
     real(r8), allocatable, dimension(:      ) :: tstrat
     ! Surface CO2 ice (?)
-    real(r8), allocatable, dimension(:      ) :: co2ice_sfc     ! co2ice
+    real(r8), allocatable, dimension(:      ) :: co2ice_sfc
     !
     real(r8), allocatable, dimension(:      ) :: latheat
     !
     real(r8), allocatable, dimension(:,:    ) :: atmcond
-    ! Surface boundary condition for tracers
-    real(r8), allocatable, dimension(:,    :) :: q_sfc          ! qcond
+    ! Tracer mass on the surface (kg m-2)
+    real(r8), allocatable, dimension(:,    :) :: tm_sfc
     ! Visible extinction efficiency for dust
     real(r8), allocatable, dimension(  :,:  ) :: qxvdst
     ! Visible scattering efficiency for dust
@@ -99,12 +103,12 @@ module gomars_v1_types_mod
     !
     real(r8), allocatable, dimension(:      ) :: fdnsfci
     ! [restart] Downward diffuse visible (solar) flux at the surface (W m-2)
-    real(r8), allocatable, dimension(:      ) :: vsdif_sfc_dn     ! dndiffv
+    real(r8), allocatable, dimension(:      ) :: vsdif_sfc_dn
     ! Downward visible flux at the surface (W m-2)
-    real(r8), allocatable, dimension(:      ) :: vsflx_sfc_dn     ! dnvflux
+    real(r8), allocatable, dimension(:      ) :: vsflx_sfc_dn
     ! Downward IR flux at the surface (W m-2)
-    real(r8), allocatable, dimension(:      ) :: irflx_sfc_dn     ! dnirflux
-    !
+    real(r8), allocatable, dimension(:      ) :: irflx_sfc_dn
+    ! Reference optical depth for dust in 0.67 um
     real(r8), allocatable, dimension(  :    ) :: taurefdst
     !
     real(r8), allocatable, dimension(  :    ) :: taurefcld
@@ -172,8 +176,8 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:,:    ) :: scond
     !
     real(r8), allocatable, dimension(:,:    ) :: stemp
-    ! Water ice upward sublimation flux at the surface FIXME: Is subflux in tmfdns?
-    real(r8), allocatable, dimension(:      ) :: h2oflx_sfc_up  ! subflux
+    ! Water ice upward sublimation amount per unit area at the surface (kg m-2)
+    real(r8), allocatable, dimension(:      ) :: h2osub_sfc     ! subflux
     ! [restart] Water ice at the surface (???)
     real(r8), allocatable, dimension(:      ) :: h2oice_sfc     ! gndice
     !
@@ -188,7 +192,6 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(    :  ) :: tmid_rad
     ! Potential temperature at all levels with two extra levels at the top (K)
     real(r8), allocatable, dimension(    :  ) :: teta
-    real(r8), allocatable, dimension(    :  ) :: teta_save
     ! Pressure at all levels with two extra levels at the top (Pa)
     real(r8), allocatable, dimension(    :  ) :: pl
     real(r8), allocatable, dimension(    :  ) :: plogadj
@@ -196,10 +199,11 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(    :  ) :: plev_rad
     ! Pressure at radiation levels (Pa)
     real(r8), allocatable, dimension(    :  ) :: pmid_rad
-    ! Condensated mass of tracers on the surface (kg m-2)
-    real(r8), allocatable, dimension(:,  :  ) :: tmg ! qpig
+    !
     real(r8), allocatable, dimension(    :  ) :: aadj
+    !
     real(r8), allocatable, dimension(    :  ) :: badj
+    ! Exner pressure (1)
     real(r8), allocatable, dimension(    :  ) :: om
     ! Water mixing ratio on the full and half levels (kg kg-1)
     real(r8), allocatable, dimension(    :  ) :: qh2o
@@ -227,11 +231,13 @@ contains
 
     call this%clear()
 
+    allocate(this%ps_old        (mesh%ncol                   )); this%ps_old        = 0
+    allocate(this%p_pbl_top     (mesh%ncol                   )); this%p_pbl_top     = 0
     allocate(this%tstrat        (mesh%ncol                   )); this%tstrat        = 0
     allocate(this%co2ice_sfc    (mesh%ncol                   )); this%co2ice_sfc    = 0
     allocate(this%latheat       (mesh%ncol                   )); this%latheat       = 0
     allocate(this%atmcond       (mesh%ncol,mesh%nlev         )); this%atmcond       = 0
-    allocate(this%q_sfc         (mesh%ncol,ntracers          )); this%q_sfc         = 0
+    allocate(this%tm_sfc        (mesh%ncol,ntracers          )); this%tm_sfc        = 0
     allocate(this%qxvdst        (2*mesh%nlev+4,nspectv       )); this%qxvdst        = 0
     allocate(this%qsvdst        (2*mesh%nlev+4,nspectv       )); this%qsvdst        = 0
     allocate(this%gvdst         (2*mesh%nlev+4,nspectv       )); this%gvdst         = 0
@@ -301,19 +307,17 @@ contains
     allocate(this%cpsoil        (mesh%ncol,nsoil             )); this%cpsoil        = 0
     allocate(this%scond         (mesh%ncol,2*nsoil+1         )); this%scond         = 0
     allocate(this%stemp         (mesh%ncol,2*nsoil+1         )); this%stemp         = 0
-    allocate(this%h2oflx_sfc_up (mesh%ncol                   )); this%h2oflx_sfc_up = 0
+    allocate(this%h2osub_sfc    (mesh%ncol                   )); this%h2osub_sfc    = 0
     allocate(this%h2oice_sfc    (mesh%ncol                   )); this%h2oice_sfc    = 0
     allocate(this%dmadt         (mesh%ncol                   )); this%dmadt         = 0
     allocate(this%tl            (2*mesh%nlev+3               )); this%tl            = 0
     allocate(this%tlev_rad      (2*mesh%nlev+3               )); this%tlev_rad      = 0
     allocate(this%tmid_rad      (2*mesh%nlev+3               )); this%tmid_rad      = 0
     allocate(this%teta          (2*mesh%nlev+3               )); this%teta          = 0
-    allocate(this%teta_save     (2*mesh%nlev+3               )); this%teta_save     = 0
     allocate(this%pl            (2*mesh%nlev+3               )); this%pl            = 0
     allocate(this%plogadj       (2*mesh%nlev+3               )); this%plogadj       = 0
     allocate(this%plev_rad      (2*mesh%nlev+3               )); this%plev_rad      = 0
     allocate(this%pmid_rad      (2*mesh%nlev+3               )); this%pmid_rad      = 0
-    allocate(this%tmg           (mesh%ncol,    ntracers      )); this%tmg           = 0
     allocate(this%aadj          (2*mesh%nlev+3               )); this%aadj          = 0
     allocate(this%badj          (2*mesh%nlev+3               )); this%badj          = 0
     allocate(this%om            (2*mesh%nlev+3               )); this%om            = 0
@@ -327,11 +331,13 @@ contains
 
     class(gomars_v1_state_type), intent(inout) :: this
 
+    if (allocated(this%ps_old       )) deallocate(this%ps_old       )
+    if (allocated(this%p_pbl_top    )) deallocate(this%p_pbl_top    )
     if (allocated(this%tstrat       )) deallocate(this%tstrat       )
     if (allocated(this%co2ice_sfc   )) deallocate(this%co2ice_sfc   )
     if (allocated(this%latheat      )) deallocate(this%latheat      )
     if (allocated(this%atmcond      )) deallocate(this%atmcond      )
-    if (allocated(this%q_sfc        )) deallocate(this%q_sfc        )
+    if (allocated(this%tm_sfc       )) deallocate(this%tm_sfc       )
     if (allocated(this%qxvdst       )) deallocate(this%qxvdst       )
     if (allocated(this%qsvdst       )) deallocate(this%qsvdst       )
     if (allocated(this%gvdst        )) deallocate(this%gvdst        )
@@ -402,19 +408,17 @@ contains
     if (allocated(this%cpsoil       )) deallocate(this%cpsoil       )
     if (allocated(this%scond        )) deallocate(this%scond        )
     if (allocated(this%stemp        )) deallocate(this%stemp        )
-    if (allocated(this%h2oflx_sfc_up)) deallocate(this%h2oflx_sfc_up)
+    if (allocated(this%h2osub_sfc   )) deallocate(this%h2osub_sfc   )
     if (allocated(this%h2oice_sfc   )) deallocate(this%h2oice_sfc   )
     if (allocated(this%dmadt        )) deallocate(this%dmadt        )
     if (allocated(this%tl           )) deallocate(this%tl           )
     if (allocated(this%tlev_rad     )) deallocate(this%tlev_rad     )
     if (allocated(this%tmid_rad     )) deallocate(this%tmid_rad     )
     if (allocated(this%teta         )) deallocate(this%teta         )
-    if (allocated(this%teta_save    )) deallocate(this%teta_save    )
     if (allocated(this%pl           )) deallocate(this%pl           )
     if (allocated(this%plogadj      )) deallocate(this%plogadj      )
     if (allocated(this%plev_rad     )) deallocate(this%plev_rad     )
     if (allocated(this%pmid_rad     )) deallocate(this%pmid_rad     )
-    if (allocated(this%tmg          )) deallocate(this%tmg          )
     if (allocated(this%aadj         )) deallocate(this%aadj         )
     if (allocated(this%badj         )) deallocate(this%badj         )
     if (allocated(this%om           )) deallocate(this%om           )
