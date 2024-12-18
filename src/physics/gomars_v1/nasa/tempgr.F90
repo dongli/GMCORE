@@ -143,6 +143,8 @@ subroutine tempgr( &
 
     ! Only modify if we have water condensation.
     qsat = water_vapor_saturation_mixing_ratio_mars(tg, ps)
+    ! See Eq. (1) in Haberle et al. (2019), which used a bulk transfer approach,
+    ! but note rhouch contains cpd, so here divides cpd.
     wflux = -rhouch * (qbot(iMa_vap) - qsat) / cpd
     if (wflux < 0) then
       h2oice_sfc = h2oice_sfc - wflux * dt

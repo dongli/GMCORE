@@ -47,66 +47,58 @@ module gomars_v1_const_mod
   ! Number of vertical levels
   integer :: nlevrad = 0
 
-  ! Avogadro constant (mol-1)
-  real(r8), parameter :: nav        = na
-  ! Perfect gas constant (J K-1 mol-1)
-  real(r8), parameter :: rgp        = ru
-  ! Boltzmann constant (J K-1)
-  real(r8), parameter :: kbz        = kb
-  ! Molecular weight of water (kg mol-1)
-  real(r8), parameter :: mh2o       = m_h2o
   ! Weight of a water molecule (kg)
-  real(r8), parameter :: m0         = m_h2o / nav
+  real(r8), parameter :: m0         = m_h2o / na
   ! Ratio between air mass and water mass
   real(r8), parameter :: mwratio    = m_co2 / m_h2o
   ! Dust particle density (kg m-3)
-  real(r8), parameter :: dpden_dt   = 2.5e3_r8
-  !
-  real(r8), parameter :: scale_dt   = 3.0_r8 * kb / (amu * m_co2)
+  real(r8), parameter :: rho_dst    = 2.5e3_r8
   ! Water ice particle density (kg m-3)
-  real(r8), parameter :: dpden_ice  = 917.0_r8
+  real(r8), parameter :: rho_ice    = 917.0_r8
+  ! Standard deviation of the dust distribution
+  real(r8), parameter :: dev_dst    = 0.63676_r8
+  ! Standard deviation of the water ice distribution
+  real(r8), parameter :: dev_ice    = 0.30870_r8
+  ! Boltzmann constant divided by CO2 mass (J K-1 kg-1)
+  real(r8), parameter :: scale_co2  = 3.0_r8 * kb / (amu * m_co2)
   ! Volume of a water molecule (m3)
-  real(r8), parameter :: vo1        = mh2o / dpden_ice
+  real(r8), parameter :: vo1        = m_h2o / rho_ice
   ! Activation energy for desorption of water on a dust-like surface (J mol-1)
   real(r8), parameter :: desorp     = 0.288e-19_r8
   ! Esitimated activation energy for surface diffusion of water molecules (J mol-1)
-  real(r8), parameter :: surfdif   = desorp / 10.0_r8
+  real(r8), parameter :: surfdif    = desorp / 10.0_r8
   ! Jump frequency of a water molecule (s-1)
-  real(r8), parameter :: nus       = 1.0e13_r8
+  real(r8), parameter :: nus        = 1.0e13_r8
   ! Contact parameter of water ice on dust (m=cos(theta)) Franck's number
-  real(r8), parameter :: mteta     = 0.95_r8
-  ! Standard deviation of the dust distribution (reff = 0.5)
-  real(r8), parameter :: dev_dt    = 0.63676_r8
-  ! Standard deviation of the water ice distribution (reff = 0.1)
-  real(r8), parameter :: dev_ice   = 0.3087_r8
+  real(r8), parameter :: mteta      = 0.95_r8
   ! Albedo of surface ice at northern hemisphere
-  real(r8), parameter :: alicen    = 0.600_r8
+  real(r8), parameter :: alicen     = 0.600_r8
   ! Albedo of surface ice at southern hemisphere
-  real(r8), parameter :: alices    = 0.500_r8
+  real(r8), parameter :: alices     = 0.500_r8
   ! Emissivity of bare ground outsidt 15 micron band width
-  real(r8), parameter :: egognd    = 1.0_r8
+  real(r8), parameter :: egognd     = 1.0_r8
   ! Emissivity of bare ground inside 15 micron band width
-  real(r8), parameter :: eg15gnd   = 1.0_r8
+  real(r8), parameter :: eg15gnd    = 1.0_r8
   !
-  real(r8), parameter :: eg15co2s  = 1.0_r8
+  real(r8), parameter :: eg15co2s   = 1.0_r8
   !
-  real(r8), parameter :: eg15co2n  = 0.8_r8
+  real(r8), parameter :: eg15co2n   = 0.8_r8
   !
-  real(r8), parameter :: egoco2s   = 1.0_r8
+  real(r8), parameter :: egoco2s    = 1.0_r8
   !
-  real(r8), parameter :: egoco2n   = 0.8_r8
+  real(r8), parameter :: egoco2n    = 0.8_r8
   ! CO2 latent heat
-  real(r8), parameter :: xlhtc     = 5.902e5_r8
+  real(r8), parameter :: xlhtc      = 5.902e5_r8
   ! A radiation code conversion factor
-  real(r8), parameter :: cmk       = 3.51e22_r8
+  real(r8), parameter :: cmk        = 3.51e22_r8
   !
-  real(r8), parameter :: scaveff   = 0.6_r8
+  real(r8), parameter :: scaveff    = 0.6_r8
   ! 1/3
-  real(r8), parameter :: athird    = 1.0_r8 / 3.0_r8
+  real(r8), parameter :: athird     = 1.0_r8 / 3.0_r8
   ! sqrt(2)
-  real(r8), parameter :: sqrt2     = sqrt(2.0_r8)
+  real(r8), parameter :: sqrt2      = sqrt(2.0_r8)
   ! sqrt(3)
-  real(r8), parameter :: sqrt3     = sqrt(3.0_r8)
+  real(r8), parameter :: sqrt3      = sqrt(3.0_r8)
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop
@@ -114,6 +106,8 @@ module gomars_v1_const_mod
   real(r8) psl
   ! Physics time step (s)
   real(r8) dt
+  ! Time step for microphysics (s)
+  real(r8) dt_mp
   ! Amount of surface ice required to change albedo (kg m-2)
   real(r8) icethresh_kgm2
 

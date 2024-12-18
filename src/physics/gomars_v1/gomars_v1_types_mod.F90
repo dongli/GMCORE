@@ -29,7 +29,7 @@ module gomars_v1_types_mod
     ! Surface pressure at time level n (Pa)
     real(r8), allocatable, dimension(:      ) :: ps_old
     ! Pressure of planetary boundary layer top (Pa)
-    real(r8), allocatable, dimension(:      ) :: p_pbl_top
+    real(r8), allocatable, dimension(:      ) :: ptop_pbl
     ! Stratospheric temperature (K)
     real(r8), allocatable, dimension(:      ) :: tstrat
     ! Surface CO2 ice (?)
@@ -182,6 +182,10 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(:      ) :: h2oice_sfc     ! gndice
     !
     real(r8), allocatable, dimension(:      ) :: dmadt
+    ! Wind stress dust lifting flux (kg m-2 s-1)
+    real(r8), allocatable, dimension(:      ) :: dstflx_wsl
+    ! Dust devil lifting flux (kg m-2 s-1)
+    real(r8), allocatable, dimension(:      ) :: dstflx_ddl
     ! Square of Mars distance from sun
     real(r8) :: rsdist
     ! Temperature at all levels with two extra levels at the top (K)
@@ -232,7 +236,7 @@ contains
     call this%clear()
 
     allocate(this%ps_old        (mesh%ncol                   )); this%ps_old        = 0
-    allocate(this%p_pbl_top     (mesh%ncol                   )); this%p_pbl_top     = 0
+    allocate(this%ptop_pbl      (mesh%ncol                   )); this%ptop_pbl      = 0
     allocate(this%tstrat        (mesh%ncol                   )); this%tstrat        = 0
     allocate(this%co2ice_sfc    (mesh%ncol                   )); this%co2ice_sfc    = 0
     allocate(this%latheat       (mesh%ncol                   )); this%latheat       = 0
@@ -310,6 +314,8 @@ contains
     allocate(this%h2osub_sfc    (mesh%ncol                   )); this%h2osub_sfc    = 0
     allocate(this%h2oice_sfc    (mesh%ncol                   )); this%h2oice_sfc    = 0
     allocate(this%dmadt         (mesh%ncol                   )); this%dmadt         = 0
+    allocate(this%dstflx_wsl    (mesh%ncol                   )); this%dstflx_wsl    = 0
+    allocate(this%dstflx_ddl    (mesh%ncol                   )); this%dstflx_ddl    = 0
     allocate(this%tl            (2*mesh%nlev+3               )); this%tl            = 0
     allocate(this%tlev_rad      (2*mesh%nlev+3               )); this%tlev_rad      = 0
     allocate(this%tmid_rad      (2*mesh%nlev+3               )); this%tmid_rad      = 0
@@ -332,7 +338,7 @@ contains
     class(gomars_v1_state_type), intent(inout) :: this
 
     if (allocated(this%ps_old       )) deallocate(this%ps_old       )
-    if (allocated(this%p_pbl_top    )) deallocate(this%p_pbl_top    )
+    if (allocated(this%ptop_pbl     )) deallocate(this%ptop_pbl     )
     if (allocated(this%tstrat       )) deallocate(this%tstrat       )
     if (allocated(this%co2ice_sfc   )) deallocate(this%co2ice_sfc   )
     if (allocated(this%latheat      )) deallocate(this%latheat      )
@@ -411,6 +417,8 @@ contains
     if (allocated(this%h2osub_sfc   )) deallocate(this%h2osub_sfc   )
     if (allocated(this%h2oice_sfc   )) deallocate(this%h2oice_sfc   )
     if (allocated(this%dmadt        )) deallocate(this%dmadt        )
+    if (allocated(this%dstflx_wsl   )) deallocate(this%dstflx_wsl   )
+    if (allocated(this%dstflx_ddl   )) deallocate(this%dstflx_ddl   )
     if (allocated(this%tl           )) deallocate(this%tl           )
     if (allocated(this%tlev_rad     )) deallocate(this%tlev_rad     )
     if (allocated(this%tmid_rad     )) deallocate(this%tmid_rad     )

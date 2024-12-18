@@ -36,7 +36,7 @@ module gomars_v1_tracers_mod
   public ntracers
 
   integer, public :: iMa_dst  = 0
-  integer, public :: iNb_dt  = 0
+  integer, public :: iNb_dst  = 0
   integer, public :: iMa_cld = 0
   integer, public :: iNb_cld = 0
   integer, public :: iMa_cor = 0
@@ -53,7 +53,7 @@ contains
     call tracer_add('mars', dt_adv, 'qm_dst', 'Dust mass mixing ratio'       , 'kg kg-1')
     iMa_dst = ntracers
     call tracer_add('mars', dt_adv, 'qn_dst', 'Dust number mixing ratio'     , 'kg-1'   )
-    iNb_dt = ntracers
+    iNb_dst = ntracers
     call tracer_add('mars', dt_adv, 'qm_cld', 'Ice cloud mass mixing ratio'  , 'kg kg-1')
     iMa_cld = ntracers
     call tracer_add('mars', dt_adv, 'qn_cld', 'Ice cloud number mixing ratio', 'kg-1'   )

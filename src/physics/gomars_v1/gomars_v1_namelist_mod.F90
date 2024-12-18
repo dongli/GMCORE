@@ -29,10 +29,15 @@ module gomars_v1_namelist_mod
   logical  :: latent_heat      = .true.
 
   logical  :: use_ddl          = .true.
-  character(8) :: wsl_scheme   = 'newman'  ! newman or kmh
+  ! Dust devil lifting efficiency
+  real(r8) :: alpha_d          = 5.0e-11_r8
 
-  logical  :: wsl_newman       = .true.
-  logical  :: wsl_kmh          = .false.
+  character(8) :: wsl_scheme   = 'newman'  ! newman or kmh
+  logical  :: use_wsl_newman   = .true.
+  logical  :: use_wsl_kmh      = .false.
+  real(r8) :: tau_thresh       = 0.04_r8   ! Wind stress threshold for wind stress dust lifting (Pa)
+  ! Wind stress lifting efficiency
+  real(r8) :: alpha_n          = 5.0e-5_r8
 
   namelist /gomars_v1_control/ &
     psf                      , &
@@ -46,9 +51,12 @@ module gomars_v1_namelist_mod
     albfeed                  , &
     latent_heat              , &
     use_ddl                  , &
+    alpha_d                  , &
     wsl_scheme               , &
-    wsl_newman               , &
-    wsl_kmh
+    use_wsl_newman           , &
+    use_wsl_kmh              , &
+    tau_thresh               , &
+    alpha_d
 
 contains
 
@@ -62,10 +70,10 @@ contains
 
     psl = psf
 
-    icethresh_kgm2 = icethresh_depth * dpden_ice * 1.0E-6_r8
+    icethresh_kgm2 = icethresh_depth * rho_ice * 1.0E-6_r8
 
-    wsl_newman = wsl_scheme == 'newman'
-    wsl_kmh    = wsl_scheme == 'kmh'
+    use_wsl_newman = wsl_scheme == 'newman'
+    use_wsl_kmh    = wsl_scheme == 'kmh'
 
   end subroutine gomars_v1_parse_namelist
 

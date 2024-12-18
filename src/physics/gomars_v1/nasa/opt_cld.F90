@@ -59,7 +59,7 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
   do k = 1, nlev
     if (q(k,iMa_cld) + q(k,iMa_cor) > 1.0e-7 .and. q(k,iNb_cld) > 1) then
       ! Determine the ratio of dust core over that of ice mantle.
-      mantletocore = (q(k,iMa_cor) / dpden_dt / (q(k,iMa_cld) / dpden_ice + q(k,iMa_cor) / dpden_dt))**athird
+      mantletocore = (q(k,iMa_cor) / rho_dst / (q(k,iMa_cld) / rho_ice + q(k,iMa_cor) / rho_dst))**athird
       ! Find the index to which corresponds the optical properties of the core to mantle ratio.
       ! Those properties were determined off-line using the Toon and Ackerman coated spheres code.
       irap = nratio
@@ -78,7 +78,7 @@ subroutine opt_cld(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefcld, taurefcld, tau
       ! Calculate the cross-section mean radius (Rs) of the log-normal distribution.
       Mo = q(k,iMa_cld) + q(k,iMa_cor)
       No = q(k,iNb_cld)
-      cst = 0.75_r8 / (pi * (q(k,iMa_cld) / dpden_ice + q(k,iMa_cor) / dpden_dt) / Mo)
+      cst = 0.75_r8 / (pi * (q(k,iMa_cld) / rho_ice + q(k,iMa_cor) / rho_dst) / Mo)
       Rs = (Mo / No * cst)**athird * exp(-0.5_r8 * dev_ice**2)
       ! Calculate the total cross sectional area (Ao) of water ice particles.
       Ao = No * pi * Rs**2

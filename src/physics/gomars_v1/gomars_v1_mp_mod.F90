@@ -21,6 +21,7 @@ module gomars_v1_mp_mod
 
   public mp_init
   public mp_final
+  public rho_aer, std_aer
   public rad_rt, radb_rt
   public qextv_dst, qscatv_dst, gv_dst
   public qexti_dst, qscati_dst, gi_dst
@@ -38,8 +39,8 @@ module gomars_v1_mp_mod
     0.65_r8, 0.70_r8, 0.80_r8, 0.90_r8, 0.99_r8  &
   ]
 
-  real(r8), allocatable, dimension(:    ) :: aerdens
-  real(r8), allocatable, dimension(:    ) :: stdv
+  real(r8), allocatable, dimension(:    ) :: rho_aer
+  real(r8), allocatable, dimension(:    ) :: std_aer
   real(r8), allocatable, dimension(:    ) :: rad_rt
   real(r8), allocatable, dimension(:    ) :: radb_rt
   real(r8), allocatable, dimension(:,:,:) :: qextv_cld
@@ -65,20 +66,20 @@ contains
 
     call mp_final()
 
-    allocate(aerdens(ntracers))
-    allocate(stdv   (ntracers))
+    allocate(rho_aer(ntracers))
+    allocate(std_aer(ntracers))
 
-    aerdens(iMa_dst ) = dpden_dt
-    aerdens(iNb_dt ) = dpden_dt
-    aerdens(iMa_cld) = dpden_ice
-    aerdens(iNb_cld) = dpden_ice
-    aerdens(iMa_cor) = dpden_ice
+    rho_aer(iMa_dst) = rho_dst
+    rho_aer(iNb_dst) = rho_dst
+    rho_aer(iMa_cld) = rho_ice
+    rho_aer(iNb_cld) = rho_ice
+    rho_aer(iMa_cor) = rho_ice
 
-    stdv(iMa_dst ) = dev_dt
-    stdv(iNb_dt ) = dev_dt
-    stdv(iMa_cld) = dev_ice
-    stdv(iNb_cld) = dev_ice
-    stdv(iMa_cor) = dev_ice
+    std_aer(iMa_dst) = dev_dst
+    std_aer(iNb_dst) = dev_dst
+    std_aer(iMa_cld) = dev_ice
+    std_aer(iNb_cld) = dev_ice
+    std_aer(iMa_cor) = dev_ice
 
     allocate(rad_rt (nbin_rt  ))
     allocate(radb_rt(nbin_rt+1))
@@ -149,8 +150,8 @@ contains
 
   subroutine mp_final()
 
-    if (allocated(aerdens   )) deallocate(aerdens   )
-    if (allocated(stdv      )) deallocate(stdv      )
+    if (allocated(rho_aer   )) deallocate(rho_aer   )
+    if (allocated(std_aer   )) deallocate(std_aer   )
     if (allocated(rad_rt    )) deallocate(rad_rt    )
     if (allocated(radb_rt   )) deallocate(radb_rt   )
     if (allocated(qextv_cld )) deallocate(qextv_cld )

@@ -49,21 +49,21 @@ subroutine opt_dst(q, pl, qxv, qsv, gv, qxi, qsi, gi, qextrefdst, taurefdst, tau
     end do
   end do
 
-  dev2 = 1.0_r8 / (sqrt2 * dev_dt)
-  cst = 0.75_r8 / (pi * dpden_dt)
+  dev2 = 1.0_r8 / (sqrt2 * dev_dst)
+  cst = 0.75_r8 / (pi * rho_dst)
 
   taudst = 0
 
   do l = 1, nlev
-    if (q(l,iMa_dst) > 1.0e-8_r8 .and. q(l,iNb_dt) > 1) then
+    if (q(l,iMa_dst) > 1.0e-8_r8 .and. q(l,iNb_dst) > 1) then
       ! Calculate the cross-section mean radius (Rs) of the log-normal distribution.
       Mo = q(l,iMa_dst)
-      No = q(l,iNb_dt) + 1
-      Rs = (Mo / No * cst)**athird * exp(-0.5_r8 * dev_dt**2)
+      No = q(l,iNb_dst) + 1
+      Rs = (Mo / No * cst)**athird * exp(-0.5_r8 * dev_dst**2)
       ! Calculate the total cross sectional area (Ao) of water ice particles.
       Ao = No * pi * Rs**2
       ! Define the cross-section weighted distribution, i.e. surface/size bin. Change Rs to Reff.
-      Rs = 1.0_r8 / min(max(Rs * exp(1.5_r8 * dev_dt**2), 1.0e-7_r8), 50.0e-6_r8)
+      Rs = 1.0_r8 / min(max(Rs * exp(1.5_r8 * dev_dst**2), 1.0e-7_r8), 50.0e-6_r8)
       do ib = 1, nbin_rt
         surf(ib) = 0.5_r8 * (erf(log(radb_rt(ib+1) * Rs) * dev2) - erf(log(radb_rt(ib) * Rs) * dev2))
       end do

@@ -58,8 +58,9 @@ contains
     integer , intent(in) :: input_ngroup
     character(*), intent(in), optional :: model_root
 
-    dt = dt_phys
-    nlev = mesh(1)%nlev
+    dt      = dt_phys
+    dt_mp   = dt_phys / nsplit
+    nlev    = mesh(1)%nlev
     nlayrad = nlev + 1
     nlevrad = nlev + 2
 
@@ -145,7 +146,7 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, m, substep
-    real(r8) ls, time_of_day, tsat, rho
+    real(r8) ls, time_of_day, tsat, rhodz
     real(r8) nfluxtopv, nfluxtopi, diffvt, albi, sunlte
 
     ls = time%solar_longitude()
@@ -448,14 +449,15 @@ contains
         do l = 2, 2 * mesh%nlev + 2, 2
           k = (l - 2) / 2
           sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
-          rho = (state%pl(l+1) - state%pl(l-1)) / g
-          state%ht_rad(icol,k) = (sunlte + state%irtot(l+1)) / (cpd * rho * state%om(l))
+          ! FIXME: Could we use state%rho * state%dz?
+          rhodz = (state%pl(l+1) - state%pl(l-1)) / g
+          state%ht_rad(icol,k) = (sunlte + state%irtot(l+1)) / (cpd * rhodz * state%om(l))
         end do
         ! Non-LTE fudge only the stratosphere.
         l = 2
         sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
-        rho = (state%pl(l+1) - state%pl(l-1)) / g
-        state%teta(l) = state%teta(l) + dt * (sunlte + state%irtot(l+1)) / (cpd * rho * state%om(l))
+        rhodz = (state%pl(l+1) - state%pl(l-1)) / g
+        state%teta(l) = state%teta(l) + dt * (sunlte + state%irtot(l+1)) / (cpd * rhodz * state%om(l))
         ! ----------------------------------------------------------------------
         ! Planetary boundary layer calculation
         state%z0(icol) = z00
