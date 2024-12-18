@@ -30,7 +30,8 @@ if not os.path.isfile(plev_file):
 		{
 			'product_type': 'reanalysis',
 			'grid': grids[args.res],
-			'format': 'netcdf',
+			'data_format': 'netcdf',
+			'download_format': 'unarchived',
 			'variable': [
 				'temperature',
 				'geopotential',
@@ -71,7 +72,8 @@ if not os.path.isfile(sfc_file):
 		{
 			'product_type': 'reanalysis',
 			'grid': grids[args.res],
-			'format': 'netcdf',
+			'data_format': 'netcdf',
+			'download_format': 'unarchived',
 			'variable': [
 				'surface_pressure',
 				'geopotential'
