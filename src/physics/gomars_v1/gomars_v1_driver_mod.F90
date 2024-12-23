@@ -146,7 +146,7 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, m, substep
-    real(r8) ls, time_of_day, tsat, rhodz
+    real(r8) ls, time_of_day, rhodz, pcon, ptcon
     real(r8) nfluxtopv, nfluxtopi, diffvt, albi, sunlte
 
     ls = time%solar_longitude()
@@ -502,6 +502,18 @@ contains
         end if
         ! ----------------------------------------------------------------------
         ! Convection adjustment
+        call convect(     &
+          state%p       , & ! in
+          state%p_lev   , & ! in
+          state%dp_dry  , & ! in
+          state%plogadj , & ! in
+          state%om      , & ! in
+          state%pt      , & ! inout
+          state%pt_lev  , & ! inout
+          state%q       , & ! inout
+          pcon          , & ! out
+          ptcon           & ! out
+        )
       end do columns
       end associate
     end do blocks

@@ -60,4 +60,5 @@ target_sources(gmcore PRIVATE
   nasa/ddl.F90
   nasa/sedim.F90
   nasa/microphys.F90
+  nasa/convect.F90
 )
