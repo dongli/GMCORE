@@ -1,27 +1,29 @@
 subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
 
-  !  Lagrange interpolation (linear in log pressure) of the CO2 
-  !  k-coefficients in the pressure domain.  Subsequent use of these
-  !  values will use a simple linear interpolation in pressure.
+  ! Legacy Mars GCM v24
+  ! Mars Climate Modeling Center
+  ! NASA Ames Research Center
+
+  ! Lagrange interpolation (linear in log pressure) of the CO2 
+  ! k-coefficients in the pressure domain.  Subsequent use of these
+  ! values will use a simple linear interpolation in pressure.
   
   use gomars_v1_const_mod
 
   implicit none
 
-  real(r8), intent(in ) :: pgref (npref)
-  real(r8), intent(out) :: pint  (npint)
+  real(r8), intent(in ) :: pgref (      npref                       )
+  real(r8), intent(out) :: pint  (      npint                       )
   real(r8), intent(out) :: co2i  (ntref,npint,nrefh2o,nspecti,ngauss)
   real(r8), intent(out) :: co2v  (ntref,npint,nrefh2o,nspectv,ngauss)
-  real(r8), intent(out) :: fzeroi(nspecti)
-  real(r8), intent(out) :: fzerov(nspectv)
+  real(r8), intent(out) :: fzeroi(                    nspecti       )
+  real(r8), intent(out) :: fzerov(                    nspectv       )
   
   real(r8) co2i8(ntref,npref,nrefh2o,nspecti,ngauss)
   real(r8) co2v8(ntref,npref,nrefh2o,nspectv,ngauss)
   real(r8) x, xi(4), yi(4), ans
   real(r8) pref(npref), p
   integer n, nt, np, nh, ng, nw, m, i
-  
-  real(8) pin(npint)
 
   pint = [                                  &
     -6.0d0, -5.8d0, -5.6d0, -5.4d0, -5.2d0, &
@@ -37,18 +39,12 @@ subroutine laginterp(pgref, pint, co2i, co2v, fzeroi, fzerov)
      4.0d0                                  &
   ]
 
-
-  !  Fill pint for output from this subroutine
-  do n = 1, npint
-    pint(n) = pin(n)
-  end do
-
-  !  Take log of the reference pressures
+  ! Take log of the reference pressures.
   do n = 1, npref
     pref(n) = log10(pgref(n))
   end do
-  
-  ! Get CO2 k coefficients
+
+  ! Get CO2 k coefficients.
   open(20, file='data/CO2H2O_V_12_95_INTEL', form='unformatted')
   read(20) co2v8
   read(20) fzerov
