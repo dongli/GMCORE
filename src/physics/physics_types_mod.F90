@@ -38,6 +38,8 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: t_old
     ! Air temperature (K)
     real(r8), allocatable, dimension(:,:  ) :: t
+    ! Air temperature on half levels (K)
+    real(r8), allocatable, dimension(:,:  ) :: t_lev
     ! Ground temperature (K)
     real(r8), allocatable, dimension(:    ) :: tg
     ! Lowest model level temperature (K)
@@ -181,6 +183,7 @@ contains
     allocate(this%v           (mesh%ncol,mesh%nlev         )); this%v            = 0
     allocate(this%t_old       (mesh%ncol,mesh%nlev         )); this%t_old        = 0
     allocate(this%t           (mesh%ncol,mesh%nlev         )); this%t            = 0
+    allocate(this%t_lev       (mesh%ncol,mesh%nlev+1       )); this%t_lev        = 0
     allocate(this%tg          (mesh%ncol                   )); this%tg           = 0
     allocate(this%pt_old      (mesh%ncol,mesh%nlev         )); this%pt_old       = 0
     allocate(this%pt          (mesh%ncol,mesh%nlev         )); this%pt           = 0
@@ -247,6 +250,7 @@ contains
     if (allocated(this%v            )) deallocate(this%v            )
     if (allocated(this%t_old        )) deallocate(this%t_old        )
     if (allocated(this%t            )) deallocate(this%t            )
+    if (allocated(this%t_lev        )) deallocate(this%t_lev        )
     if (allocated(this%tg           )) deallocate(this%tg           )
     if (allocated(this%pt_old       )) deallocate(this%pt_old       )
     if (allocated(this%pt           )) deallocate(this%pt           )

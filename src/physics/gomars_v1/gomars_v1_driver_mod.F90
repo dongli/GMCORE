@@ -112,9 +112,9 @@ contains
       if (.not. restart) then
         ! FIXME: Here is for cold run.
         do icol = 1, mesh%ncol
-          state%tstrat    (icol) = state%t(icol,mesh%nlev)
+          state%tstrat    (icol) = state%t_bot(icol)
           state%co2ice_sfc(icol) = 0
-          state%tg        (icol) = state%t(icol,mesh%nlev)
+          state%tg        (icol) = state%t_bot(icol)
         end do
       end if
       call ini_optdst(qextv, qscatv, gv, qexti, qscati, gi, &
@@ -497,7 +497,29 @@ contains
         ! Microphysics calculation
         if (microphysics) then
           do substep = 1, nsplit
-            ! call microphys
+            call microphys(                 &
+              state%ps          (icol    ), & ! in
+              state%p           (icol,:  ), & ! in
+              state%dp_dry      (icol,:  ), & ! in
+              state%dz          (icol,:  ), & ! in
+              state%dz_lev      (icol,:  ), & ! in
+              state%t           (icol,:  ), & ! in
+              state%t_lev       (icol,:  ), & ! in
+              state%tg          (icol    ), & ! in
+              state%q           (icol,:,:), & ! inout
+              state%co2ice_sfc  (icol    ), & ! in
+              state%taux        (icol    ), & ! in
+              state%tauy        (icol    ), & ! in
+              state%ht_pbl      (icol    ), & ! in
+              state%ptop_pbl    (icol    ), & ! in
+              state%kh          (icol,:  ), & ! in
+              state%tm_sfc      (icol,:  ), & ! inout
+              state%dstflx_wsl  (icol    ), & ! out
+              state%dstflx_ddl  (icol    ), & ! out
+              state%rho         (icol,:  ), & ! out
+              state%deposit     (icol,:  ), & ! out
+              state%tmflx_sfc_dn(icol,:  )  & ! out
+            )              
           end do
         end if
         ! ----------------------------------------------------------------------

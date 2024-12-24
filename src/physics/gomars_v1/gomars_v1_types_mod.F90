@@ -211,6 +211,8 @@ module gomars_v1_types_mod
     real(r8), allocatable, dimension(    :  ) :: om
     ! Water mixing ratio on the full and half levels (kg kg-1)
     real(r8), allocatable, dimension(    :  ) :: qh2o
+    !
+    real(r8), allocatable, dimension(:,    :) :: deposit
   contains
     procedure :: init  => gomars_v1_state_init
     procedure :: clear => gomars_v1_state_clear
@@ -328,6 +330,7 @@ contains
     allocate(this%badj          (2*mesh%nlev+3               )); this%badj          = 0
     allocate(this%om            (2*mesh%nlev+3               )); this%om            = 0
     allocate(this%qh2o          (2*mesh%nlev+3               )); this%qh2o          = 0
+    allocate(this%deposit       (mesh%ncol,ntracers          )); this%deposit       = 0
 
     call this%physics_state_init(mesh)
 
@@ -431,6 +434,7 @@ contains
     if (allocated(this%badj         )) deallocate(this%badj         )
     if (allocated(this%om           )) deallocate(this%om           )
     if (allocated(this%qh2o         )) deallocate(this%qh2o         )
+    if (allocated(this%deposit      )) deallocate(this%deposit      )
 
     call this%physics_state_clear()
 

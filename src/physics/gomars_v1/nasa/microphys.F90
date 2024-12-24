@@ -40,7 +40,7 @@ subroutine microphys( &
   real(r8), intent(in   ) :: t           (nlev)
   real(r8), intent(in   ) :: t_lev       (nlev+1)
   real(r8), intent(in   ) :: tg
-  real(r8), intent(in   ) :: q           (nlev,ntracers)
+  real(r8), intent(inout) :: q           (nlev,ntracers)
   real(r8), intent(in   ) :: co2ice_sfc
   real(r8), intent(in   ) :: taux
   real(r8), intent(in   ) :: tauy
@@ -109,6 +109,10 @@ subroutine microphys( &
   ! Always check the order of sedimentation and nucleation condensation.
   ! PBL is called before microphysics, so do sedimentation first.
   call sedim(p, dp_dry, t_lev, rho_lev, dz, dz_lev, kh, q, ro, dens, deposit, tmflx_sfc_dn)
+
+  do m = 1, ntracers
+    tm_sfc(m) = tm_sfc(m) + deposit(m)
+  end do
 
 end subroutine microphys
 
