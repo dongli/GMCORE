@@ -1,4 +1,25 @@
-subroutine microphys(ps, p, dp_dry, t, tg, q, co2ice_sfc, taux, tauy, ht_pbl, ptop_pbl, tm_sfc, dstflx_wsl, dstflx_ddl, rho)
+subroutine microphys( &
+  ps                , &
+  p                 , &
+  dp_dry            , &
+  dz                , &
+  dz_lev            , &
+  t                 , &
+  t_lev             , &
+  tg                , &
+  q                 , &
+  co2ice_sfc        , &
+  taux              , &
+  tauy              , &
+  ht_pbl            , &
+  ptop_pbl          , &
+  kh                , &
+  tm_sfc            , &
+  dstflx_wsl        , &
+  dstflx_ddl        , &
+  rho               , &
+  deposit           , &
+  tmflx_sfc_dn      )
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -12,26 +33,33 @@ subroutine microphys(ps, p, dp_dry, t, tg, q, co2ice_sfc, taux, tauy, ht_pbl, pt
   implicit none
 
   real(r8), intent(in   ) :: ps
-  real(r8), intent(in   ) :: p       (nlev)
-  real(r8), intent(in   ) :: dp_dry  (nlev)
-  real(r8), intent(in   ) :: t       (nlev)
+  real(r8), intent(in   ) :: p           (nlev)
+  real(r8), intent(in   ) :: dp_dry      (nlev)
+  real(r8), intent(in   ) :: dz          (nlev)
+  real(r8), intent(in   ) :: dz_lev      (nlev+1)
+  real(r8), intent(in   ) :: t           (nlev)
+  real(r8), intent(in   ) :: t_lev       (nlev+1)
   real(r8), intent(in   ) :: tg
-  real(r8), intent(in   ) :: q       (nlev,ntracers)
+  real(r8), intent(in   ) :: q           (nlev,ntracers)
   real(r8), intent(in   ) :: co2ice_sfc
   real(r8), intent(in   ) :: taux
   real(r8), intent(in   ) :: tauy
   real(r8), intent(in   ) :: ht_pbl
   real(r8), intent(in   ) :: ptop_pbl
-  real(r8), intent(inout) :: tm_sfc  (     ntracers)
+  real(r8), intent(in   ) :: kh          (nlev+1)
+  real(r8), intent(inout) :: tm_sfc      (ntracers)
   real(r8), intent(  out) :: dstflx_wsl
   real(r8), intent(  out) :: dstflx_ddl
-  real(r8), intent(  out) :: rho     (nlev)
+  real(r8), intent(  out) :: rho         (nlev)
+  real(r8), intent(  out) :: deposit     (ntracers)
+  real(r8), intent(  out) :: tmflx_sfc_dn(ntracers)
 
   integer k, m
   real(r8) Mo
   real(r8) No
   real(r8) ro  (nlev,ntracers)
   real(r8) dens(nlev,ntracers)
+  real(r8) rho_lev(nlev+1)
 
   ! Inject dust into the atmosphere.
   call dust_update(ps, p, dp_dry, t, tg, taux, tauy, &
@@ -80,7 +108,7 @@ subroutine microphys(ps, p, dp_dry, t, tg, q, co2ice_sfc, taux, tauy, ht_pbl, pt
   ! Now compute the microphysical processes.
   ! Always check the order of sedimentation and nucleation condensation.
   ! PBL is called before microphysics, so do sedimentation first.
-  ! call sedim
+  call sedim(p, dp_dry, t_lev, rho_lev, dz, dz_lev, kh, q, ro, dens, deposit, tmflx_sfc_dn)
 
 end subroutine microphys
 

@@ -1,4 +1,4 @@
-subroutine convect(p, p_lev, dp_dry, plogadj, om, pt, pt_lev, q, pcon, ptcon)
+subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -18,7 +18,6 @@ subroutine convect(p, p_lev, dp_dry, plogadj, om, pt, pt_lev, q, pcon, ptcon)
   real(r8), intent(in   ) :: p      (nlev)
   real(r8), intent(in   ) :: p_lev  (nlev+1)
   real(r8), intent(in   ) :: dp_dry (nlev)
-  real(r8), intent(in   ) :: plogadj(2*nlev+3)
   real(r8), intent(in   ) :: om     (2*nlev+3)
   real(r8), intent(inout) :: pt     (nlev)
   real(r8), intent(inout) :: pt_lev (nlev+1)
