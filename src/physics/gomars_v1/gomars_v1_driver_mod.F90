@@ -14,7 +14,7 @@ module gomars_v1_driver_mod
 
   use datetime
   use const_mod
-  use namelist_mod, only: restart
+  use namelist_mod, only: restart, ptop
   use vert_coord_mod
   use gomars_v1_namelist_mod
   use gomars_v1_objects_mod
@@ -58,11 +58,15 @@ contains
     integer , intent(in) :: input_ngroup
     character(*), intent(in), optional :: model_root
 
-    dt      = dt_phys
-    dt_mp   = dt_phys / nsplit
-    nlev    = mesh(1)%nlev
-    nlayrad = nlev + 1
-    nlevrad = nlev + 2
+    dt       = dt_phys
+    dt_mp    = dt_phys / nsplit
+    nlev     = mesh(1)%nlev
+    nlayrad  = nlev + 1
+    nlevrad  = nlev + 2
+    ptrop    = ptop
+    pstrat   = ptrop * 0.5_r8
+    lnpstrat = log(pstrat)
+    pstratk  = (pstrat / p0)**rd_o_cpd
 
     call gomars_v1_tracers_init(dt_adv)
     call gomars_v1_objects_init(mesh)
@@ -88,26 +92,6 @@ contains
 
     do iblk = 1, size(objects)
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
-      n = 2 * mesh%nlev + 3
-      ! Set reference pressure and interpolation coeficients (from emiss).
-      state%pl(2) = ptrop * 0.5_r8
-      do k = 3, n, 2
-        state%pl(k) = vert_coord_calc_mg_lev((k - 1) / 2, psl)
-      end do
-      do k = 4, n - 1, 2
-        state%pl(k) = vert_coord_calc_mg((k - 2) / 2, psl)
-      end do
-      do k = 3, n - 1
-        state%aadj(k) = log(state%pl(k+1) / state%pl(k))
-      end do
-      do k = 3, n - 2, 2
-        l = (k - 1) / 2
-        state%badj(k) = mesh%lev(l) / state%pl(k+1) - mesh%ilev(l) / state%pl(k)
-      end do
-      do k = 4, n - 1, 2
-        l = (k - 2) / 2
-        state%badj(k) = mesh%ilev(l+1) / state%pl(k+1) - mesh%lev(l) / state%pl(k)
-      end do
       ! Set some initial variables (from init1).
       if (.not. restart) then
         ! FIXME: Here is for cold run.
@@ -146,7 +130,7 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, m, substep
-    real(r8) ls, time_of_day, rhodz, pcon, ptcon
+    real(r8) ls, time_of_day, nonlte, tmp, pcon, ptcon
     real(r8) nfluxtopv, nfluxtopi, diffvt, albi, sunlte
 
     ls = time%solar_longitude()
@@ -154,6 +138,7 @@ contains
     call update_solar_decl_angle(ls)
     call update_solar(ls)    
 
+    ! NOTE: Old time step values of u, v, pt, q are already saved in state%u_old, etc.
     blocks: do iblk = 1, size(objects)
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state, tend => objects(iblk)%tend)
       columns: do icol = 1, mesh%nlev
@@ -211,67 +196,66 @@ contains
         ! ----------------------------------------------------------------------
         ! Calculate potential temperature on all levels.
         call potemp1(                        &
-          state%ps            (icol       ), & ! in
           state%tstrat        (icol       ), & ! in
-          state%t             (icol,:     ), & ! in
-          state%aadj                       , & ! in
-          state%badj                       , & ! in
-          state%plogadj                    , & ! out
-          state%pl                         , & ! out
-          state%om                         , & ! out
-          state%tl                         , & ! out
-          state%teta                         & ! out
+          state%lnp           (icol,:     ), & ! in
+          state%lnp_lev       (icol,:     ), & ! in
+          state%pk_lev        (icol,:     ), & ! in
+          state%pt            (icol,:     ), & ! in
+          state%pt_lev        (icol,:     ), & ! out
+          state%t_lev         (icol,:     )  & ! out
         )
         call coldair(                        &
+          state%ps            (icol       ), & ! in
           state%tstrat        (icol       ), & ! inout
           state%dp            (icol,:     ), & ! in
-          state%pl                         , & ! in
-          state%tl                         , & ! inout
+          state%p                          , & ! in
+          state%t                          , & ! inout
           state%tg            (icol       ), & ! inout
           state%co2ice_sfc    (icol       ), & ! inout
           state%q             (icol,:,:   ), & ! inout
           state%tm_sfc        (icol,  :   ), & ! out
           state%tmflx_sfc_dn  (icol,  :   ), & ! out
           state%zin           (icol,:     ), & ! in
-          state%dmadt         (icol       ), & ! out
-          state%atmcond       (icol,:     )  & ! inout
+          state%dmsdt         (icol       )  & ! out
         )
         call potemp2(                        &
-          state%ps            (icol       ), & ! in
           state%tstrat        (icol       ), & ! in
+          state%lnp           (icol,:     ), & ! in
+          state%lnp_lev       (icol,:     ), & ! in
+          state%pk            (icol,:     ), & ! in
+          state%pk_lev        (icol,:     ), & ! in
+          state%pt            (icol,:     ), & ! out
+          state%pt_lev        (icol,:     ), & ! out
           state%t             (icol,:     ), & ! in
-          state%aadj                       , & ! in
-          state%badj                       , & ! in
-          state%plogadj                    , & ! out
-          state%pl                         , & ! out
-          state%om                         , & ! out
-          state%tl                         , & ! inout
-          state%teta                         & ! out
+          state%t_lev         (icol,:     )  & ! out
         )
         ! ----------------------------------------------------------------------
         ! Radiation calculation
         ! Transfer pressure and temperature onto radiation levels.
         call fillpt(                         &
-          state%pl                         , & ! in
-          state%tl                         , & ! in
-          state%tg            (icol      ) , & ! in
-          state%tstrat        (icol      ) , & ! in
+          state%p             (icol,:     ), & ! in
+          state%p_lev         (icol,:     ), & ! in
+          state%t             (icol,:     ), & ! in
+          state%t_lev         (icol,:     ), & ! in
+          state%tg            (icol       ), & ! in
+          state%tstrat        (icol       ), & ! in
           state%plev_rad                   , & ! out
           state%tlev_rad                   , & ! out
           state%pmid_rad                   , & ! out
           state%tmid_rad                     & ! out
         )
+        ! Set volume mixing ratio of water vapor used in interpolation of K coefficient.
         if (active_water) then
           do k = 1, mesh%nlev
             l = 2 * k + 2
-            state%qh2o(l  ) = mwratio * state%q(icol,k,iMa_vap)
-            state%qh2o(l+1) = state%qh2o(l)
+            state%qh2o_rad(l  ) = m_co2 / m_h2o * state%q(icol,k,iMa_vap)
+            state%qh2o_rad(l+1) = state%qh2o_rad(l)
           end do
         else
           do k = 1, mesh%nlev
             l = 2 * k + 2
-            state%qh2o(l  ) = 1.0e-7_r8
-            state%qh2o(l+1) = state%qh2o(l)
+            state%qh2o_rad(l  ) = 1.0e-7_r8
+            state%qh2o_rad(l+1) = state%qh2o_rad(l)
           end do
         end if
         if (.not. active_dust) then
@@ -279,7 +263,7 @@ contains
         else
           call opt_dst(                     &
             state%q           (icol,:,:  ), & ! in
-            state%pl                      , & ! in
+            state%plev_rad                , & ! in
             state%qxvdst                  , & ! out
             state%qsvdst                  , & ! out
             state%gvdst                   , & ! out
@@ -304,7 +288,7 @@ contains
         if (cloudon) then
           call opt_cld(                     &
             state%q           (icol,:,:  ), & ! in
-            state%pl                      , & ! in
+            state%plev_rad                , & ! in
             state%qxvcld                  , & ! out
             state%qsvcld                  , & ! out
             state%gvcld                   , & ! out
@@ -331,7 +315,7 @@ contains
             state%plev_rad                , & ! in
             state%pmid_rad                , & ! in
             state%tmid_rad                , & ! in
-            state%qh2o                    , & ! in
+            state%qh2o_rad                , & ! in
             state%qxvdst                  , & ! in
             state%qsvdst                  , & ! in
             state%gvdst                   , & ! in
@@ -390,7 +374,7 @@ contains
         state%fupsfcv     (icol) = state%fluxupv(nlayrad)
         state%fdnsfcv     (icol) = state%fluxdnv(nlayrad)
         ! Set up and solve for the infrared fluxes.
-        ! Check for ground ice, and change albedo if there is any ice.
+        ! Check for ground ice, and change infrared albedo if there is any ice.
         albi = 1 - egognd
         if (state%co2ice_sfc(icol) > 0) then
           albi = 1 - merge(egoco2s, egoco2n, mesh%lat(icol) < 0)
@@ -400,7 +384,7 @@ contains
           state%plev_rad                  , & ! in
           state%pmid_rad                  , & ! in
           state%tmid_rad                  , & ! in
-          state%qh2o                      , & ! in
+          state%qh2o_rad                  , & ! in
           state%qxidst                    , & ! in
           state%qsidst                    , & ! in
           state%gidst                     , & ! in
@@ -435,7 +419,8 @@ contains
         )
         state%irtot(3) = state%fmneti(1) - nfluxtopi
         do k = 2, nlayrad
-          state%irtot(2*k+1) = state%fmneti(k) - state%fmneti(k-1)
+          l = 2 * k + 1
+          state%irtot(l) = state%fmneti(k) - state%fmneti(k-1)
         end do
         state%irflx_sfc_dn(icol) = state%fluxdni(nlayrad)
         state%fluxsfc     (icol) = (1 - state%als(icol)) * state%fluxdnv(nlayrad)
@@ -448,50 +433,54 @@ contains
         ! Also add in the non-LTE correction.
         do l = 2, 2 * mesh%nlev + 2, 2
           k = (l - 2) / 2
-          sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
+          ! See Lopez-Valverde et al. (1998) for the non-LTE correction.
+          nonlte = 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
           ! FIXME: Could we use state%rho * state%dz?
-          rhodz = (state%pl(l+1) - state%pl(l-1)) / g
-          state%ht_rad(icol,k) = (sunlte + state%irtot(l+1)) / (cpd * rhodz * state%om(l))
+          if (l == 2) then
+            ! FIXME: Could we set plev_rad(1) to 0, so this branch is not needed?
+            tmp = ptrop / g * pstratk
+          else
+            tmp = (state%plev_rad(l+1) - state%plev_rad(l-1)) / g * state%pk_lev(icol,k)
+          end if
+          state%ht_rad(icol,k) = (state%suntot(l+1) * nonlte + state%irtot(l+1)) / (cpd * tmp)
         end do
-        ! Non-LTE fudge only the stratosphere.
-        l = 2
-        sunlte = state%suntot(l+1) * 2.2e2_r8 * state%plev_rad(l) / (1 + 2.2e2_r8 * state%plev_rad(l))
-        rhodz = (state%pl(l+1) - state%pl(l-1)) / g
-        state%teta(l) = state%teta(l) + dt * (sunlte + state%irtot(l+1)) / (cpd * rhodz * state%om(l))
+        ! Update stratospheric temperature (or TOA?)
+        state%tstrat(icol) = state%tstrat(icol) + dt * state%ht_rad(icol,0)
         ! ----------------------------------------------------------------------
         ! Planetary boundary layer calculation
+        ! Set surface roughness length.
         state%z0(icol) = z00
         if (state%co2ice_sfc(icol) > 0) state%z0(icol) = 1.0e-4_r8
         if (state%tm_sfc(icol,iMa_vap) > 100 .or. state%polarcap(icol)) state%z0(icol) = 1.0e-4_r8
-        call newpbl(                    &
-          state%z0          (icol    ), &
-          state%tg          (icol    ), &
-          state%ht_rad      (icol,:  ), &
-          state%ps          (icol    ), &
-          state%ts          (icol    ), &
-          state%polarcap    (icol    ), &
-          state%u           (icol,:  ), &
-          state%v           (icol,:  ), &
-          state%pt          (icol,:  ), &
-          state%pt_lev      (icol,:  ), &
-          state%q           (icol,:,:), &
-          state%dp_dry      (icol,:  ), &
-          state%z           (icol,:  ), &
-          state%dz          (icol,:  ), &
-          state%z_lev       (icol,:  ), &
-          state%dz_lev      (icol,:  ), &
-          state%shr2        (icol,:  ), &
-          state%ri          (icol,:  ), &
-          state%km          (icol,:  ), &
-          state%kh          (icol,:  ), &
-          state%ustar       (icol    ), &
-          state%tstar       (icol    ), &
-          state%taux        (icol    ), &
-          state%tauy        (icol    ), &
-          state%ht_pbl      (icol    ), &
-          state%rhouch      (icol    ), &
-          state%tm_sfc      (icol,:  ), &
-          state%h2osub_sfc  (icol    )  &
+        call newpbl(                        &
+          state%z0              (icol    ), & ! in
+          state%tg              (icol    ), & ! in
+          state%ht_rad          (icol,:  ), & ! in
+          state%ps              (icol    ), & ! in
+          state%ts              (icol    ), & ! in
+          state%polarcap        (icol    ), & ! in
+          state%u               (icol,:  ), & ! inout
+          state%v               (icol,:  ), & ! inout
+          state%pt              (icol,:  ), & ! inout
+          state%pt_lev          (icol,:  ), & ! in
+          state%q               (icol,:,:), & ! inout
+          state%dp_dry          (icol,:  ), & ! in
+          state%z               (icol,:  ), & ! in
+          state%dz              (icol,:  ), & ! in
+          state%z_lev           (icol,:  ), & ! in
+          state%dz_lev          (icol,:  ), & ! in
+          state%shr2            (icol,:  ), & ! inout
+          state%ri              (icol,:  ), & ! out
+          state%km              (icol,:  ), & ! out
+          state%kh              (icol,:  ), & ! out
+          state%ustar           (icol    ), & ! out
+          state%tstar           (icol    ), & ! out
+          state%taux            (icol    ), & ! out
+          state%tauy            (icol    ), & ! out
+          state%ht_pbl          (icol    ), & ! out
+          state%rhouch          (icol    ), & ! out
+          state%tm_sfc          (icol,:  ), & ! inout
+          state%h2osub_sfc      (icol    )  & ! inout
         )
         ! ----------------------------------------------------------------------
         ! Microphysics calculation
@@ -528,7 +517,6 @@ contains
           state%p       , & ! in
           state%p_lev   , & ! in
           state%dp_dry  , & ! in
-          state%plogadj , & ! in
           state%om      , & ! in
           state%pt      , & ! inout
           state%pt_lev  , & ! inout

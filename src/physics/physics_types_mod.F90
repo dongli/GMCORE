@@ -64,6 +64,10 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: pk
     ! Exner function of full pressure (hydrostatic) on half levels
     real(r8), allocatable, dimension(:,:  ) :: pk_lev
+    ! Logarithm of pressure on full levels (Pa)
+    real(r8), allocatable, dimension(:,:  ) :: lnp
+    ! Logarithm of pressure on half levels (Pa)
+    real(r8), allocatable, dimension(:,:  ) :: lnp_lev
     ! Full pressure thickness (Pa)
     real(r8), allocatable, dimension(:,:  ) :: dp
     ! Dry air pressure thickness (Pa)
@@ -195,6 +199,8 @@ contains
     allocate(this%p_lev       (mesh%ncol,mesh%nlev+1       )); this%p_lev        = 0
     allocate(this%pk          (mesh%ncol,mesh%nlev         )); this%pk           = 0
     allocate(this%pk_lev      (mesh%ncol,mesh%nlev+1       )); this%pk_lev       = 0
+    allocate(this%lnp         (mesh%ncol,mesh%nlev         )); this%lnp          = 0
+    allocate(this%lnp_lev     (mesh%ncol,mesh%nlev+1       )); this%lnp_lev      = 0
     allocate(this%dp          (mesh%ncol,mesh%nlev         )); this%dp           = 0
     allocate(this%dp_dry      (mesh%ncol,mesh%nlev         )); this%dp_dry       = 0
     allocate(this%omg         (mesh%ncol,mesh%nlev         )); this%omg          = 0
@@ -262,6 +268,8 @@ contains
     if (allocated(this%p_lev        )) deallocate(this%p_lev        )
     if (allocated(this%pk           )) deallocate(this%pk           )
     if (allocated(this%pk_lev       )) deallocate(this%pk_lev       )
+    if (allocated(this%lnp          )) deallocate(this%lnp          )
+    if (allocated(this%lnp_lev      )) deallocate(this%lnp_lev      )
     if (allocated(this%dp           )) deallocate(this%dp           )
     if (allocated(this%dp_dry       )) deallocate(this%dp_dry       )
     if (allocated(this%omg          )) deallocate(this%omg          )

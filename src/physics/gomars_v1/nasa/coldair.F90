@@ -1,16 +1,16 @@
 subroutine coldair( &
+  ps              , &
   tstrat          , &
   dp              , &
-  pl              , &
-  tl              , &
+  p               , &
+  t               , &
   tg              , &
   co2ice_sfc      , &
   q               , &
   tm_sfc          , &
   tmflx_sfc_dn    , &
   zin             , &
-  dmadt           , &
-  atmcond         )
+  dmsdt           )
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -27,81 +27,76 @@ subroutine coldair( &
 
   implicit none
 
+  real(r8), intent(in   ) :: ps
   real(r8), intent(inout) :: tstrat
   real(r8), intent(in   ) :: dp          (nlev)
-  real(r8), intent(in   ) :: pl          (2*nlev+3)
-  real(r8), intent(inout) :: tl          (2*nlev+3)
+  real(r8), intent(in   ) :: p           (nlev)
+  real(r8), intent(inout) :: t           (nlev)
   real(r8), intent(inout) :: tg
   real(r8), intent(inout) :: co2ice_sfc
   real(r8), intent(inout) :: q           (nlev,ntracers)
   real(r8), intent(  out) :: tm_sfc      (     ntracers)
   real(r8), intent(  out) :: tmflx_sfc_dn(     ntracers)
   real(r8), intent(in   ) :: zin         (nsoil)
-  real(r8), intent(  out) :: dmadt
-  real(r8), intent(inout) :: atmcond     (nlev)
+  real(r8), intent(  out) :: dmsdt
 
-  integer k, l, m, n
+  integer k, m
   integer k_scavup, k_scavdn
   real(r8) tsat
-  real(r8) condens
-  real(r8) acondns
+  real(r8) dm(nlev) ! Condensation mass on each layer.
   real(r8) tinp
   real(r8) tgp
 
-  n = 2 * nlev + 3
-
-  condens = 0
+  dmsdt = 0
 
   ! Calculate stratospheric condensation.
-  tsat = dewpoint_temperature_mars(pl(2))
+  tsat = dewpoint_temperature_mars(ptrop * 0.5_r8)
   if (tstrat < tsat) then
-    acondns = cpd * (tsat - tstrat) * (ptrop / g) / xlhtc
+    dm(1)  = cpd * (tsat - tstrat) * (ptrop / g) / xlhtc ! FIXME: Is the units kg m-1?
     tstrat = tsat
-    condens = condens + acondns / dt
+    dmsdt  = dmsdt + dm(1) / dt
   end if
 
   ! Calculate tropospheric condensation.
   do k = 1, nlev
-    l = 2 * k + 2
-    tsat = dewpoint_temperature_mars(pl(l))
-    if (tl(l) < tsat) then
-      acondns    = cpd * (tsat - tl(l)) * (dp(k) / g) / xlhtc
-      tl(l)      = tsat
-      condens    = condens + acondns / dt
-      atmcond(k) = atmcond(k) + acondns
+    tsat = dewpoint_temperature_mars(p(k))
+    if (t(k) < tsat) then
+      dm(k) = cpd * (tsat - t(k)) * (dp(k) / g) / xlhtc
+      t(k)  = tsat
+      dmsdt = dmsdt + dm(k) / dt
+    else
+      dm(k) = 0
     end if
   end do
 
-  if (condens > 0) then
+  if (dmsdt > 0) then
     ! CO2 frost point at this surface pressure.
-    tsat = dewpoint_temperature_mars(pl(n))
+    tsat = dewpoint_temperature_mars(ps)
     if (co2ice_sfc > 0) then
       ! Case 1: CO2 ice already on the ground.
       ! Add condensation to existing CO2 ice mass.
-      co2ice_sfc = co2ice_sfc + dt * condens
+      co2ice_sfc = co2ice_sfc + dmsdt * dt
       tg = tsat
     else
       ! Case 2: No CO2 ice on the ground; Ground is warmer.
       ! Ground temperature drops when CO2 ice sublimes on warmer surface.
       tinp = sqrdy / zin(1)
-      tgp = tg - tinp * dt * condens * xlhtc
+      tgp  = tg - tinp * dt * dmsdt * xlhtc
       ! Calculate how much CO2 ice sublimes on hitting the ground.
       if (tgp >= tsat) then
         ! Case 2A: All CO2 ice sublimes; No net condensation.
-        condens = 0
-        tg = tgp
+        dmsdt      = 0
+        tg         = tgp
         co2ice_sfc = 0
       else
         ! Case 2B: Ground cooled to CO2 frost point and some CO2 ice remains.
         ! Calculate how much CO2 ice remains.
-        condens = condens * (tsat - tgp) / (tg - tgp)
-        tg = tsat
-        co2ice_sfc = condens * dt
+        dmsdt      = dmsdt * (tsat - tgp) / (tg - tgp)
+        tg         = tsat
+        co2ice_sfc = dmsdt * dt
       end if
     end if
   end if
-
-  dmadt = condens
 
   ! Aerosol scavenging by CO2 snow fall.
   if (co2scav) then
@@ -109,13 +104,13 @@ subroutine coldair( &
     k_scavdn = 0
     ! Determine the portion of atmosphere affected by CO2 condensation.
     do k = 1, nlev
-      if (atmcond(k) > 0) then
+      if (dm(k) > 0) then
         k_scavup = k
         exit
       end if
     end do
     do k = nlev, 1, -1
-      if (atmcond(k) > 0) then
+      if (dm(k) > 0) then
         k_scavdn = k
         exit
       end if
@@ -139,7 +134,7 @@ subroutine coldair( &
         do m = 1, naer
           q(k,m) = q(k,m) * (1 - scaveff)
         end do
-        atmcond(k) = 0
+        dm(k) = 0
       end do
     end if
   end if

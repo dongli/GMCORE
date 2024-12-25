@@ -49,8 +49,6 @@ module gomars_v1_const_mod
 
   ! Weight of a water molecule (kg)
   real(r8), parameter :: m0         = m_h2o / na
-  ! Ratio between air mass and water mass
-  real(r8), parameter :: mwratio    = m_co2 / m_h2o
   ! Dust particle density (kg m-3)
   real(r8), parameter :: rho_dst    = 2.5e3_r8
   ! Water ice particle density (kg m-3)
@@ -102,6 +100,12 @@ module gomars_v1_const_mod
 
   ! Pressure of tropopause (i.e. model top pressure) (Pa)
   real(r8) ptrop
+  ! Pressure of top of atmosphere (Pa)
+  real(r8) pstrat
+  ! Logarithm of pressure of top of atmosphere (Pa)
+  real(r8) lnpstrat
+  ! (pstrat / p0)**rd_o_cpd
+  real(r8) pstratk
   ! Reference surface pressure (Pa)
   real(r8) psl
   ! Physics time step (s)

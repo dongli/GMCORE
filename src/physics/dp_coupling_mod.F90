@@ -83,24 +83,23 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%u_old (icol,k) = aux    %u     %d(i,j,k)
-            pstate%u     (icol,k) = aux    %u     %d(i,j,k)
-            pstate%v_old (icol,k) = aux    %v     %d(i,j,k)
-            pstate%v     (icol,k) = aux    %v     %d(i,j,k)
-            pstate%t_old (icol,k) = aux    %t     %d(i,j,k)
-            pstate%t     (icol,k) = aux    %t     %d(i,j,k)
-            pstate%pt_old(icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%ph%d(i,j,k))
-            pstate%pt    (icol,k) = pstate %pt_old (icol,k)
-            pstate%p     (icol,k) = dstate %ph    %d(i,j,k)
-            pstate%p_lev (icol,k) = dstate %ph_lev%d(i,j,k)
-            pstate%pk    (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
-            pstate%pk_lev(icol,k) = dstate %ph_lev%d(i,j,k)**rd_o_cpd / pk0
-            pstate%dp    (icol,k) = dstate %ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
-            pstate%dp_dry(icol,k) = dstate %dmg   %d(i,j,k)
-            pstate%omg   (icol,k) = aux    %omg   %d(i,j,k)
-            pstate%z     (icol,k) = dstate %gz    %d(i,j,k) / g
-            pstate%dz    (icol,k) = (dstate%gz_lev%d(i,j,k+1) - dstate%gz_lev%d(i,j,k)) / g
-            pstate%rho   (icol,k) = dry_air_density(pstate%t(icol,k), pstate%p(icol,k))
+            pstate%u_old  (icol,k) = aux    %u     %d(i,j,k)
+            pstate%u      (icol,k) = aux    %u     %d(i,j,k)
+            pstate%v_old  (icol,k) = aux    %v     %d(i,j,k)
+            pstate%v      (icol,k) = aux    %v     %d(i,j,k)
+            pstate%t_old  (icol,k) = aux    %t     %d(i,j,k)
+            pstate%t      (icol,k) = aux    %t     %d(i,j,k)
+            pstate%pt_old (icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%ph%d(i,j,k))
+            pstate%pt     (icol,k) = pstate %pt_old (icol,k)
+            pstate%p      (icol,k) = dstate %ph    %d(i,j,k)
+            pstate%pk     (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp    (icol,k) = log(dstate%ph %d(i,j,k))
+            pstate%dp     (icol,k) = dstate %ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
+            pstate%dp_dry (icol,k) = dstate %dmg   %d(i,j,k)
+            pstate%omg    (icol,k) = aux    %omg   %d(i,j,k)
+            pstate%z      (icol,k) = dstate %gz    %d(i,j,k) / g
+            pstate%dz     (icol,k) = (dstate%gz_lev%d(i,j,k+1) - dstate%gz_lev%d(i,j,k)) / g
+            pstate%rho    (icol,k) = dry_air_density(pstate%t(icol,k), pstate%p(icol,k))
             icol = icol + 1
           end do
         end do
@@ -112,7 +111,8 @@ contains
             icol = 1
             do j = mesh%full_jds, mesh%full_jde
               do i = mesh%full_ids, mesh%full_ide
-                pstate%q(icol,k,m) = wet_mixing_ratio(tracers%q%d(i,j,k,m), tracers%qm%d(i,j,k))
+                pstate%q    (icol,k,m) = wet_mixing_ratio(tracers%q%d(i,j,k,m), tracers%qm%d(i,j,k))
+                pstate%q_old(icol,k,m) = pstate%q(icol,k,m)
                 icol = icol + 1
               end do
             end do
@@ -122,7 +122,8 @@ contains
             icol = 1
             do j = mesh%full_jds, mesh%full_jde
               do i = mesh%full_ids, mesh%full_ide
-                pstate%q(icol,k,m) = tracers%q%d(i,j,k,m)
+                pstate%q    (icol,k,m) = tracers%q%d(i,j,k,m)
+                pstate%q_old(icol,k,m) = pstate%q(icol,k,m)
                 icol = icol + 1
               end do
             end do
@@ -134,8 +135,10 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%p_lev(icol,k) = dstate%ph_lev%d(i,j,k)
-            pstate%z_lev(icol,k) = dstate%gz_lev%d(i,j,k) / g
+            pstate%p_lev  (icol,k) = dstate%ph_lev%d(i,j,k)
+            pstate%pk_lev (icol,k) = dstate%ph_lev%d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp_lev(icol,k) = log(dstate%ph_lev%d(i,j,k))
+            pstate%z_lev  (icol,k) = dstate%gz_lev%d(i,j,k) / g
             icol = icol + 1
           end do
         end do
