@@ -154,11 +154,13 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: dvdt
     real(r8), allocatable, dimension(:,:  ) :: dtdt
     real(r8), allocatable, dimension(:,:  ) :: dptdt
+    real(r8), allocatable, dimension(:    ) :: dpsdt
     real(r8), allocatable, dimension(:,:,:) :: dqdt
     logical :: updated_u  = .false.
     logical :: updated_v  = .false.
     logical :: updated_t  = .false.
     logical :: updated_pt = .false.
+    logical :: updated_ps = .false.
     logical, allocatable :: updated_q(:)
   contains
     procedure physics_tend_init
@@ -324,6 +326,7 @@ contains
     allocate(this%dtdt (mesh%ncol,mesh%nlev         ))
     allocate(this%dptdt(mesh%ncol,mesh%nlev         ))
     allocate(this%dqdt (mesh%ncol,mesh%nlev,ntracers))
+    allocate(this%dpsdt(mesh%ncol                   ))
     allocate(this%updated_q(ntracers))
 
   end subroutine physics_tend_init
@@ -338,6 +341,7 @@ contains
     if (allocated(this%dvdt     )) deallocate(this%dvdt     )
     if (allocated(this%dtdt     )) deallocate(this%dtdt     )
     if (allocated(this%dptdt    )) deallocate(this%dptdt    )
+    if (allocated(this%dpsdt    )) deallocate(this%dpsdt    )
     if (allocated(this%dqdt     )) deallocate(this%dqdt     )
     if (allocated(this%updated_q)) deallocate(this%updated_q)
 
@@ -351,6 +355,7 @@ contains
     this%dvdt  = 0; this%updated_v  = .false.
     this%dtdt  = 0; this%updated_t  = .false.
     this%dptdt = 0; this%updated_pt = .false.
+    this%dpsdt = 0; this%updated_ps = .false.
     this%dqdt  = 0; this%updated_q  = .false.
 
   end subroutine physics_tend_reset

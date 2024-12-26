@@ -151,6 +151,7 @@ module dynamics_types_mod
     type(latlon_field3d_type) dudt_phys
     type(latlon_field3d_type) dvdt_phys
     type(latlon_field3d_type) dptdt_phys
+    type(latlon_field2d_type) dpsdt_phys
     type(latlon_field4d_type) dqdt_phys
     ! Perturbed quantities for calculating HPGF
     type(latlon_field3d_type) p_ptb
@@ -1434,6 +1435,16 @@ contains
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dptdt_phys                                     )
+      call append_field(this%fields                                          , &
+        name            ='dpsdt_phys'                                        , &
+        long_name       ='Physics tendency of ps'                            , &
+        units           ='Pa s-1'                                            , &
+        loc             ='cell'                                              , &
+        mesh            =mesh_ptr                                            , &
+        halo            =halo_ptr                                            , &
+        output          ='h1'                                                , &
+        restart         =.true.                                              , &
+        field           =this%dpsdt_phys                                     )
       call append_field(this%fields                                          , &
         name            ='dqdt_phys'                                         , &
         long_name       ='Physics tendency of q'                             , &

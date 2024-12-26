@@ -26,7 +26,9 @@ module vert_coord_mod
   public vert_coord_final
   public vert_coord_calc_mg
   public vert_coord_calc_mg_lev
+  public vert_coord_calc_dmgdt
   public vert_coord_calc_dmgdt_lev
+  public vert_coord_calc_ddmgdt
   public hyai, hybi, hyam, hybm, nlevp
 
   interface

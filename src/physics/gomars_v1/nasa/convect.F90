@@ -1,4 +1,4 @@
-subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
+subroutine convect(p, p_lev, dp_dry, pk, pt, pt_lev, q, ptop_pbl, ptcon)
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center
@@ -9,7 +9,7 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
   ! process of atmospheric convection. The extent and the potential
   ! temperature of the convective zone are also determined. The convective
   ! zone starts at the surface and includes all layers that exchange heat with
-  ! the surface through convection.
+  ! the surface through convection. The pressure of PBL top is also determined.
 
   use gomars_v1_const_mod
 
@@ -18,11 +18,11 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
   real(r8), intent(in   ) :: p      (nlev)
   real(r8), intent(in   ) :: p_lev  (nlev+1)
   real(r8), intent(in   ) :: dp_dry (nlev)
-  real(r8), intent(in   ) :: om     (2*nlev+3)
+  real(r8), intent(in   ) :: pk     (nlev)
   real(r8), intent(inout) :: pt     (nlev)
   real(r8), intent(inout) :: pt_lev (nlev+1)
   real(r8), intent(inout) :: q      (nlev,ntracers)
-  real(r8), intent(  out) :: pcon
+  real(r8), intent(  out) :: ptop_pbl
   real(r8), intent(  out) :: ptcon
 
   integer k, k2, k3, m
@@ -33,7 +33,7 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
   ! wgt is a weighting factor for convection. wgt * pt is proportional to the
   ! heat energy of the layer.
   do k = 1, nlev
-    wgt(k) = dp_dry(k) * om(2*k+2)
+    wgt(k) = dp_dry(k) * pk(k)
   end do
 
   ! Each time through the following loop adds another layer to the set and then
@@ -48,14 +48,14 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
       ! Check pt at layer boundary (instead of layer midpoint) at top of
       ! convective zone. Adjust pcon if pt not non-decreasing here.
       if (pt_lev(nlev) > pt(nlev)) then
-        ptcon = (pt_lev(nlev+1) + pt(nlev)) * 0.5_r8
-        pcon  = p(nlev)
+        ptcon    = (pt_lev(nlev+1) + pt(nlev)) * 0.5_r8
+        ptop_pbl = p(nlev)
       else
         ! Shallow convective layer presents.
-        ptcon = pt(nlev)
-        pcexp = 2 * (ptcon - pt_lev(nlev)) / (pt(nlev-1) - pt_lev(nlev))
-        pcon  = p_lev(nlev) * (p(nlev-1) / p_lev(nlev))**pcexp
-        pcon  = max(pcon, p_lev(nlev-1))
+        ptcon    = pt(nlev)
+        pcexp    = 2 * (ptcon - pt_lev(nlev)) / (pt(nlev-1) - pt_lev(nlev))
+        ptop_pbl = p_lev(nlev) * (p(nlev-1) / p_lev(nlev))**pcexp
+        ptop_pbl = max(ptop_pbl, p_lev(nlev-1))
       end if
       cycle loop_k
     else
@@ -78,9 +78,9 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
             pt_lev(k3+1) = ptcon
             q     (k3,:) = qcon
           end do loop_k3
-          pcon    = p_lev(k2)
-          wgt_sum = wgt_sum + wgt(k2)
-          dp_sum  = dp_sum  + dp_dry(k2)
+          ptop_pbl = p_lev(k2)
+          wgt_sum  = wgt_sum + wgt(k2)
+          dp_sum   = dp_sum  + dp_dry(k2)
         else
           ! Found no more instabilities. Only need to check for pcon adjustment.
           ! Then exit the look_k2.
@@ -88,9 +88,9 @@ subroutine convect(p, p_lev, dp_dry, om, pt, pt_lev, q, pcon, ptcon)
           if (k + 1        /= nlev ) cycle loop_k
           ! Check pt at layer boundary (instead of layer midpoint) at top of
           ! convective zone.  Adjust pcon if pt not non-decreasing here.
-          pcexp = 2 * (ptcon - pt_lev(k2+1)) / (pt(k2) - pt_lev(k2+1))
-          pcon  = p_lev(k2+1) * (p(k2) / p_lev(k2+1))**pcexp
-          pcon  = max(pcon, p_lev(k2))
+          pcexp    = 2 * (ptcon - pt_lev(k2+1)) / (pt(k2) - pt_lev(k2+1))
+          ptop_pbl = p_lev(k2+1) * (p(k2) / p_lev(k2+1))**pcexp
+          ptop_pbl = max(ptop_pbl, p_lev(k2))
           cycle loop_k
         end if
       end do loop_k2

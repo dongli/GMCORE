@@ -1,9 +1,23 @@
 subroutine optcv( &
-  plev, pmid, tmid, qh2o, &
-  qxvdst, qsvdst, gvdst, &
-  qxvcld, qsvcld, gvcld, qextrefcld, &
-  wbarv, cosbv, dtauv, tauv, taucumv, &
-  taugsurf, taurefdst, taurefcld)
+  plev          , &
+  pmid          , &
+  tmid          , &
+  qh2o          , &
+  qxvdst        , &
+  qsvdst        , &
+  gvdst         , &
+  qxvcld        , &
+  qsvcld        , &
+  gvcld         , &
+  qextrefcld    , &
+  wbarv         , &
+  cosbv         , &
+  dtauv         , &
+  tauv          , &
+  taucumv       , &
+  taugsurf      , &
+  taurefdst     , &
+  taurefcld     )
 
   ! Legacy Mars GCM v24
   ! Mars Climate Modeling Center

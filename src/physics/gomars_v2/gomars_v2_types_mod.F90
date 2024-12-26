@@ -79,7 +79,6 @@ module gomars_v2_types_mod
   end type gomars_v2_state_type
 
   type, extends(physics_tend_type) :: gomars_v2_tend_type
-    real(r8), allocatable :: dpsdt(:)
   contains
     procedure :: init  => gomars_v2_tend_init
     procedure :: clear => gomars_v2_tend_clear
@@ -172,8 +171,6 @@ contains
 
     call this%clear()
 
-    allocate(this%dpsdt(mesh%ncol))
-
     call this%physics_tend_init(mesh)
 
   end subroutine gomars_v2_tend_init
@@ -181,8 +178,6 @@ contains
   subroutine gomars_v2_tend_clear(this)
 
     class(gomars_v2_tend_type), intent(inout) :: this
-
-    if (allocated(this%dpsdt)) deallocate(this%dpsdt)
 
     call this%physics_tend_clear()
 

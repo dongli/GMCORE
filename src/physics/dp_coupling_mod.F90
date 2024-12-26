@@ -210,9 +210,21 @@ contains
                  dudt   => block%aux%dudt_phys , & ! out
                  dvdt   => block%aux%dvdt_phys , & ! out
                  dptdt  => block%aux%dptdt_phys, & ! out
+                 dpsdt  => block%aux%dpsdt_phys, & ! out
                  dqdt   => block%aux%dqdt_phys , & ! out
                  old_q  => tracers%q           , &
                  old_qm => tracers%qm          )
+      if (ptend%updated_ps) then
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            dpsdt%d(i,j) = ptend%dpsdt(icol)
+            icol = icol + 1
+          end do
+        end do
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dpsdt)
+        end if
+      end if
       if (ptend%updated_u .and. ptend%updated_v) then
         do k = mesh%full_kds, mesh%full_kde
           icol = 1

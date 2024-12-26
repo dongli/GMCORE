@@ -31,7 +31,6 @@ subroutine potemp1( &
     dlnp2 = lnp(k) - lnp_lev(k)
     slope = (pt(k) - pt(k-1)) / (dlnp1 + dlnp2)
     pt_lev(k) = pt(k-1) + slope * dlnp1
-    t_lev (k) = pt_lev(k) * pk_lev(k)
   end do
 
   ! Model top level
@@ -40,7 +39,6 @@ subroutine potemp1( &
   dlnp2 = lnp(k) - lnp_lev(k)
   slope = (pt(k) - tstrat / pstratk) / (dlnp1 + dlnp2)
   pt_lev(k) = tstrat / pstratk + slope * dlnp1
-  t_lev (k) = pt_lev(k) * pk_lev(k)
 
   ! Model bottom level
   k = nlev + 1
@@ -48,5 +46,9 @@ subroutine potemp1( &
   dlnp2 = lnp(k-1) - lnp_lev(k-1)
   slope = (pt(k-1) - pt(k-2)) / (dlnp1 + dlnp2)
   pt_lev(k) = pt(k-1) + slope * (lnp_lev(k) - lnp_lev(k-1))
+
+  do k = 1, nlev + 1
+    t_lev (k) = pt_lev(k) * pk_lev(k)
+  end do
 
 end subroutine potemp1

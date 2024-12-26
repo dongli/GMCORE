@@ -28,7 +28,7 @@ module gomars_v1_types_mod
   type, extends(physics_state_type) :: gomars_v1_state_type
     ! Surface pressure at time level n (Pa)
     real(r8), allocatable, dimension(:      ) :: ps_old
-    ! Pressure of planetary boundary layer top (Pa)
+    ! [restart] Pressure of planetary boundary layer top (Pa)
     real(r8), allocatable, dimension(:      ) :: ptop_pbl
     ! Stratospheric temperature (K)
     real(r8), allocatable, dimension(:      ) :: tstrat
@@ -207,8 +207,6 @@ module gomars_v1_types_mod
   end type gomars_v1_state_type
 
   type, extends(physics_tend_type) :: gomars_v1_tend_type
-    ! Wind speed tendency due to planetary boundary layer (m s-1 s-1)
-    real(r8), allocatable, dimension(:,:) :: dudt_pbl
   contains
     procedure :: init  => gomars_v1_tend_init
     procedure :: clear => gomars_v1_tend_clear
@@ -430,15 +428,13 @@ contains
 
     call this%physics_tend_init(mesh)
 
-    allocate(this%dudt_pbl(mesh%ncol,2*mesh%nlev+1))
-
   end subroutine gomars_v1_tend_init
 
   subroutine gomars_v1_tend_clear(this)
 
     class(gomars_v1_tend_type), intent(inout) :: this
 
-    if (allocated(this%dudt_pbl)) deallocate(this%dudt_pbl)
+    call this%physics_tend_clear()
 
   end subroutine gomars_v1_tend_clear
 

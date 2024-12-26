@@ -194,13 +194,21 @@ contains
                dudt  => block%aux%dudt_phys      , & ! in
                dvdt  => block%aux%dvdt_phys      , & ! in
                dptdt => block%aux%dptdt_phys     , & ! in
+               dpsdt => block%aux%dpsdt_phys     , & ! in
                dqdt  => block%aux%dqdt_phys      , & ! in
                dmg   => block%dstate(itime)%dmg  , & ! in
+               mgs   => block%dstate(itime)%mgs  , & ! inout
                u_lon => block%dstate(itime)%u_lon, & ! inout
                v_lat => block%dstate(itime)%v_lat, & ! inout
                pt    => block%dstate(itime)%pt   , & ! inout
                q     => tracers(block%id)%q      )   ! inout
     ! Update dynamics.
+    do j = mesh%full_jds, mesh%full_jde
+      do i = mesh%full_ids, mesh%full_ide
+        mgs%d(i,j) = mgs%d(i,j) + dt * dpsdt%d(i,j)
+      end do
+    end do
+    call fill_halo(mgs)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide

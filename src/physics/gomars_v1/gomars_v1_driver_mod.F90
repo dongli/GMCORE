@@ -130,8 +130,10 @@ contains
     type(datetime_type), intent(in) :: time
 
     integer iblk, icol, k, l, m, substep
-    real(r8) ls, time_of_day, nonlte, tmp, pcon, ptcon
-    real(r8) nfluxtopv, nfluxtopi, diffvt, albi, sunlte
+    real(r8) ls, time_of_day, nonlte, tmp, ptcon
+    real(r8) nfluxtopv, nfluxtopi, diffvt, albi
+    real(r8) pt_mp(nlev), q_mp(nlev,ntracers), t_mp(nlev)
+    real(r8) pt_lev_mp(nlev+1), t_lev_mp(nlev+1)
 
     ls = time%solar_longitude()
     time_of_day = time%time_of_day()
@@ -485,17 +487,47 @@ contains
         ! ----------------------------------------------------------------------
         ! Microphysics calculation
         if (microphysics) then
+          ! Get the tendencies from previous physics.
+          do k = 1, mesh%nlev
+            tend%dptdt(icol,k) = state%pt(icol,k) - state%pt_old(icol,k)
+            ! FIXME: Why only take into account the water vapor?
+            tend%dqdt(icol,k,iMa_vap) = state%q(icol,k,iMa_vap) - state%q_old(icol,k,iMa_vap)
+            pt_mp(k) = state%pt_old(icol,k)
+            q_mp (k,iMa_vap) = state%q_old(icol,k,iMa_vap)
+            do m = 1, ntracers - 1 ! FIXME: Here assume the last tracer is water vapor.
+              q_mp(k,m) = state%q(icol,k,m)
+            end do
+          end do
           do substep = 1, nsplit
+            ! Update temperature and water vapor mixing ratio with splited
+            ! tendencies from previous physics.
+            do k = 1, mesh%nlev
+              pt_mp(k) = pt_mp(k) + tend%dptdt(icol,k) / nsplit
+              t_mp (k) = pt_mp(k) * state%pk(icol,k)
+              q_mp (k,iMa_vap) = q_mp(k,iMa_vap) + tend%dqdt(icol,k,iMa_vap) / nsplit
+            end do
+            ! Update temperature on half levels.
+            call potemp2(                   &
+              state%tstrat      (icol    ), & ! in
+              state%lnp         (icol,:  ), & ! in
+              state%lnp_lev     (icol,:  ), & ! in
+              state%pk          (icol,:  ), & ! in
+              state%pk_lev      (icol,:  ), & ! in
+              pt_mp                       , & ! out
+              pt_lev_mp                   , & ! out
+              t_mp                        , & ! in
+              t_lev_mp                      & ! out
+            )
             call microphys(                 &
               state%ps          (icol    ), & ! in
               state%p           (icol,:  ), & ! in
               state%dp_dry      (icol,:  ), & ! in
               state%dz          (icol,:  ), & ! in
               state%dz_lev      (icol,:  ), & ! in
-              state%t           (icol,:  ), & ! in
-              state%t_lev       (icol,:  ), & ! in
+              t_mp                        , & ! in
+              t_lev_mp                    , & ! in
               state%tg          (icol    ), & ! in
-              state%q           (icol,:,:), & ! inout
+              q_mp                        , & ! inout
               state%co2ice_sfc  (icol    ), & ! in
               state%taux        (icol    ), & ! in
               state%tauy        (icol    ), & ! in
@@ -508,21 +540,31 @@ contains
               state%rho         (icol,:  ), & ! out
               state%deposit     (icol,:  ), & ! out
               state%tmflx_sfc_dn(icol,:  )  & ! out
-            )              
+            )
+          end do
+          if (latent_heat) then
+            do k = 1, mesh%nlev
+              state%pt(icol,k) = t_mp(k) / state%pk(icol,k)
+            end do
+          end if
+          do m = 1, ntracers - 1
+            do k = 1, mesh%nlev
+              state%q(icol,k,m) = q_mp(k,m)
+            end do
           end do
         end if
         ! ----------------------------------------------------------------------
         ! Convection adjustment
-        call convect(     &
-          state%p       , & ! in
-          state%p_lev   , & ! in
-          state%dp_dry  , & ! in
-          state%om      , & ! in
-          state%pt      , & ! inout
-          state%pt_lev  , & ! inout
-          state%q       , & ! inout
-          pcon          , & ! out
-          ptcon           & ! out
+        call convect(                &
+          state%p        (icol,:  ), & ! in
+          state%p_lev    (icol,:  ), & ! in
+          state%dp_dry   (icol,:  ), & ! in
+          state%pk       (icol,:  ), & ! in
+          state%pt       (icol,:  ), & ! inout
+          state%pt_lev   (icol,:  ), & ! inout
+          state%q        (icol,:,:), & ! inout
+          state%ptop_pbl (icol    ), & ! out
+          ptcon                      & ! out
         )
       end do columns
       end associate
@@ -548,7 +590,7 @@ contains
     do iblk = 1, size(objects)
       associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state)
       do icol = 1, mesh%ncol
-
+        state%ps_old(icol) = state%ps(icol)
       end do
       end associate
     end do
@@ -556,6 +598,45 @@ contains
   end subroutine gomars_v1_d2p
 
   subroutine gomars_v1_p2d()
+
+    integer iblk, icol, k, m
+
+    do iblk = 1, size(objects)
+      associate (mesh => objects(iblk)%mesh, state => objects(iblk)%state, tend => objects(iblk)%tend)
+      do icol = 1, mesh%ncol
+        tend%dpsdt(icol) = (state%ps(icol) - state%ps_old(icol)) / dt
+      end do
+      do k = 1, mesh%nlev
+        do icol = 1, mesh%ncol
+          tend%dudt(icol,k) = (state%u(icol,k) - state%u_old(icol,k)) / dt
+          tend%dvdt(icol,k) = (state%v(icol,k) - state%v_old(icol,k)) / dt
+          tend%dtdt(icol,k) = (state%t(icol,k) - state%t_old(icol,k)) / dt
+        end do
+      end do
+      ! Calculate potential temperature tendency.
+      do k = 1, mesh%nlev
+        do icol = 1, mesh%ncol
+          tend%dptdt(icol,k) = &
+            state%pt_old(icol,k) * vert_coord_calc_ddmgdt(k, tend%dpsdt(icol)) + &
+            state%dp_dry(icol,k) * (tend%dtdt(icol,k) / state%pk(icol,k) - &
+              rd_o_cpd * state%pt_old(icol,k) / state%p(icol,k) * vert_coord_calc_dmgdt(k, tend%dpsdt(icol)) &
+            )
+        end do
+      end do
+      do m = 1, ntracers
+        do k = 1, mesh%nlev
+          do icol = 1, mesh%ncol
+            tend%dqdt(icol,k,m) = (state%q(icol,k,m) - state%q_old(icol,k,m)) / dt
+          end do
+        end do
+      end do
+      tend%updated_u  = .true.
+      tend%updated_v  = .true.
+      tend%updated_pt = .true.
+      tend%updated_ps = .true.
+      tend%updated_q  = .true.
+      end associate
+    end do
 
   end subroutine gomars_v1_p2d
 
