@@ -108,20 +108,22 @@ contains
         tend%updated_t         = .true.
         tend%updated_q(idx_qv) = .true.
       case ('simple_physics:kessler')
-        call kessler( &
-          mesh%nlev , &
-          rd        , &
-          cpd       , &
-          state%pt  , &
-          state%qv  , &
-          state%qc  , &
-          state%qr  , &
-          state%rho , &
-          state%pk  , &
-          dt        , &
-          state%z   , &
-          state%precl &
-        )
+        do icol = 1, mesh%ncol
+          call kessler(          &
+            mesh%nlev          , &
+            rd                 , &
+            cpd                , &
+            state%pt   (icol,:), &
+            state%qv   (icol,:), &
+            state%qc   (icol,:), &
+            state%qr   (icol,:), &
+            state%rho  (icol,:), &
+            state%pk   (icol,:), &
+            dt                 , &
+            state%z    (icol,:), &
+            state%precl(icol  )  &
+          )
+        end do
         do k = 1, mesh%nlev
           do icol = 1, mesh%ncol
             state%t(icol,k) = temperature(state%pt(icol,k), state%p(icol,k), 0.0_r8)

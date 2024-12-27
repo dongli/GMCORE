@@ -102,8 +102,8 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
 
   do k = 1, nz
     r    (k) = 0.001d0 * rho(k)
-    rhalf(k) = sqrt(rho(1) / rho(k))
-    pc   (k) = 3.8d0 / (pk(k)**(1.0d0 / xk) * psl)
+    rhalf(k) = sqrt(rho(nz) / rho(k))
+    pc   (k) = 3.8d0 / (pk(k)**(1.0d0 / xk) * psl) ! hPa
     ! Liquid water terminal velocity (m/s) following KW eq. 2.15
     velqr(k) = 36.34d0 * (qr(k) * r(k))**0.1364d0 * rhalf(k)
   end do

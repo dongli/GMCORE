@@ -348,7 +348,7 @@ contains
         call history_write_h2()
       end if
     end if
-    if (time_is_alerted('restart_write')) then
+    if (time_is_alerted('restart_write') .or. time_step == 0) then
       call restart_write(itime)
     end if
     first_call = .false.

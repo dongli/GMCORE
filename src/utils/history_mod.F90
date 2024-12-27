@@ -289,12 +289,6 @@ contains
     call add_fields('h1', blocks(1)%adv_batch_bg%fields)
     call add_fields('h1', blocks(1)%adv_batch_pt%fields)
     call add_fields('h1', blocks(1)%adv_batch_nh%fields)
-    if (physics_suite /= 'N/A' .or. physics_suite /= '') then
-      do i = 1, ntracers
-        call fiona_add_var('h1', 'd' // trim(tracer_names(i)) // '_phys', long_name='Physics tendency of ' // tracer_long_names(i), &
-          units=tracer_units(i) // ' s-1', dim_names=cell_dims_3d, dtype=output_h0_dtype)
-      end do
-    end if
 
     ! Filter parameters
     call fiona_add_var('h1', 'fw', long_name='Filter width', units='', dim_names=['lat'])
