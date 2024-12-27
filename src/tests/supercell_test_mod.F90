@@ -163,7 +163,9 @@ contains
     read(11, nml=supercell_test_control)
     close(11)
 
-    call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg/kg')
+    if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    if (idx_qc == 0) call tracer_add('moist', dt_adv, 'qc', 'Cloud water', 'kg kg-1')
+    if (idx_qr == 0) call tracer_add('moist', dt_adv, 'qr', 'Rain water' , 'kg kg-1')
 
     call supercell_init()
 
@@ -269,7 +271,8 @@ contains
                lat    => block%mesh%full_lat   , &
                mgs    => block%dstate(1)%mgs   , &
                mg_lev => block%dstate(1)%mg_lev, &
-               ph     => block%dstate(1)%ph    , &
+               p      => block%dstate(1)%p     , &
+               p_lev  => block%dstate(1)%p_lev , &
                z      => block%dstate(1)%gz    , &
                z_lev  => block%dstate(1)%gz_lev, &
                u      => block%aux      %u     , &
@@ -319,15 +322,16 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          call supercell_test(pert, lon(i), lat(j), ph%d(i,j,k), z%d(i,j,k), 1, &
+          call supercell_test(pert, lon(i), lat(j), p%d(i,j,k), z%d(i,j,k), 1, &
             thetav, rho, qv, u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
           ! Convert to dry mixing ratio.
           qv = qv / (1 - qv)
           if (idx_qv > 0) q%d(i,j,k,idx_qv) = qv
-          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), ph%d(i,j,k), qv)
+          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), qv)
         end do
       end do
     end do
+    call fill_halo(p)
     call fill_halo(u)
     call fill_halo(v)
     if (idx_qv > 0) call fill_halo(q, idx_qv)
@@ -349,6 +353,16 @@ contains
     end do
     call fill_halo(v_lat)
     call fill_halo(mgs)
+    if (proc%is_root()) call log_notice('Calculate variables on model half levels.')
+    do k = mesh%half_kds, mesh%half_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          call supercell_test(pert, lon(i), lat(j), p_lev%d(i,j,k), z_lev%d(i,j,k), 1, &
+            thetav, rho, qv)
+        end do
+      end do
+    end do
+    call fill_halo(p_lev)
     z_lev%d = z_lev%d * g
     call fill_halo(z_lev)
     end associate

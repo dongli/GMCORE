@@ -47,7 +47,7 @@ contains
     call perf_start('dp_coupling_d2p')
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call common_d2p(block, itime, tracers(block%id), simple_objects(block%id)%state)
 #ifdef HAS_CAM
     case ('cam')
@@ -60,6 +60,8 @@ contains
     case ('gomars_v2')
       call common_d2p(block, itime, tracers(block%id), gomars_v2_objects(block%id)%state)
       call gomars_v2_d2p()
+    case default
+      if (proc%is_root()) call log_error('Unknown physics suite ' // trim(physics_suite) // '!')
     end select
 
     call perf_stop('dp_coupling_d2p')
@@ -89,12 +91,12 @@ contains
             pstate%v      (icol,k) = aux    %v     %d(i,j,k)
             pstate%t_old  (icol,k) = aux    %t     %d(i,j,k)
             pstate%t      (icol,k) = aux    %t     %d(i,j,k)
-            pstate%pt_old (icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%ph%d(i,j,k))
+            pstate%pt_old (icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%p%d(i,j,k))
             pstate%pt     (icol,k) = pstate %pt_old (icol,k)
-            pstate%p      (icol,k) = dstate %ph    %d(i,j,k)
-            pstate%pk     (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
-            pstate%lnp    (icol,k) = log(dstate%ph %d(i,j,k))
-            pstate%dp     (icol,k) = dstate %ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
+            pstate%p      (icol,k) = dstate %p     %d(i,j,k)
+            pstate%pk     (icol,k) = dstate %p     %d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp    (icol,k) = log(dstate%p  %d(i,j,k))
+            pstate%dp     (icol,k) = dstate %p_lev %d(i,j,k+1) - dstate%p_lev%d(i,j,k)
             pstate%dp_dry (icol,k) = dstate %dmg   %d(i,j,k)
             pstate%omg    (icol,k) = aux    %omg   %d(i,j,k)
             pstate%z      (icol,k) = dstate %gz    %d(i,j,k) / g
@@ -135,9 +137,9 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%p_lev  (icol,k) = dstate%ph_lev%d(i,j,k)
-            pstate%pk_lev (icol,k) = dstate%ph_lev%d(i,j,k)**rd_o_cpd / pk0
-            pstate%lnp_lev(icol,k) = log(dstate%ph_lev%d(i,j,k))
+            pstate%p_lev  (icol,k) = dstate%p_lev%d(i,j,k)
+            pstate%pk_lev (icol,k) = dstate%p_lev%d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp_lev(icol,k) = log(dstate%p_lev%d(i,j,k))
             pstate%z_lev  (icol,k) = dstate%gz_lev%d(i,j,k) / g
             icol = icol + 1
           end do
@@ -179,7 +181,7 @@ contains
     iblk = block%id
 
     select case (physics_suite)
-    case ('simple_physics')
+    case ('simple_physics:v6', 'simple_physics:kessler')
       call common_p2d(block, itime, tracers(iblk), simple_objects(iblk)%state, simple_objects(iblk)%tend)
 #ifdef HAS_CAM
     case ('cam')
@@ -189,6 +191,8 @@ contains
     case ('gomars_v2')
       call gomars_v2_p2d()
       call common_p2d(block, itime, tracers(iblk), gomars_v2_objects(iblk)%state, gomars_v2_objects(iblk)%tend)
+    case default
+      if (proc%is_root()) call log_error('Unknown physics suite ' // trim(physics_suite) // '!')
     end select
 
     call perf_stop('dp_coupling_p2d')
@@ -244,7 +248,7 @@ contains
         call fill_halo(dvdt, west_halo=.false., east_halo=.false., south_halo=.false.)
       end if
       if (ptend%updated_t) then
-        ! Convert temperature tendency to potential temperature tendency.
+        ! Convert temperature tendency to modified potential temperature tendency.
         do k = mesh%full_kds, mesh%full_kde
           icol = 1
           do j = mesh%full_jds, mesh%full_jde

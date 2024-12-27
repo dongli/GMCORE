@@ -9,6 +9,7 @@
 
 module simple_physics_driver_mod
 
+  use formula_mod
   use namelist_mod
   use tracer_mod
   use simple_physics_types_mod
@@ -39,13 +40,18 @@ contains
 
     call simple_physics_final()
 
-    if (idx_qv == 0) then
-      call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
-    end if
+    select case (physics_suite)
+    case ('simple_physics:v6')
+      if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    case ('simple_physics:kessler')
+      if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+      if (idx_qc == 0) call tracer_add('moist', dt_adv, 'qc', 'Cloud water', 'kg kg-1')
+      if (idx_qr == 0) call tracer_add('moist', dt_adv, 'qr', 'Rain water' , 'kg kg-1')
+    end select
 
     if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
-    allocate(physics_use_wet_tracers(1))
-    physics_use_wet_tracers(1) = .true.
+    allocate(physics_use_wet_tracers(ntracers))
+    physics_use_wet_tracers = .true.
 
     dt = dt_phys
 
@@ -67,7 +73,7 @@ contains
 
   subroutine simple_physics_run()
 
-    integer iblk
+    integer iblk, icol, k, m
 
     do iblk = 1, size(objects)
       associate (mesh  => objects(iblk)%mesh , &
@@ -116,6 +122,17 @@ contains
           state%z   , &
           state%precl &
         )
+        do k = 1, mesh%nlev
+          do icol = 1, mesh%ncol
+            state%t(icol,k) = temperature(state%pt(icol,k), state%p(icol,k), 0.0_r8)
+            tend%dtdt(icol,k) = (state%t(icol,k) - state%t_old(icol,k)) / dt
+            do m = 1, ntracers
+              tend%dqdt(icol,k,m) = (state%q(icol,k,m) - state%q_old(icol,k,m)) / dt
+            end do
+          end do
+        end do
+        tend%updated_t = .true.
+        tend%updated_q = .true.
       end select
       end associate
     end do

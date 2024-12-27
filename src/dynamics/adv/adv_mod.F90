@@ -116,7 +116,10 @@ contains
     if (proc%is_root()) then
       call log_notice('There are ' // to_str(size(blocks(1)%adv_batches)) // ' advection batches.')
       do ibat = 1, size(blocks(1)%adv_batches)
-        write(*, *) '- ', trim(blocks(1)%adv_batches(ibat)%name), int(blocks(1)%adv_batches(ibat)%dt), blocks(1)%adv_batches(ibat)%ntracers
+        write(*, *) '- ', trim(blocks(1)%adv_batches(ibat)%name), ' dt_adv = ', to_str(int(blocks(1)%adv_batches(ibat)%dt))
+        do itra = 1, blocks(1)%adv_batches(ibat)%ntracers
+          write(*, *) '  * ', trim(tracer_names(blocks(1)%adv_batches(ibat)%idx(itra)))
+        end do
       end do
     end if
 

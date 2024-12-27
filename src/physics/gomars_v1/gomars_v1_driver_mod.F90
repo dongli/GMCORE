@@ -24,7 +24,6 @@ module gomars_v1_driver_mod
   use gomars_v1_pbl_mod
   use gomars_v1_lsm_mod
   use gomars_v1_mp_mod
-  use gomars_v1_pbl_mod
   use gomars_v1_damp_mod
 
   implicit none

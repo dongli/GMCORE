@@ -110,9 +110,9 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
 
   ! Maximum time step size in accordance with CFL condition
   dt_max = dt
-  do k = 1, nz - 1
+  do k = nz, 2, -1
     if (velqr(k) /= 0) then
-      dt_max = min(dt_max, 0.8d0 * (z(k+1) - z(k)) / velqr(k))
+      dt_max = min(dt_max, 0.8d0 * (z(k-1) - z(k)) / velqr(k))
     end if
   end do
 
@@ -125,12 +125,12 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
 
   do nt = 1, rainsplit
     ! Precipitation rate (m/s)
-    precl = precl + rho(1) * qr(1) * velqr(1) / rhoqr
+    precl = precl + rho(nz) * qr(nz) * velqr(nz) / rhoqr
     ! Sedimentation term using upstream differencing
-    do k = 1, nz - 1
-      sed(k) = dt0 * (r(k+1) * qr(k+1) * velqr(k+1) - r(k) * qr(k) * velqr(k)) / (r(k) * (z(k+1) - z(k)))
+    do k = nz, 2, -1
+      sed(k) = dt0 * (r(k-1) * qr(k-1) * velqr(k-1) - r(k) * qr(k) * velqr(k)) / (r(k) * (z(k-1) - z(k)))
     end do
-    sed(nz) = -dt0 * qr(nz) * velqr(nz) / (0.5d0 * (z(nz) - z(nz-1)))
+    sed(1) = -dt0 * qr(1) * velqr(1) / (0.5d0 * (z(1) - z(2)))
 
     ! Adjustment terms
     do k = 1, nz
