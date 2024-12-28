@@ -40,6 +40,7 @@ module supercell_test_mod
 
   use flogger
   use namelist_mod
+  use math_mod
   use formula_mod
   use vert_coord_mod
   use tracer_mod
@@ -116,69 +117,13 @@ module supercell_test_mod
   real(8), dimension(nphi,nz) :: exneryz
   real(8), dimension(     nz) :: qveq
 
-#ifdef FALSE
-  integer , parameter :: ngauss = 20
-  real(8), parameter, dimension(ngauss), private :: gaussx = &
-    [-0.0765265211334973d0, 0.0765265211334973d0, &
-     -0.2277858511416451d0, 0.2277858511416451d0, &
-     -0.3737060887154195d0, 0.3737060887154195d0, &
-     -0.5108670019508271d0, 0.5108670019508271d0, &
-     -0.6360536807265150d0, 0.6360536807265150d0, &
-     -0.7463319064601508d0, 0.7463319064601508d0, &
-     -0.8391169718222188d0, 0.8391169718222188d0, &
-     -0.9122344282513259d0, 0.9122344282513259d0, &
-     -0.9639719272779138d0, 0.9639719272779138d0, &
-     -0.9931285991850949d0, 0.9931285991850949d0]
-  real(8), parameter, dimension(ngauss), private :: gaussw = &
-    [ 0.1527533871307258d0, 0.1527533871307258d0, &
-      0.1491729864726037d0, 0.1491729864726037d0, &
-      0.1420961093183820d0, 0.1420961093183820d0, &
-      0.1316886384491766d0, 0.1316886384491766d0, &
-      0.1181945319615184d0, 0.1181945319615184d0, &
-      0.1019301198172404d0, 0.1019301198172404d0, &
-      0.0832767415767048d0, 0.0832767415767048d0, &
-      0.0626720483341091d0, 0.0626720483341091d0, &
-      0.0406014298003869d0, 0.0406014298003869d0, &
-      0.0176140071391521d0, 0.0176140071391521d0]
-#else
-  integer, parameter :: ngauss = 30
-  real(8), parameter, dimension(ngauss), private :: gaussx = &
-    [-0.0514718425553177d0, 0.0514718425553177d0, &
-     -0.1538699136085835d0, 0.1538699136085835d0, &
-     -0.2546369261678899d0, 0.2546369261678899d0, &
-     -0.3527047255308781d0, 0.3527047255308781d0, &
-     -0.4470337695380892d0, 0.4470337695380892d0, &
-     -0.5366241481420199d0, 0.5366241481420199d0, &
-     -0.6205261829892429d0, 0.6205261829892429d0, &
-     -0.6978504947933158d0, 0.6978504947933158d0, &
-     -0.7677774321048262d0, 0.7677774321048262d0, &
-     -0.8295657623827684d0, 0.8295657623827684d0, &
-     -0.8825605357920527d0, 0.8825605357920527d0, &
-     -0.9262000474292743d0, 0.9262000474292743d0, &
-     -0.9600218649683075d0, 0.9600218649683075d0, &
-     -0.9836681232797472d0, 0.9836681232797472d0, &
-     -0.9968934840746495d0, 0.9968934840746495d0]
-  real(8), parameter, dimension(ngauss), private :: gaussw = &
-    [ 0.1028526528935588d0, 0.1028526528935588d0, &
-      0.1017623897484055d0, 0.1017623897484055d0, &
-      0.0995934205867953d0, 0.0995934205867953d0, &
-      0.0963687371746443d0, 0.0963687371746443d0, &
-      0.0921225222377861d0, 0.0921225222377861d0, &
-      0.0868997872010830d0, 0.0868997872010830d0, &
-      0.0807558952294202d0, 0.0807558952294202d0, &
-      0.0737559747377052d0, 0.0737559747377052d0, &
-      0.0659742298821805d0, 0.0659742298821805d0, &
-      0.0574931562176191d0, 0.0574931562176191d0, &
-      0.0484026728305941d0, 0.0484026728305941d0, &
-      0.0387991925696271d0, 0.0387991925696271d0, &
-      0.0287847078833234d0, 0.0287847078833234d0, &
-      0.0184664683110910d0, 0.0184664683110910d0, &
-      0.0079681924961666d0, 0.0079681924961666d0]
-#endif
+  real(8), pointer :: gaussx(:) => null()
+  real(8), pointer :: gaussw(:) => null()
 
+  integer :: ngauss = 5
   integer :: pert = 1
 
-  namelist /supercell_test_control/ pert
+  namelist /supercell_test_control/ ngauss, pert
 
 contains
 
@@ -198,6 +143,20 @@ contains
     open(11, file=file_path, status='old', action='read')
     read(11, nml=supercell_test_control)
     close(11)
+
+    select case (ngauss)
+    case (3)
+      gaussx => gaussx3
+      gaussw => gaussw3
+    case (5)
+      gaussx => gaussx5
+      gaussw => gaussw5
+    case (20)
+      gaussx => gaussx20
+      gaussw => gaussw20
+    case default
+      if (proc%is_root()) call log_error('supercell_test_init: Invalid ngauss value!', __FILE__, __LINE__)
+    end select
 
     if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
     if (idx_qc == 0) call tracer_add('moist', dt_adv, 'qc', 'Cloud water', 'kg kg-1')
@@ -272,9 +231,7 @@ contains
     do i = 1, 20
       zc = z2 - (p2 - p) * (z2 - z1) / (p2 - p1)
       pc = get_dry_air_pressure(pert, lon, lat, pabv, zabv, zc)
-      if (abs(pc - p) / p < eps .or. abs(z2 - zc) < eps .or. abs(p2 - pc) < eps) then
-        exit
-      end if
+      if (abs(pc - p) / p < eps) exit
       if (pc > p) then
         z2 = zc; p2 = pc
       else
@@ -339,7 +296,7 @@ contains
       end do
     end do
     if (proc%is_root()) call log_notice('Calculate height at half levels.')
-    do k = mesh%half_kds + 1, mesh%half_kde
+    do k = mesh%half_kds + 1, mesh%half_kde ! Skip the first half level, since ztop has already been calculated.
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           z_lev%d(i,j,k) = get_height(pert, lon(i), lat(j), mg_lev%d(i,j,k-1), z_lev%d(i,j,k-1), mgs%d(i,j), mg_lev%d(i,j,k))

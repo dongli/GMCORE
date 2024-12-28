@@ -20,7 +20,7 @@ import os
 g = 9.80616 * units.m / units.s ** 2
 cp = 1004.5 * units.J / units.kg / units.K
 
-def vinterp_z(zi, var, zo, method='linear'):
+def vinterp_z(zi, var, zo, method='cubic'):
 	res = None
 	if method == 'cubic':
 		if len(np.shape(var)) == 1:
@@ -29,7 +29,7 @@ def vinterp_z(zi, var, zo, method='linear'):
 		elif len(np.shape(var)) == 2:
 			res = np.zeros((len(zo), np.shape(var)[1]))
 			for i in range(np.shape(var)[1]):
-				cubic = CubicSpline(zi[::-1,i], var[::-1,i])
+				cubic = CubicSpline(zi[::-1,i], var[::-1,i], bc_type='not-a-knot')
 				res[:,i] = cubic(zo)
 	elif method == 'linear':
 		res = interpolate_1d(zo, zi, var)
@@ -59,6 +59,7 @@ def plot_contour_zonal_height(ax, var,
 	cmap=None,
 	norm=None,
 	levels=None,
+	ticks=None,
 	left_string=None,
 	right_string=None,
 	with_grid=True,
@@ -103,9 +104,15 @@ def plot_contour_zonal_height(ax, var,
 	else:
 		cax = make_axes_locatable(ax).append_axes('bottom', size='5%', pad=0.3, axes_class=plt.Axes)
 	if levels is not None and norm is None:
-		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=levels)
+		if ticks is not None:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=ticks)
+		else:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=levels)
 	elif levels is None and norm is not None:
-		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=norm.boundaries[1::2])
+		if ticks is not None:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=ticks)
+		else:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=norm.boundaries[1::2])
 	else:
 		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient)
 	formatter = ticker.ScalarFormatter(useMathText=True)
