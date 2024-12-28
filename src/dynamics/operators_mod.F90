@@ -95,10 +95,7 @@ contains
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime))
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
-      if ((nonhydrostatic .and. .not. restart) .or. hydrostatic) then
-        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
-        if (nonhydrostatic) call fill_halo(blocks(iblk)%dstate(itime)%gz_lev)
-      end if
+      if (hydrostatic   ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
       call tracer_calc_qm                 (blocks(iblk))
     end do

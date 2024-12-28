@@ -76,7 +76,7 @@ module supercell_test_mod
 !    Test case parameters
 !=======================================================================
   integer(4), parameter ::            &
-       nz         = 40         ,      & ! number of vertical levels in init
+       nz         = 30         ,      & ! number of vertical levels in init
        nphi       = 16                  ! number of meridional points in init
 
   real(8), parameter ::               &
@@ -110,35 +110,71 @@ module supercell_test_mod
 !----------------------------------------------------------------------- 
   integer(4)                  :: initialized = 0
 
-  real(8), dimension(nphi)    :: phicoord
-  real(8), dimension(nz)      :: zcoord
+  real(8), dimension(nphi   ) :: phicoord
+  real(8), dimension(     nz) :: zcoord
   real(8), dimension(nphi,nz) :: thetavyz
   real(8), dimension(nphi,nz) :: exneryz
-  real(8), dimension(nz)      :: qveq
+  real(8), dimension(     nz) :: qveq
 
+#ifdef FALSE
   integer , parameter :: ngauss = 20
   real(8), parameter, dimension(ngauss), private :: gaussx = &
-    [-0.0765265211334973, 0.0765265211334973, &
-     -0.2277858511416451, 0.2277858511416451, &
-     -0.3737060887154195, 0.3737060887154195, &
-     -0.5108670019508271, 0.5108670019508271, &
-     -0.6360536807265150, 0.6360536807265150, &
-     -0.7463319064601508, 0.7463319064601508, &
-     -0.8391169718222188, 0.8391169718222188, &
-     -0.9122344282513259, 0.9122344282513259, &
-     -0.9639719272779138, 0.9639719272779138, &
-     -0.9931285991850949, 0.9931285991850949]
+    [-0.0765265211334973d0, 0.0765265211334973d0, &
+     -0.2277858511416451d0, 0.2277858511416451d0, &
+     -0.3737060887154195d0, 0.3737060887154195d0, &
+     -0.5108670019508271d0, 0.5108670019508271d0, &
+     -0.6360536807265150d0, 0.6360536807265150d0, &
+     -0.7463319064601508d0, 0.7463319064601508d0, &
+     -0.8391169718222188d0, 0.8391169718222188d0, &
+     -0.9122344282513259d0, 0.9122344282513259d0, &
+     -0.9639719272779138d0, 0.9639719272779138d0, &
+     -0.9931285991850949d0, 0.9931285991850949d0]
   real(8), parameter, dimension(ngauss), private :: gaussw = &
-    [0.1527533871307258 , 0.1527533871307258, &
-     0.1491729864726037 , 0.1491729864726037, &
-     0.1420961093183820 , 0.1420961093183820, &
-     0.1316886384491766 , 0.1316886384491766, &
-     0.1181945319615184 , 0.1181945319615184, &
-     0.1019301198172404 , 0.1019301198172404, &
-     0.0832767415767048 , 0.0832767415767048, &
-     0.0626720483341091 , 0.0626720483341091, &
-     0.0406014298003869 , 0.0406014298003869, &
-     0.0176140071391521 , 0.0176140071391521]
+    [ 0.1527533871307258d0, 0.1527533871307258d0, &
+      0.1491729864726037d0, 0.1491729864726037d0, &
+      0.1420961093183820d0, 0.1420961093183820d0, &
+      0.1316886384491766d0, 0.1316886384491766d0, &
+      0.1181945319615184d0, 0.1181945319615184d0, &
+      0.1019301198172404d0, 0.1019301198172404d0, &
+      0.0832767415767048d0, 0.0832767415767048d0, &
+      0.0626720483341091d0, 0.0626720483341091d0, &
+      0.0406014298003869d0, 0.0406014298003869d0, &
+      0.0176140071391521d0, 0.0176140071391521d0]
+#else
+  integer, parameter :: ngauss = 30
+  real(8), parameter, dimension(ngauss), private :: gaussx = &
+    [-0.0514718425553177d0, 0.0514718425553177d0, &
+     -0.1538699136085835d0, 0.1538699136085835d0, &
+     -0.2546369261678899d0, 0.2546369261678899d0, &
+     -0.3527047255308781d0, 0.3527047255308781d0, &
+     -0.4470337695380892d0, 0.4470337695380892d0, &
+     -0.5366241481420199d0, 0.5366241481420199d0, &
+     -0.6205261829892429d0, 0.6205261829892429d0, &
+     -0.6978504947933158d0, 0.6978504947933158d0, &
+     -0.7677774321048262d0, 0.7677774321048262d0, &
+     -0.8295657623827684d0, 0.8295657623827684d0, &
+     -0.8825605357920527d0, 0.8825605357920527d0, &
+     -0.9262000474292743d0, 0.9262000474292743d0, &
+     -0.9600218649683075d0, 0.9600218649683075d0, &
+     -0.9836681232797472d0, 0.9836681232797472d0, &
+     -0.9968934840746495d0, 0.9968934840746495d0]
+  real(8), parameter, dimension(ngauss), private :: gaussw = &
+    [ 0.1028526528935588d0, 0.1028526528935588d0, &
+      0.1017623897484055d0, 0.1017623897484055d0, &
+      0.0995934205867953d0, 0.0995934205867953d0, &
+      0.0963687371746443d0, 0.0963687371746443d0, &
+      0.0921225222377861d0, 0.0921225222377861d0, &
+      0.0868997872010830d0, 0.0868997872010830d0, &
+      0.0807558952294202d0, 0.0807558952294202d0, &
+      0.0737559747377052d0, 0.0737559747377052d0, &
+      0.0659742298821805d0, 0.0659742298821805d0, &
+      0.0574931562176191d0, 0.0574931562176191d0, &
+      0.0484026728305941d0, 0.0484026728305941d0, &
+      0.0387991925696271d0, 0.0387991925696271d0, &
+      0.0287847078833234d0, 0.0287847078833234d0, &
+      0.0184664683110910d0, 0.0184664683110910d0, &
+      0.0079681924961666d0, 0.0079681924961666d0]
+#endif
 
   integer :: pert = 1
 
@@ -365,6 +401,8 @@ contains
     call fill_halo(p_lev)
     z_lev%d = z_lev%d * g
     call fill_halo(z_lev)
+    z%d = z%d * g
+    call fill_halo(z)
     end associate
 
     time2 = MPI_Wtime()
@@ -379,16 +417,14 @@ contains
 
     ! d/dphi and int(dphi) operators
     real(8), dimension(nphi,nphi) :: ddphi, intphi
-
-    ! d/dz and int(dz) operators
-    real(8), dimension(nz,nz) :: ddz, intz
-
     ! Buffer matrices for computing SVD of d/dphi operator
     real(8), dimension(nphi,nphi) :: ddphibak
     real(8), dimension(nphi,nphi) :: svdpu, svdpvt
     real(8), dimension(nphi)      :: svdps
     real(8), dimension(5*nphi)    :: pwork
 
+    ! d/dz and int(dz) operators
+    real(8), dimension(nz,nz) :: ddz, intz
     ! Buffer matrices for computing SVD of d/dz operator
     real(8), dimension(nz,nz) :: ddzbak
     real(8), dimension(nz,nz) :: svdzu, svdzvt
@@ -421,7 +457,7 @@ contains
 
     ! Chebyshev nodes in the phi direction
     do i = 1, nphi
-      phicoord(i) = - cos(dble(i-1) * pi / dble(nphi-1))
+      phicoord(i) = - cos(dble(i - 1) * pi / dble(nphi - 1))
       phicoord(i) = 0.25d0 * pi * (phicoord(i) + 1.0d0)
     end do
 
@@ -432,8 +468,8 @@ contains
 
     ! Chebyshev nodes in the z direction
     do k = 1, nz
-      zcoord(k) = - cos(dble(k-1) * pi / dble(nz-1))
-      zcoord(k) = z1 + 0.5d0*(z2-z1)*(zcoord(k)+1.0d0)
+      zcoord(k) = - cos(dble(k - 1) * pi / dble(nz - 1))
+      zcoord(k) = z1 + 0.5d0 * (z2 - z1) * (zcoord(k) + 1.0d0)
     end do
 
     ! Compute the d/dphi operator
@@ -548,7 +584,6 @@ contains
 
     ! Iterate on remainder of domain
     do iter = 1, 12
-
       ! Compute d/dz(theta)
       do i = 1, nphi
         do k = 1, nz
@@ -573,10 +608,6 @@ contains
       end do
       irhs(1,:) = thetavyz(1,:)
 
-      ! Compute difference after iteration
-      !err = sum(irhs - thetavyz)
-      !write(*,*) iter, err
-
       ! Update iteration
       thetavyz = irhs
     end do
@@ -597,6 +628,12 @@ contains
 
     ! Initialization successful
     initialized = 1
+
+    open(11, file='sc.eq.txt')
+    do k = 1, nz
+      write(11, *) zcoord(k), thetavyz(1,k), exnereq(k)**(cp / Rd) * p0, qveq(k)
+    end do
+    close(11)
 
   end subroutine supercell_init
 
@@ -871,7 +908,7 @@ contains
 !-----------------------------------------------------------------------
   pure real(8) function saturation_mixing_ratio(p, t) result(res)
 
-    real(8), intent(in) :: p ! Pressure in pa
+    real(8), intent(in) :: p ! Pressure in Pa
     real(8), intent(in) :: t ! Temperature in K
 
     res = 380.0d0 / p * exp(17.27d0 * (t - 273.d0) / (t - 36.0d0))

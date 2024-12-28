@@ -416,7 +416,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =''                                                  , &
+        output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%p                                              )
     end if
@@ -440,7 +440,7 @@ contains
         loc             ='lev'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
-        output          =''                                                  , &
+        output          ='h0'                                                , &
         restart         =.false.                                             , &
         field           =this%p_lev                                          )
     end if
