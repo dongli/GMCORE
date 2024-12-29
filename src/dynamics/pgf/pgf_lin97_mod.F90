@@ -52,8 +52,8 @@ contains
                ph_lev  => dstate%ph_lev       , & ! in
                gz_lev  => dstate%gz_lev       , & ! in
                p_lev   => dstate%p_lev        , & ! in
-               du      => dtend%du            , & ! out
-               dv      => dtend%dv            )   ! out
+               dudt    => dtend%dudt          , & ! out
+               dvdt    => dtend%dvdt          )   ! out
     do k = mesh%half_kds, mesh%half_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1
@@ -84,7 +84,7 @@ contains
             dgz1 = gz_lev %d(i  ,j,k+1) - gz_lev %d(i+1,j,k  ) ! 1 - 3
             dgz2 = gz_lev %d(i  ,j,k  ) - gz_lev %d(i+1,j,k+1) ! 4 - 2
             tmp = (dpk1 * dgz1 + dpk2 * dgz2) / mesh%de_lon(j) / (dpk1 + dpk2) / L
-            du%d(i,j,k) = du%d(i,j,k) + tmp
+            dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dudt_pgf%d(i,j,k) = tmp
 #endif
@@ -111,7 +111,7 @@ contains
             dgz1 = gz_lev %d(i,j  ,k+1) - gz_lev %d(i,j+1,k  ) ! 1 - 3
             dgz2 = gz_lev %d(i,j  ,k  ) - gz_lev %d(i,j+1,k+1) ! 4 - 2
             tmp = (dpk1 * dgz1 + dpk2 * dgz2) / mesh%de_lat(j) / (dpk1 + dpk2) / L
-            dv%d(i,j,k) = dv%d(i,j,k) + tmp
+            dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dvdt_pgf%d(i,j,k) = tmp
 #endif
@@ -150,7 +150,7 @@ contains
               (dpk1 * dgz1 + dpk2 * dgz2) / (dpk1 + dpk2) + &
               (dpp1 * dgz1 + dpp2 * dgz2) / (dph1 + dph2)   & ! Nonhydrostatic part
             ) / mesh%de_lon(j) / L
-            du%d(i,j,k) = du%d(i,j,k) + tmp
+            dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dudt_pgf%d(i,j,k) = tmp
 #endif
@@ -186,7 +186,7 @@ contains
               (dpk1 * dgz1 + dpk2 * dgz2) / (dpk1 + dpk2) + &
               (dpp1 * dgz1 + dpp2 * dgz2) / (dph1 + dph2)   & ! Nonhydrostatic part
             ) / mesh%de_lat(j) / L
-            dv%d(i,j,k) = dv%d(i,j,k) + tmp
+            dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dvdt_pgf%d(i,j,k) = tmp
 #endif

@@ -531,7 +531,7 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              dtend%dgz%d(i,j,k) = -block%aux%dmf%d(i,j,k) * g
+              dtend%dgzdt%d(i,j,k) = -block%aux%dmf%d(i,j,k) * g
             end do
           end do
         end do
@@ -556,7 +556,7 @@ contains
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              dtend%dgz%d(i,j,k) = -block%aux%dmf%d(i,j,k) * g
+              dtend%dgzdt%d(i,j,k) = -block%aux%dmf%d(i,j,k) * g
             end do
           end do
         end do

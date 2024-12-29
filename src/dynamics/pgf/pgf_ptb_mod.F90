@@ -141,8 +141,8 @@ contains
                p_lev  => dstate%p_lev          , & ! in
                rhod   => block%aux%rhod        , & ! in
                gz     => dstate%gz             , & ! in
-               du     => dtend%du              , & ! out
-               dv     => dtend%dv              )   ! out
+               dudt   => dtend%dudt            , & ! out
+               dvdt   => dtend%dvdt            )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1
@@ -164,7 +164,7 @@ contains
           tmp4 = 0.5_r8 * (dp_ptb%d(i,j,k) / dmg%d(i,j,k) + dp_ptb%d(i+1,j,k) / dmg%d(i+1,j,k)) * &
                  (gz%d(i+1,j,k) - gz%d(i,j,k)) / mesh%de_lon(j)
           tmp = -(tmp1 + tmp2 + tmp3 + tmp4) / L
-          du%d(i,j,k) = du%d(i,j,k) + tmp
+          dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dudt_pgf%d(i,j,k) = tmp
 #endif
@@ -180,7 +180,7 @@ contains
           tmp4 = 0.5_r8 * (dp_ptb%d(i,j,k) / dmg%d(i,j,k) + dp_ptb%d(i,j+1,k) / dmg%d(i,j+1,k)) * &
                  (gz%d(i,j+1,k) - gz%d(i,j,k)) / mesh%de_lat(j)
           tmp = -(tmp1 + tmp2 + tmp3 + tmp4) / L
-          dv%d(i,j,k) = dv%d(i,j,k) + tmp
+          dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dvdt_pgf%d(i,j,k) = tmp
 #endif

@@ -367,14 +367,14 @@ contains
 
     associate (mesh        => block%mesh           , &
                dmf         => block%aux%dmf        , & ! in
-               dmgs        => dtend%dmgs           , & ! in
+               dmgsdt      => dtend%dmgsdt         , & ! in
                mfz_lev     => block%aux%mfz_lev    , & ! out
                mfz_lev_lon => block%aux%mfz_lev_lon, & ! out
                mfz_lev_lat => block%aux%mfz_lev_lat)   ! out
     do k = mesh%half_kds + 1, mesh%half_kde - 1
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          mfz_lev%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgs%d(i,j)) - sum(dmf%d(i,j,1:k-1))
+          mfz_lev%d(i,j,k) = -vert_coord_calc_dmgdt_lev(k, dmgsdt%d(i,j)) - sum(dmf%d(i,j,1:k-1))
         end do
       end do
     end do
@@ -953,8 +953,8 @@ contains
                mfx_lat => block%aux%mfx_lat, & ! in
                pv_lon  => block%aux%pv_lon , & ! in
                pv_lat  => block%aux%pv_lat , & ! in
-               du      => dtend%du         , & ! out
-               dv      => dtend%dv         )   ! out
+               dudt    => dtend%dudt       , & ! out
+               dvdt    => dtend%dvdt       )   ! out
     select case (coriolis_scheme)
     case (1)
       do k = mesh%full_kds, mesh%full_kde
@@ -970,7 +970,7 @@ contains
                 mfx_lon%d(i  ,j+1,k) * (pv_lat%d(i,j,k) + pv_lon%d(i  ,j+1,k))   &
               )                                                                  &
             ) * 0.5_r8
-            dv%d(i,j,k) = dv%d(i,j,k) + tmp
+            dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dvdt_coriolis%d(i,j,k) = tmp
 #endif
@@ -990,7 +990,7 @@ contains
                 mfy_lat%d(i+1,j  ,k) * (pv_lon%d(i,j,k) + pv_lat%d(i+1,j  ,k))   &
               )                                                                  &
             ) * 0.5_r8
-            du%d(i,j,k) = du%d(i,j,k) + tmp
+            dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
             dtend%dudt_coriolis%d(i,j,k) = tmp
 #endif
@@ -1001,14 +1001,14 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            dv%d(i,j,k) = dv%d(i,j,k) - mfx_lat%d(i,j,k) * pv_lat%d(i,j,k)
+            dvdt%d(i,j,k) = dvdt%d(i,j,k) - mfx_lat%d(i,j,k) * pv_lat%d(i,j,k)
           end do
         end do
       end do
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
-            du%d(i,j,k) = du%d(i,j,k) + mfy_lon%d(i,j,k) * pv_lon%d(i,j,k)
+            dudt%d(i,j,k) = dudt%d(i,j,k) + mfy_lon%d(i,j,k) * pv_lon%d(i,j,k)
           end do
         end do
       end do
@@ -1033,13 +1033,13 @@ contains
 
     associate (mesh => block%mesh  , &
                ke   => block%aux%ke, & ! in
-               du   => dtend%du    , & ! out
-               dv   => dtend%dv    )   ! out
+               dudt => dtend%dudt  , & ! out
+               dvdt => dtend%dvdt  )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
           tmp = -(ke%d(i+1,j,k) - ke%d(i,j,k)) / mesh%de_lon(j)
-          du%d(i,j,k) = du%d(i,j,k) + tmp
+          dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dudt_dkedx%d(i,j,k) = tmp
 #endif
@@ -1050,7 +1050,7 @@ contains
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
           tmp = -(ke%d(i,j+1,k) - ke%d(i,j,k)) / mesh%de_lat(j)
-          dv%d(i,j,k) = dv%d(i,j,k) + tmp
+          dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dvdt_dkedy%d(i,j,k) = tmp
 #endif
@@ -1103,17 +1103,17 @@ contains
                ptfx    => block%adv_batch_pt%qmfx, & ! out
                ptfy    => block%adv_batch_pt%qmfy, & ! out
                ptfz    => block%adv_batch_pt%qmfz, & ! out
-               dpt     => dtend%dpt              )   ! out
+               dptdt   => dtend%dptdt            )   ! out
     call block%adv_batch_pt%set_wind(u=u_lon, v=v_lat, mfx=mfx_lon, mfy=mfy_lat, mfz=mfz_lev, m=dmg, dt=dt)
     call swift_prepare(block%adv_batch_pt, dt)
     call adv_calc_tracer_hflx(block%adv_batch_pt, pt, ptfx, ptfy, dt)
-    call div_operator(ptfx, ptfy, dpt)
+    call div_operator(ptfx, ptfy, dptdt)
     call adv_fill_vhalo(pt, no_negvals=.true.)
     call adv_calc_tracer_vflx(block%adv_batch_pt, pt, ptfz, dt)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dpt%d(i,j,k) = -dpt%d(i,j,k) - (ptfz%d(i,j,k+1) - ptfz%d(i,j,k))
+          dptdt%d(i,j,k) = -dptdt%d(i,j,k) - (ptfz%d(i,j,k+1) - ptfz%d(i,j,k))
         end do
       end do
     end do
@@ -1134,14 +1134,14 @@ contains
 
     call perf_start('calc_dmgsdt')
 
-    associate (mesh => block%mesh   , &
-               dmf  => block%aux%dmf, & ! in
-               dmgs => dtend%dmgs   )   ! out
-    dmgs%d = 0
+    associate (mesh   => block%mesh   , &
+               dmf    => block%aux%dmf, & ! in
+               dmgsdt => dtend%dmgsdt )   ! out
+    dmgsdt%d = 0
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dmgs%d(i,j) = dmgs%d(i,j) - dmf%d(i,j,k)
+          dmgsdt%d(i,j) = dmgsdt%d(i,j) - dmf%d(i,j,k)
         end do
       end do
     end do
@@ -1165,15 +1165,15 @@ contains
 
     call perf_start('calc_wedudlev_wedvdlev')
 
-    associate (mesh       => block%mesh            , &
-               u          => dstate%u_lon          , & ! in
-               v          => dstate%v_lat          , & ! in
-               dmg_lon    => block%aux%dmg_lon     , & ! in
-               dmg_lat    => block%aux%dmg_lat     , & ! in
+    associate (mesh        => block%mesh           , &
+               u           => dstate%u_lon         , & ! in
+               v           => dstate%v_lat         , & ! in
+               dmg_lon     => block%aux%dmg_lon    , & ! in
+               dmg_lat     => block%aux%dmg_lat    , & ! in
                mfz_lev_lon => block%aux%mfz_lev_lon, & ! in
                mfz_lev_lat => block%aux%mfz_lev_lat, & ! in
-               du         => dtend%du              , & ! out
-               dv         => dtend%dv              )   ! out
+               dudt        => dtend%dudt           , & ! out
+               dvdt        => dtend%dvdt           )   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
@@ -1181,7 +1181,7 @@ contains
             mfz_lev_lon%d(i,j,k+1) * (u%d(i,j,k+1) - u%d(i,j,k)) - &
             mfz_lev_lon%d(i,j,k  ) * (u%d(i,j,k-1) - u%d(i,j,k))   &
           ) / dmg_lon%d(i,j,k) / 2.0_r8
-          du%d(i,j,k) = du%d(i,j,k) + tmp
+          dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dudt_wedudeta%d(i,j,k) = tmp
 #endif
@@ -1195,7 +1195,7 @@ contains
             mfz_lev_lat%d(i,j,k+1) * (v%d(i,j,k+1) - v%d(i,j,k)) - &
             mfz_lev_lat%d(i,j,k  ) * (v%d(i,j,k-1) - v%d(i,j,k))   &
           ) / dmg_lat%d(i,j,k) / 2.0_r8
-          dv%d(i,j,k) = dv%d(i,j,k) + tmp
+          dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dvdt_wedvdeta%d(i,j,k) = tmp
 #endif

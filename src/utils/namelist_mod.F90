@@ -167,6 +167,9 @@ module namelist_mod
   logical         :: use_smag_damp        = .false.
   integer         :: smag_damp_cycles     = 1
   real(r8)        :: smag_damp_coef       = 0.015
+  logical         :: use_laplace_damp     = .false.
+  integer         :: laplace_damp_order   = 2
+  real(r8)        :: laplace_damp_coef    = 0.0_r8
 
   ! Input settings
   integer         :: input_ngroups        = 0
@@ -308,6 +311,9 @@ module namelist_mod
     use_smag_damp             , &
     smag_damp_cycles          , &
     smag_damp_coef            , &
+    use_laplace_damp          , &
+    laplace_damp_order        , &
+    laplace_damp_coef         , &
     input_ngroups             , &
     output_h0                 , &
     output_h0_dtype           , &

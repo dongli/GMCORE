@@ -27,13 +27,13 @@ contains
 
     associate (mesh => block%mesh, &
                gz   => dstate%gz , & ! in
-               du   => dtend%du  , & ! out
-               dv   => dtend%dv  )   ! out
+               dudt => dtend%dudt, & ! out
+               dvdt => dtend%dvdt)   ! out
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
           tmp = -(gz%d(i+1,j,k) - gz%d(i,j,k)) / mesh%de_lon(j)
-          du%d(i,j,k) = du%d(i,j,k) + tmp
+          dudt%d(i,j,k) = dudt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dudt_pgf%d(i,j,k) = tmp
 #endif
@@ -44,7 +44,7 @@ contains
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
           tmp = -(gz%d(i,j+1,k) - gz%d(i,j,k)) / mesh%de_lat(j)
-          dv%d(i,j,k) = dv%d(i,j,k) + tmp
+          dvdt%d(i,j,k) = dvdt%d(i,j,k) + tmp
 #ifdef OUTPUT_H1_DTEND
           dtend%dvdt_pgf%d(i,j,k) = tmp
 #endif

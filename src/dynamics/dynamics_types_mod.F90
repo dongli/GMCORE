@@ -62,11 +62,11 @@ module dynamics_types_mod
 
   type dtend_type
     type(array_type) fields
-    type(latlon_field3d_type) du
-    type(latlon_field3d_type) dv
-    type(latlon_field3d_type) dgz
-    type(latlon_field3d_type) dpt
-    type(latlon_field2d_type) dmgs
+    type(latlon_field3d_type) dudt
+    type(latlon_field3d_type) dvdt
+    type(latlon_field3d_type) dgzdt
+    type(latlon_field3d_type) dptdt
+    type(latlon_field2d_type) dmgsdt
 #ifdef OUTPUT_H1_DTEND
     type(latlon_field3d_type) dudt_coriolis
     type(latlon_field3d_type) dvdt_coriolis
@@ -576,7 +576,7 @@ contains
       halo              =filter_halo                                         , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
-      field             =this%du                                             )
+      field             =this%dudt                                           )
     call append_field(this%fields                                            , &
       name              ='dvdt'                                              , &
       long_name         ='Dynamic tendency of v'                             , &
@@ -586,7 +586,7 @@ contains
       halo              =filter_halo                                         , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
-      field             =this%dv)
+      field             =this%dvdt                                           )
     if (baroclinic) then
       call append_field(this%fields                                          , &
         name            ='dptdt'                                             , &
@@ -597,7 +597,7 @@ contains
         halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
-        field           =this%dpt                                            )
+        field           =this%dptdt                                          )
       call append_field(this%fields                                          , &
         name            ='dmgsdt'                                            , &
         long_name       ='Dynamic tendency of mgs'                           , &
@@ -607,7 +607,7 @@ contains
         halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
-        field           =this%dmgs                                           )
+        field           =this%dmgsdt                                         )
     end if
 
     if (.not. baroclinic) then
@@ -620,7 +620,7 @@ contains
         halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
-        field           =this%dgz                                            )
+        field           =this%dgzdt                                            )
     end if
 
 #ifdef OUTPUT_H1_DTEND
@@ -714,8 +714,8 @@ contains
 
     class(dtend_type), intent(inout) :: this
 
-    this%du%d = 0
-    this%dv%d = 0
+    this%dudt%d = 0
+    this%dvdt%d = 0
 
     this%update_u   = .false.
     this%update_v   = .false.
