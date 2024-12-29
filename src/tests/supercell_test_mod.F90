@@ -317,8 +317,6 @@ contains
         do i = mesh%full_ids, mesh%full_ide
           call supercell_test(pert, lon(i), lat(j), p%d(i,j,k), z%d(i,j,k), 1, &
             thetav, rho, qv, u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
-          ! Convert to dry mixing ratio.
-          qv = qv / (1 - qv)
           if (idx_qv > 0) q%d(i,j,k,idx_qv) = qv
           pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), qv)
         end do

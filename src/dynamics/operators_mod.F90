@@ -85,10 +85,12 @@ contains
       if (baroclinic    ) call calc_mg    (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_dmg                       (blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_ph    (blocks(iblk), blocks(iblk)%dstate(itime))
-      if (nonhydrostatic .and. .not. restart .and. sum(blocks(iblk)%dstate(itime)%p%d) == 0) then
-        ! Set pressure to hydrostatic pressure in the initial condition.
-        blocks(iblk)%dstate(itime)%p    %d = blocks(iblk)%dstate(itime)%ph    %d
-        blocks(iblk)%dstate(itime)%p_lev%d = blocks(iblk)%dstate(itime)%ph_lev%d
+      if (nonhydrostatic .and. .not. restart) then
+        if (sum(blocks(iblk)%dstate(itime)%p%d) == 0) then
+          ! Set pressure to hydrostatic pressure in the initial condition.
+          blocks(iblk)%dstate(itime)%p    %d = blocks(iblk)%dstate(itime)%ph    %d
+          blocks(iblk)%dstate(itime)%p_lev%d = blocks(iblk)%dstate(itime)%ph_lev%d
+        end if
       end if
       if (baroclinic    ) call calc_t     (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_mf                        (blocks(iblk), blocks(iblk)%dstate(itime), dt)
