@@ -210,6 +210,7 @@ module gomars_v1_types_mod
   contains
     procedure :: init  => gomars_v1_tend_init
     procedure :: clear => gomars_v1_tend_clear
+    procedure :: reset => gomars_v1_tend_reset
     final gomars_v1_tend_final
   end type gomars_v1_tend_type
 
@@ -437,6 +438,14 @@ contains
     call this%physics_tend_clear()
 
   end subroutine gomars_v1_tend_clear
+
+  subroutine gomars_v1_tend_reset(this)
+
+    class(gomars_v1_tend_type), intent(inout) :: this
+
+    call this%physics_tend_reset()
+
+  end subroutine gomars_v1_tend_reset
 
   subroutine gomars_v1_tend_final(this)
 

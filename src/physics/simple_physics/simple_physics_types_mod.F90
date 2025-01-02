@@ -32,6 +32,7 @@ module simple_physics_types_mod
   contains
     procedure :: init  => simple_tend_init
     procedure :: clear => simple_tend_clear
+    procedure :: reset => simple_tend_reset
     final simple_tend_final
   end type simple_tend_type
 
@@ -92,6 +93,14 @@ contains
     call this%physics_tend_clear()
 
   end subroutine simple_tend_clear
+
+  subroutine simple_tend_reset(this)
+
+    class(simple_tend_type), intent(inout) :: this
+
+    call this%physics_tend_reset()
+
+  end subroutine simple_tend_reset
 
   subroutine simple_tend_final(this)
 

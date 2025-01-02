@@ -43,6 +43,7 @@ module cam_physics_types_mod
   contains
     procedure :: init  => cam_tend_init
     procedure :: clear => cam_tend_clear
+    procedure :: reset => cam_tend_reset
     final cam_tend_final
   end type cam_tend_type
 
@@ -107,6 +108,14 @@ contains
     call this%physics_tend_clear()
 
   end subroutine cam_tend_clear
+
+  subroutine cam_tend_reset(this)
+
+    class(cam_tend_type), intent(inout) :: this
+
+    call this%physics_tend_reset()
+
+  end subroutine cam_tend_reset
 
   subroutine cam_tend_final(this)
 

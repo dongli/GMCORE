@@ -163,6 +163,7 @@ module physics_types_mod
     logical :: updated_ps = .false.
     logical, allocatable :: updated_q(:)
   contains
+    ! NOTE: The following procedures must be override by the subtype.
     procedure physics_tend_init
     procedure physics_tend_clear
     procedure physics_tend_reset
