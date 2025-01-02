@@ -319,12 +319,17 @@ contains
 
     call perf_start('physics_update_after_advection')
 
-    if (pdc_type == 2) then
+    select case (pdc_type)
+    case (2)
       call physics_update_uv (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
-    end if
+    case (24)
+      call physics_update_pt (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    end select
 
     call perf_stop('physics_update_after_advection')
 
@@ -368,7 +373,7 @@ contains
       call physics_update_mgs(block, dstate, dt)
       call physics_update_pt (block, dstate, dt)
       call physics_update_q  (block, dstate, dt)
-    case (14, 34)
+    case (14, 24, 34)
       call physics_update_pt (block, dstate, dt)
     end select
 
