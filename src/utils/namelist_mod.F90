@@ -31,10 +31,10 @@ module namelist_mod
   real(r8)        :: dt_adv               = 0
   real(r8)        :: dt_phys              = 0
   ! Physics-dynamics coupling type
-  ! 1: Update dynamics and tracers after their own calculation.
-  ! 2: Update dynamics and tracers after advection (moisture).
-  ! 3: Update dynamics and tracers after physics.
-  ! 4: Update dynamics at RK sub-steps and tracers after advection.
+  ! 1 : Update dynamics and tracers after dynamics.
+  ! 2 : Update dynamics and tracers after advection.
+  ! 3 : Update dynamics and tracers after physics.
+  ! 14: Update modified potential temperature in RK substeps and others like 1.
   integer         :: pdc_type             = 1
 
   character(256)  :: case_desc            = 'N/A'
@@ -160,6 +160,7 @@ module namelist_mod
   integer         :: vor_damp_k0          = 6
   real(r8)        :: vor_damp_pole        = 10
   real(r8)        :: vor_damp_lat0        = 80
+  logical         :: use_rayleigh_damp_w  = .false.
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
   logical         :: use_p_damp           = .false.
@@ -304,6 +305,7 @@ module namelist_mod
     vor_damp_top              , &
     vor_damp_pole             , &
     vor_damp_lat0             , &
+    use_rayleigh_damp_w       , &
     rayleigh_damp_w_coef      , &
     rayleigh_damp_top         , &
     use_p_damp                , &
@@ -474,6 +476,7 @@ contains
     end if
     if (nonhydrostatic) then
       write(*, *) 'implicit_w_wgt      = ', to_str(implicit_w_wgt, 3)
+      write(*, *) 'use_rayleigh_damp_w = ', to_str(use_rayleigh_damp_w)
       write(*, *) 'rayleigh_damp_w_coef= ', to_str(rayleigh_damp_w_coef, 2)
       write(*, *) 'rayleigh_damp_top   = ', to_str(rayleigh_damp_top   , 2)
     end if
@@ -485,6 +488,11 @@ contains
     if (use_smag_damp) then
       write(*, *) 'smag_damp_cycles    = ', to_str(smag_damp_cycles)
       write(*, *) 'smag_damp_coef      = ', smag_damp_coef
+    end if
+      write(*, *) 'use_laplace_damp    = ', to_str(use_laplace_damp)
+    if (use_laplace_damp) then
+      write(*, *) 'laplace_damp_order  = ', to_str(laplace_damp_order)
+      write(*, *) 'laplace_damp_coef   = ', laplace_damp_coef
     end if
       write(*, *) '========================================================='
 

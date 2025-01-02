@@ -30,6 +30,10 @@ module simple_physics_driver_mod
 
   real(r8) dt
 
+  logical :: use_ptend_pt = .false.
+
+  namelist /simple_physics_control/ use_ptend_pt
+
 contains
 
   subroutine simple_physics_init_stage1(namelist_path, dt_adv, dt_phys)
@@ -38,20 +42,26 @@ contains
     real(r8), intent(in) :: dt_adv
     real(r8), intent(in) :: dt_phys
 
+    integer ignore
+
     call simple_physics_final()
+
+    open(11, file=namelist_path, status='old', action='read')
+    read(11, nml=simple_physics_control, iostat=ignore)
+    close(11)
 
     select case (physics_suite)
     case ('simple_physics:v6')
       if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+      allocate(physics_use_wet_tracers(ntracers))
+      physics_use_wet_tracers = .true.
     case ('simple_physics:kessler')
       if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
       if (idx_qc == 0) call tracer_add('moist', dt_adv, 'qc', 'Cloud water', 'kg kg-1')
       if (idx_qr == 0) call tracer_add('moist', dt_adv, 'qr', 'Rain water' , 'kg kg-1')
+      allocate(physics_use_wet_tracers(ntracers))
+      physics_use_wet_tracers = .false.
     end select
-
-    if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
-    allocate(physics_use_wet_tracers(ntracers))
-    physics_use_wet_tracers = .true.
 
     dt = dt_phys
 
@@ -66,6 +76,8 @@ contains
   end subroutine simple_physics_init_stage2
 
   subroutine simple_physics_final()
+
+    if (allocated(physics_use_wet_tracers)) deallocate(physics_use_wet_tracers)
 
     call simple_physics_objects_final()
 
@@ -111,8 +123,6 @@ contains
         do icol = 1, mesh%ncol
           call kessler(          &
             mesh%nlev          , &
-            rd                 , &
-            cpd                , &
             state%pt   (icol,:), &
             state%qv   (icol,:), &
             state%qc   (icol,:), &
@@ -124,16 +134,29 @@ contains
             state%precl(icol  )  &
           )
         end do
+        if (use_ptend_pt) then
+          do k = 1, mesh%nlev
+            do icol = 1, mesh%ncol
+              tend%dptdt(icol,k) = (state%pt(icol,k) - state%pt_old(icol,k)) / dt
+            end do
+          end do
+          tend%updated_pt = .true.
+        else
+          do k = 1, mesh%nlev
+            do icol = 1, mesh%ncol
+              state%t(icol,k) = state%pt(icol,k) * state%pk(icol,k)
+              tend%dtdt(icol,k) = (state%t(icol,k) - state%t_old(icol,k)) / dt
+            end do
+          end do
+          tend%updated_t = .true.
+        end if
         do k = 1, mesh%nlev
           do icol = 1, mesh%ncol
-            state%t(icol,k) = temperature(state%pt(icol,k), state%p(icol,k), 0.0_r8)
-            tend%dtdt(icol,k) = (state%t(icol,k) - state%t_old(icol,k)) / dt
             do m = 1, ntracers
               tend%dqdt(icol,k,m) = (state%q(icol,k,m) - state%q_old(icol,k,m)) / dt
             end do
           end do
         end do
-        tend%updated_t = .true.
         tend%updated_q = .true.
       end select
       end associate

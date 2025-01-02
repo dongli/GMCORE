@@ -225,6 +225,7 @@ contains
     end select
     call time_add_alert('print', seconds=seconds)
 
+    call operators_prepare(blocks, old, dt_dyn)
     call physics_init_stage3()
     call history_init_stage3()
 
@@ -275,7 +276,7 @@ contains
         do iblk = 1, size(blocks)
           call time_integrator(operators, blocks(iblk), old, new, dt_dyn)
           call damp_run(blocks(iblk), blocks(iblk)%dstate(new), dt_dyn)
-          if (pdc_type == 1) call physics_update(blocks(iblk), new, dt_dyn)
+          call physics_update_after_dynamics(blocks(iblk), new, dt_dyn)
           call blocks(iblk)%dstate(new)%c2a(blocks(iblk)%aux%u, blocks(iblk)%aux%v)
         end do
         ! ----------------------------------------------------------------------
@@ -292,7 +293,7 @@ contains
           do iblk = 1, size(blocks)
             call prepare_physics(blocks(iblk), old)
             call physics_run(blocks(iblk), old, dt_phys)
-            if (pdc_type == 3) call physics_update(blocks(iblk), old, dt_phys)
+            call physics_update_after_physics(blocks(iblk), old, dt_phys)
           end do
         end if
         ! ----------------------------------------------------------------------
@@ -348,7 +349,7 @@ contains
         call history_write_h2()
       end if
     end if
-    if (time_is_alerted('restart_write') .or. time_step == 0) then
+    if (time_is_alerted('restart_write') .or. (time_step == 0 .and. restart_interval /= 'N/A')) then
       call restart_write(itime)
     end if
     first_call = .false.
@@ -508,7 +509,7 @@ contains
     select case (pass)
     case (all_pass)
       call operators_prepare(block, star_dstate, dt, pass, substep)
-      if (hydrostatic) then
+      if (baroclinic) then
         call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend, dt)
         call calc_mfz              (block, star_dstate, dtend, dt)
@@ -523,10 +524,10 @@ contains
         dtend%update_mgs = .true.
         dtend%update_pt  = .true.
       else
-        call calc_grad_mf        (block, star_dstate)
-        call calc_coriolis       (block, star_dstate, dtend, dt)
-        call calc_grad_ke        (block, star_dstate, dtend, dt)
-        call pgf_run             (block, star_dstate, dtend)
+        call calc_grad_mf          (block, star_dstate)
+        call calc_coriolis         (block, star_dstate, dtend, dt)
+        call calc_grad_ke          (block, star_dstate, dtend, dt)
+        call pgf_run               (block, star_dstate, dtend)
 
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -551,7 +552,7 @@ contains
         dtend%update_mgs = .true.
         dtend%update_pt  = .true.
       else
-        call calc_grad_mf         (block, star_dstate)
+        call calc_grad_mf          (block, star_dstate)
 
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde

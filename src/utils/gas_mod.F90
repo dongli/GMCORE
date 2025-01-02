@@ -73,11 +73,11 @@ contains
 
       ! Testing fixed constants.
       major_gas%r     = 287.0_r8
-      major_gas%cp    = 1004.0_r8
+      major_gas%cp    = 1004.5_r8
       major_gas%cv    = 717.0_r8
       major_gas%gamma = major_gas%cp / major_gas%cv
       major_gas%kappa = major_gas%r / major_gas%cp
-      minor_gas%r     = 461.0_r8
+      minor_gas%r     = 461.5_r8
       minor_gas%cp    = 1810.0_r8
       minor_gas%cv    = 1348.5_r8
       minor_gas%gamma = minor_gas%cp / minor_gas%cv

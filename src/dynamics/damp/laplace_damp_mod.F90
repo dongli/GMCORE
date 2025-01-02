@@ -18,6 +18,8 @@ module laplace_damp_mod
   use latlon_field_types_mod
   use latlon_parallel_mod
   use process_mod, only: proc
+  use block_mod
+  use filter_mod
 
   implicit none
 
@@ -29,6 +31,8 @@ module laplace_damp_mod
 
   interface laplace_damp_run
     module procedure laplace_damp_run_2d
+    module procedure laplace_damp_run_3d
+    module procedure laplace_damp_run_4d
   end interface laplace_damp_run
 
 contains
@@ -41,136 +45,770 @@ contains
 
   end subroutine laplace_damp_final
 
-  subroutine laplace_damp_run_2d(f, order, coef)
+  subroutine laplace_damp_run_2d(block, f, order, dt, coef)
 
+    type(block_type), intent(inout) :: block
     type(latlon_field2d_type), intent(inout) :: f
     integer, intent(in) :: order
+    real(r8), intent(in) :: dt
     real(r8), intent(in), optional :: coef
 
-    type(latlon_field2d_type) g1, g2, fx, fy
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide), pole
     real(r8) c0, s
-    integer i, j, k, l
+    integer i, j, l
 
     c0 = 1.0_r8; if (present(coef)) c0 = coef
     s = (-1)**(order / 2)
 
     select case (f%loc)
     case ('cell')
-      call g1%init('', '', '', 'cell', f%mesh, f%halo)
-      call g2%init('', '', '', 'cell', f%mesh, f%halo)
-      call fx%init('', '', '', 'lon' , f%mesh, f%halo)
-      call fy%init('', '', '', 'lat' , f%mesh, f%halo)
-      g1%d = f%d
+      associate (mesh => block%mesh       , &
+                 g1   => block%aux%g1_2d  , &
+                 g2   => block%aux%g2_2d  , &
+                 fx   => block%aux%fx_2d  , &
+                 fy   => block%aux%fy_2d  , &
+                 dxdt => block%aux%dxdt_2d)
+      call g1%copy(f, with_halo=.true.)
       do l = 1, (order - 2) / 2
-        do j = f%mesh%full_jds_no_pole, f%mesh%full_jde_no_pole
-          do i = f%mesh%half_ids - 1, f%mesh%half_ide
-            fx%d(i,j) = (g1%d(i+1,j) - g1%d(i,j)) / f%mesh%de_lon(j)
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j) = (g1%d(i+1,j) - g1%d(i,j)) / mesh%de_lon(j)
           end do
         end do
-        do j = f%mesh%half_jds - merge(0, 1, f%mesh%has_south_pole()), f%mesh%half_jde
-          do i = f%mesh%full_ids, f%mesh%full_ide
-            fy%d(i,j) = (g1%d(i,j+1) - g1%d(i,j)) / f%mesh%de_lat(j)
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j) = (g1%d(i,j+1) - g1%d(i,j)) / mesh%de_lat(j)
           end do
         end do
-        do j = f%mesh%full_jds_no_pole, f%mesh%full_jde_no_pole
-          do i = f%mesh%full_ids, f%mesh%full_ide
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
             g2%d(i,j) = (                                    &
-              (fx%d(i,j) - fx%d(i-1,j)) * f%mesh%le_lon(j) + &
-               fy%d(i,j  ) * f%mesh%le_lat(j  ) -            &
-               fy%d(i,j-1) * f%mesh%le_lat(j-1)              &
-            ) / f%mesh%area_cell(j)
+              (fx%d(i,j) - fx%d(i-1,j)) * mesh%le_lon(j) + &
+               fy%d(i,j  ) * mesh%le_lat(j  ) -            &
+               fy%d(i,j-1) * mesh%le_lat(j-1)              &
+            ) / mesh%area_cell(j)
           end do
         end do
-        if (f%mesh%has_south_pole()) then
-          j = f%mesh%full_jds
-          do i = f%mesh%full_ids, f%mesh%full_ide
+        if (mesh%has_south_pole()) then
+          j = mesh%full_jds
+          do i = mesh%full_ids, mesh%full_ide
             work(i) = fy%d(i,j)
           end do
           call zonal_sum(proc%zonal_circle, work, pole)
-          pole = pole * f%mesh%le_lat(j) / global_mesh%area_pole_cap
-          do i = f%mesh%full_ids, f%mesh%full_ide
+          pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+          do i = mesh%full_ids, mesh%full_ide
             g2%d(i,j) = pole
           end do
         end if
-        if (f%mesh%has_north_pole()) then
-          j = f%mesh%full_jde
-          do i = f%mesh%full_ids, f%mesh%full_ide
+        if (mesh%has_north_pole()) then
+          j = mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
             work(i) = fy%d(i,j-1)
           end do
           call zonal_sum(proc%zonal_circle, work, pole)
-          pole = -pole * f%mesh%le_lat(j-1) / global_mesh%area_pole_cap
-          do i = f%mesh%full_ids, f%mesh%full_ide
+          pole = -pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+          do i = mesh%full_ids, mesh%full_ide
             g2%d(i,j) = pole
           end do
         end if
         call fill_halo(g2)
         g1%d = g2%d
       end do
-      do j = f%mesh%full_jds_no_pole, f%mesh%full_jde_no_pole
-        do i = f%mesh%half_ids - 1, f%mesh%half_ide
-          fx%d(i,j) = (g1%d(i+1,j) - g1%d(i,j)) / f%mesh%de_lon(j)
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids - 1, mesh%half_ide
+          fx%d(i,j) = (g1%d(i+1,j) - g1%d(i,j)) / mesh%de_lon(j)
         end do
       end do
-      do j = f%mesh%half_jds - merge(0, 1, f%mesh%has_south_pole()), f%mesh%half_jde
-        do i = f%mesh%full_ids, f%mesh%full_ide
-          fy%d(i,j) = (g1%d(i,j+1) - g1%d(i,j)) / f%mesh%de_lat(j)
+      do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          fy%d(i,j) = (g1%d(i,j+1) - g1%d(i,j)) / mesh%de_lat(j)
         end do
       end do
       if (order > 2) then
-        do j = f%mesh%full_jds_no_pole, f%mesh%full_jde_no_pole
-          do i = f%mesh%half_ids - 1, f%mesh%half_ide
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
             fx%d(i,j) = fx%d(i,j) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j) * (f%d(i+1,j) - f%d(i,j))))
           end do
         end do
-        do j = f%mesh%half_jds - merge(0, 1, f%mesh%has_south_pole()), f%mesh%half_jde
-          do i = f%mesh%full_ids, f%mesh%full_ide
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
             fy%d(i,j) = fy%d(i,j) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j) * (f%d(i,j+1) - f%d(i,j))))
           end do
         end do
       end if
-      do j = f%mesh%full_jds_no_pole, f%mesh%full_jde_no_pole
-        do i = f%mesh%full_ids, f%mesh%full_ide
-          f%d(i,j) = f%d(i,j) - s * c0 * (       &
-            (                                    &
-              fx%d(i,j) - fx%d(i-1,j)            &
-            ) * f%mesh%le_lon(j) +               &
-            (                                    &
-              fy%d(i,j  ) * f%mesh%le_lat(j  ) - &
-              fy%d(i,j-1) * f%mesh%le_lat(j-1)   &
-            )) / f%mesh%area_cell(j)
+      ! Filter the zonal tendency.
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          dxdt%d(i,j) = (fx%d(i,j) - fx%d(i-1,j)) * mesh%le_lon(j) / mesh%area_cell(j)
         end do
       end do
-      if (f%mesh%has_south_pole()) then
-        j = f%mesh%full_jds
-        do i = f%mesh%full_ids, f%mesh%full_ide
+      call filter_run(block%big_filter, dxdt)
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          f%d(i,j) = f%d(i,j) - s * dt * c0 * (dxdt%d(i,j) + ( &
+              fy%d(i,j  ) * mesh%le_lat(j  ) - &
+              fy%d(i,j-1) * mesh%le_lat(j-1)   &
+            ) / mesh%area_cell(j))
+        end do
+      end do
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do i = mesh%full_ids, mesh%full_ide
           work(i) = fy%d(i,j)
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = s * c0 * pole * f%mesh%le_lat(j) / global_mesh%area_pole_cap
-        do i = f%mesh%full_ids, f%mesh%full_ide
+        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        do i = mesh%full_ids, mesh%full_ide
           f%d(i,j) = f%d(i,j) - pole
         end do
       end if
-      if (f%mesh%has_north_pole()) then
-        j = f%mesh%full_jde
-        do i = f%mesh%full_ids, f%mesh%full_ide
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
           work(i) = fy%d(i,j-1)
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -s * c0 * pole * f%mesh%le_lat(j-1) / global_mesh%area_pole_cap
-        do i = f%mesh%full_ids, f%mesh%full_ide
+        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        do i = mesh%full_ids, mesh%full_ide
           f%d(i,j) = f%d(i,j) - pole
         end do
       end if
-    case ('lev')
-
+      end associate
     end select
-    call g1%clear()
-    call g2%clear()
-    call fx%clear()
-    call fy%clear()
+
+    call fill_halo(f)
 
   end subroutine laplace_damp_run_2d
+
+  subroutine laplace_damp_run_3d(block, f, order, dt, coef, no_fill_halo)
+
+    type(block_type), intent(inout) :: block
+    type(latlon_field3d_type), intent(inout) :: f
+    integer, intent(in) :: order
+    real(r8), intent(in) :: dt
+    real(r8), intent(in), optional :: coef
+    logical, intent(in), optional :: no_fill_halo
+
+    logical no_fill_halo_opt
+    real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
+    real(r8) c0, s
+    integer i, j, k, l
+
+    no_fill_halo_opt = .false.; if (present(no_fill_halo)) no_fill_halo_opt = no_fill_halo
+
+    c0 = 1.0_r8; if (present(coef)) c0 = coef
+    s = (-1)**(order / 2)
+
+    select case (f%loc)
+    case ('cell')
+      associate (mesh => block%mesh       , &
+                 g1   => block%aux%g1_3d  , &
+                 g2   => block%aux%g2_3d  , &
+                 fx   => block%aux%fx_3d  , &
+                 fy   => block%aux%fy_3d  , &
+                 dxdt => block%aux%dxdt_3d)
+      call g1%copy(f, with_halo=.true.)
+      do l = 1, (order - 2) / 2
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = (                                      &
+                (fx%d(i,j  ,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+                 fy%d(i,j  ,k) * mesh%le_lat(j  ) -                &
+                 fy%d(i,j-1,k) * mesh%le_lat(j-1)                  &
+              ) / mesh%area_cell(j)
+            end do
+          end do
+        end do
+        if (mesh%has_south_pole()) then
+          j = mesh%full_jds
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        if (mesh%has_north_pole()) then
+          j = mesh%full_jde
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j-1,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = -pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        call fill_halo(g2)
+        g1%d = g2%d
+      end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      if (order > 2) then
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = fx%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j,k) * (f%d(i+1,j,k) - f%d(i,j,k))))
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = fy%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j,k) * (f%d(i,j+1,k) - f%d(i,j,k))))
+            end do
+          end do
+        end do
+      end if
+      ! Filter the zonal tendency.
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            dxdt%d(i,j,k) = (                                  &
+              (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+              fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
+              fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
+            ) / mesh%area_cell(j)
+          end do
+        end do
+      end do
+      call filter_run(block%big_filter, dxdt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
+          end do
+        end do
+      end do
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+          end do
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j-1,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+          end do
+        end do
+      end if
+      end associate
+    case ('lon')
+      associate (mesh => block%mesh           , &
+                 g1   => block%aux%g1_3d_lon  , &
+                 g2   => block%aux%g2_3d_lon  , &
+                 fx   => block%aux%fx_3d_lon  , &
+                 fy   => block%aux%fy_3d_lon  , &
+                 dxdt => block%aux%dxdt_3d_lon)
+      call g1%copy(f, with_halo=.true.)
+      do l = 1, (order - 2) / 2
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%full_ids, mesh%full_ide + 1
+              fx%d(i,j,k) = (g1%d(i,j,k) - g1%d(i-1,j,k)) / mesh%de_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%half_ids, mesh%half_ide
+              fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids, mesh%half_ide
+              g2%d(i,j,k) = (                                    &
+                (fx%d(i+1,j,k) - fx%d(i,j,k)) * mesh%le_lon(j) + &
+                 fy%d(i,j  ,k) * mesh%le_lat(j  ) -              &
+                 fy%d(i,j-1,k) * mesh%le_lat(j-1)                &
+              ) / (2 * mesh%area_lon(j))
+            end do
+          end do
+        end do
+        call fill_halo(g2)
+        g1%d = g2%d
+      end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide + 1
+            fx%d(i,j,k) = (g1%d(i,j,k) - g1%d(i-1,j,k)) / mesh%de_lon(j)
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%half_ids, mesh%half_ide
+            fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      if (order > 2) then
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%full_ids, mesh%full_ide + 1
+              fx%d(i,j,k) = fx%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j,k) * (f%d(i,j,k) - f%d(i-1,j,k))))
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%half_ids, mesh%half_ide
+              fy%d(i,j,k) = fy%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j,k) * (f%d(i,j+1,k) - f%d(i,j,k))))
+            end do
+          end do
+        end do
+      end if
+      ! Filter the zonal tendency.
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            dxdt%d(i,j,k) = (                                  &
+              (fx%d(i+1,j,k) - fx%d(i,j,k)) * mesh%le_lon(j) + &
+              fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
+              fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
+            ) / (2 * mesh%area_lon(j))
+          end do
+        end do
+      end do
+      call filter_run(block%big_filter, dxdt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
+          end do
+        end do
+      end do
+      end associate
+    case ('lat')
+      associate (mesh => block%mesh           , &
+                 g1   => block%aux%g1_3d_lat  , &
+                 g2   => block%aux%g2_3d_lat  , &
+                 fx   => block%aux%fx_3d_lat  , &
+                 fy   => block%aux%fy_3d_lat  , &
+                 dxdt => block%aux%dxdt_3d_lat)
+      call g1%copy(f, with_halo=.true.)
+      do l = 1, (order - 2) / 2
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%half_jds, mesh%half_jde
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%le_lat(j)
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = (g1%d(i,j,k) - g1%d(i,j-1,k)) / mesh%le_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds, mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = (                                    &
+                (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%de_lat(j) + &
+                 fy%d(i,j+1,k) * mesh%de_lon(j+1) -              &
+                 fy%d(i,j  ,k) * mesh%de_lon(j  )                &
+              ) / (2 * mesh%area_lat(j))
+            end do
+          end do
+        end do
+        call fill_halo(g2)
+        g1%d = g2%d
+      end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%le_lat(j)
+          end do
+        end do
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j,k) = (g1%d(i,j,k) - g1%d(i,j-1,k)) / mesh%le_lon(j)
+          end do
+        end do
+      end do
+      if (order > 2) then
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%half_jds, mesh%half_jde
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = fx%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j,k) * (f%d(i+1,j,k) - f%d(i,j,k))))
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = fy%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j,k) * (f%d(i,j,k) - f%d(i,j-1,k))))
+            end do
+          end do
+        end do
+      end if
+      ! Filter the zonal tendency.
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            dxdt%d(i,j,k) = (                                  &
+              (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%de_lat(j) + &
+              fy%d(i,j+1,k) * mesh%de_lon(j+1) -               &
+              fy%d(i,j  ,k) * mesh%de_lon(j  )                 &
+            ) / (2 * mesh%area_lat(j))
+          end do
+        end do
+      end do
+      call filter_run(block%big_filter, dxdt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
+          end do
+        end do
+      end do
+      end associate
+    case ('lev')
+      associate (mesh => block%mesh           , &
+                 g1   => block%aux%g1_3d_lev  , &
+                 g2   => block%aux%g2_3d_lev  , &
+                 fx   => block%aux%fx_3d_lev  , &
+                 fy   => block%aux%fy_3d_lev  , &
+                 dxdt => block%aux%dxdt_3d_lev)
+      call g1%copy(f, with_halo=.true.)
+      do l = 1, (order - 2) / 2
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = (                                    &
+                (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+                 fy%d(i,j  ,k) * mesh%le_lat(j  ) -              &
+                 fy%d(i,j-1,k) * mesh%le_lat(j-1)                &
+              ) / mesh%area_cell(j)
+            end do
+          end do
+        end do
+        if (mesh%has_south_pole()) then
+          j = mesh%full_jds
+          do k = mesh%half_kds + 1, mesh%half_kde - 1
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+          do k = mesh%half_kds + 1, mesh%half_kde - 1
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        if (mesh%has_north_pole()) then
+          j = mesh%full_jde
+          do k = mesh%half_kds + 1, mesh%half_kde - 1
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j-1,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = -pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+          do k = mesh%half_kds + 1, mesh%half_kde - 1
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        call fill_halo(g2)
+        g1%d = g2%d
+      end do
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      if (order > 2) then
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j,k) = fx%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j,k) * (f%d(i+1,j,k) - f%d(i,j,k))))
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j,k) = fy%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j,k) * (f%d(i,j+1,k) - f%d(i,j,k))))
+          end do
+        end do
+      end if
+      ! Filter the zonal tendency.
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            dxdt%d(i,j,k) = (                                  &
+              (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+              fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
+              fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
+            ) / mesh%area_cell(j)
+          end do
+        end do
+      end do
+      call filter_run(block%big_filter, dxdt)
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
+          end do
+        end do
+      end do
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+          end do
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j-1,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+          end do
+        end do
+      end if
+      end associate
+    end select
+
+    if (.not. no_fill_halo_opt) call fill_halo(f)
+
+  end subroutine laplace_damp_run_3d
+
+  subroutine laplace_damp_run_4d(block, f, m, order, dt, coef, no_fill_halo)
+
+    type(block_type), intent(inout) :: block
+    type(latlon_field4d_type), intent(inout) :: f
+    integer, intent(in) :: m
+    integer, intent(in) :: order
+    real(r8), intent(in) :: dt
+    real(r8), intent(in), optional :: coef
+    logical, intent(in), optional :: no_fill_halo
+
+    logical no_fill_halo_opt
+    real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
+    real(r8) c0, s
+    integer i, j, k, l
+
+    no_fill_halo_opt = .false.; if (present(no_fill_halo)) no_fill_halo_opt = no_fill_halo
+
+    c0 = 1.0_r8; if (present(coef)) c0 = coef
+    s = (-1)**(order / 2)
+
+    select case (f%loc)
+    case ('cell')
+      associate (mesh => block%mesh       , &
+                 g1   => block%aux%g1_3d  , &
+                 g2   => block%aux%g2_3d  , &
+                 fx   => block%aux%fx_3d  , &
+                 fy   => block%aux%fy_3d  , &
+                 dxdt => block%aux%dxdt_3d)
+      call g1%copy(f, m, with_halo=.true.)
+      do l = 1, (order - 2) / 2
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+            end do
+          end do
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = (                                      &
+                (fx%d(i,j  ,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+                 fy%d(i,j  ,k) * mesh%le_lat(j  ) -                &
+                 fy%d(i,j-1,k) * mesh%le_lat(j-1)                  &
+              ) / mesh%area_cell(j)
+            end do
+          end do
+        end do
+        if (mesh%has_south_pole()) then
+          j = mesh%full_jds
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        if (mesh%has_north_pole()) then
+          j = mesh%full_jde
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              work(i,k) = fy%d(i,j-1,k)
+            end do
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = -pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+          do k = mesh%full_kds, mesh%full_kde
+            do i = mesh%full_ids, mesh%full_ide
+              g2%d(i,j,k) = pole(k)
+            end do
+          end do
+        end if
+        call fill_halo(g2)
+        g1%d = g2%d
+      end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids - 1, mesh%half_ide
+            fx%d(i,j,k) = (g1%d(i+1,j,k) - g1%d(i,j,k)) / mesh%de_lon(j)
+          end do
+        end do
+        do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            fy%d(i,j,k) = (g1%d(i,j+1,k) - g1%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      if (order > 2) then
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids - 1, mesh%half_ide
+              fx%d(i,j,k) = fx%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j,k) * (f%d(i+1,j,k,m) - f%d(i,j,k,m))))
+            end do
+          end do
+          do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              fy%d(i,j,k) = fy%d(i,j,k) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j,k) * (f%d(i,j+1,k,m) - f%d(i,j,k,m))))
+            end do
+          end do
+        end do
+      end if
+      ! Filter the zonal tendency.
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            dxdt%d(i,j,k) = (                                  &
+              (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
+              fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
+              fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
+            ) / mesh%area_cell(j)
+          end do
+        end do
+      end do
+      call filter_run(block%big_filter, dxdt)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k,m) = f%d(i,j,k,m) - s * dt * c0 * dxdt%d(i,j,k)
+          end do
+        end do
+      end do
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k,m) = f%d(i,j,k,m) - pole(k)
+          end do
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            work(i,k) = fy%d(i,j-1,k)
+          end do
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k,m) = f%d(i,j,k,m) - pole(k)
+          end do
+        end do
+      end if
+      end associate
+    end select
+
+    if (.not. no_fill_halo) call fill_halo(f, m)
+
+  end subroutine laplace_damp_run_4d
 
 end module laplace_damp_mod

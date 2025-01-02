@@ -67,13 +67,17 @@ contains
 
   end subroutine interp_final
 
-  subroutine interp_run_3d(x, y)
+  subroutine interp_run_3d(x, y, extrap)
 
     type(latlon_field3d_type), intent(in   ) :: x
     type(latlon_field3d_type), intent(inout) :: y
+    logical, intent(in), optional :: extrap
 
+    logical extrap_opt
     real(r8) a, b, c, x1, x2, x3
     integer i, j, k
+
+    extrap_opt = .true.; if (present(extrap)) extrap_opt = extrap
 
     select case (trim(x%loc) // '>' // trim(y%loc))
     ! --------------------------------------------------------------------------
@@ -119,26 +123,33 @@ contains
           end do
         end do
       end do
-      k = x%mesh%half_kds
-      x1 = x%mesh%full_lev(k  ) - x%mesh%half_lev(k)
-      x2 = x%mesh%full_lev(k+1) - x%mesh%half_lev(k)
-      a =  x2 / (x2 - x1)
-      b = -x1 / (x2 - x1)
-      do j = x%mesh%full_jds, x%mesh%full_jde
-        do i = x%mesh%full_ids, x%mesh%full_ide
-          y%d(i,j,k) = a * x%d(i,j,k) + b * x%d(i,j,k+1)
+      if (extrap_opt) then
+        k = x%mesh%half_kds
+        x1 = x%mesh%full_lev(k  ) - x%mesh%half_lev(k)
+        x2 = x%mesh%full_lev(k+1) - x%mesh%half_lev(k)
+        a =  x2 / (x2 - x1)
+        b = -x1 / (x2 - x1)
+        do j = x%mesh%full_jds, x%mesh%full_jde
+          do i = x%mesh%full_ids, x%mesh%full_ide
+            y%d(i,j,k) = a * x%d(i,j,k) + b * x%d(i,j,k+1)
+          end do
         end do
-      end do
-      k = x%mesh%half_kde
-      x1 = x%mesh%half_lev(k) - x%mesh%full_lev(k-1)
-      x2 = x%mesh%half_lev(k) - x%mesh%full_lev(k-2)
-      a =  x2 / (x2 - x1)
-      b = -x1 / (x2 - x1)
-      do j = x%mesh%full_jds, x%mesh%full_jde
-        do i = x%mesh%full_ids, x%mesh%full_ide
-          y%d(i,j,k) = a * x%d(i,j,k-1) + b * x%d(i,j,k-2)
+        k = x%mesh%half_kde
+        x1 = x%mesh%half_lev(k) - x%mesh%full_lev(k-1)
+        x2 = x%mesh%half_lev(k) - x%mesh%full_lev(k-2)
+        a =  x2 / (x2 - x1)
+        b = -x1 / (x2 - x1)
+        do j = x%mesh%full_jds, x%mesh%full_jde
+          do i = x%mesh%full_ids, x%mesh%full_ide
+            y%d(i,j,k) = a * x%d(i,j,k-1) + b * x%d(i,j,k-2)
+          end do
         end do
-      end do
+      else
+        k = x%mesh%half_kds
+        y%d(:,:,k) = x%d(:,:,k)
+        k = x%mesh%half_kde
+        y%d(:,:,k) = x%d(:,:,k-1)
+      end if
     ! --------------------------------------------------------------------------
     case ('cell>vtx')
       do k = x%mesh%full_kds, x%mesh%full_kde

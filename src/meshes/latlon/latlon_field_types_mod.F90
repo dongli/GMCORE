@@ -84,14 +84,18 @@ module latlon_field_types_mod
   contains
     procedure :: init  => latlon_field3d_init
     procedure :: clear => latlon_field3d_clear
-    procedure :: copy  => latlon_field3d_copy
-    procedure :: sum   => latlon_field3d_sum
-    procedure :: add   => latlon_field3d_add
-    procedure :: min   => latlon_field3d_min
-    procedure :: max   => latlon_field3d_max
+    procedure, private :: latlon_field3d_copy_3d
+    procedure, private :: latlon_field3d_copy_4d
+    generic :: copy    => latlon_field3d_copy_3d, latlon_field3d_copy_4d
     procedure, private :: latlon_field3d_link_3d
     procedure, private :: latlon_field3d_link_4d
-    generic :: link => latlon_field3d_link_3d, latlon_field3d_link_4d
+    generic :: link    => latlon_field3d_link_3d, latlon_field3d_link_4d
+    procedure :: sum   => latlon_field3d_sum
+    procedure :: add   => latlon_field3d_add
+    procedure :: mul   => latlon_field3d_mul
+    procedure :: div   => latlon_field3d_div
+    procedure :: min   => latlon_field3d_min
+    procedure :: max   => latlon_field3d_max
     final latlon_field3d_final
   end type latlon_field3d_type
 
@@ -104,6 +108,8 @@ module latlon_field_types_mod
     procedure :: init  => latlon_field4d_init
     procedure :: clear => latlon_field4d_clear
     procedure :: link  => latlon_field4d_link
+    procedure :: mul   => latlon_field4d_mul
+    procedure :: div   => latlon_field4d_div
     final latlon_field4d_final
   end type latlon_field4d_type
 
@@ -430,7 +436,7 @@ contains
 
   end subroutine latlon_field3d_clear
 
-  subroutine latlon_field3d_copy(this, other, with_halo)
+  subroutine latlon_field3d_copy_3d(this, other, with_halo)
 
     class(latlon_field3d_type), intent(inout) :: this
     type(latlon_field3d_type), intent(in) :: other
@@ -506,7 +512,46 @@ contains
       end do
     end do
 
-  end subroutine latlon_field3d_copy
+  end subroutine latlon_field3d_copy_3d
+
+  subroutine latlon_field3d_copy_4d(this, other, m, with_halo)
+
+    class(latlon_field3d_type), intent(inout) :: this
+    type(latlon_field4d_type), intent(in) :: other
+    integer, intent(in) :: m
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    select case (this%loc)
+    case ('cell')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case default
+      call log_error('Unhandled branch in latlon_field3d_copy!', __FILE__, __LINE__)
+    end select
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k) = other%d(i,j,k,m)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field3d_copy_4d
 
   real(r8) function latlon_field3d_sum(this) result(res)
 
@@ -602,6 +647,162 @@ contains
     end do
 
   end subroutine latlon_field3d_add
+
+  subroutine latlon_field3d_mul(this, other, with_halo)
+
+    class(latlon_field3d_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    select case (this%loc)
+    case ('cell')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lon')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lat')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lev')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%half_kms; ke = this%mesh%half_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      end if
+    case ('vtx')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case default
+      call log_error('Unhandled branch in latlon_field3d_mul!', __FILE__, __LINE__)
+    end select
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k) = this%d(i,j,k) * other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field3d_mul
+
+  subroutine latlon_field3d_div(this, other, with_halo)
+
+    class(latlon_field3d_type), intent(inout) :: this
+    type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    select case (this%loc)
+    case ('cell')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lon')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lat')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case ('lev')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%half_kms; ke = this%mesh%half_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%half_kds; ke = this%mesh%half_kde
+      end if
+    case ('vtx')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case default
+      call log_error('Unhandled branch in latlon_field3d_div!', __FILE__, __LINE__)
+    end select
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k) = this%d(i,j,k) / other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field3d_div
 
   real(r8) function latlon_field3d_min(this) result(res)
 
@@ -829,6 +1030,74 @@ contains
     this%initialized = .true.
 
   end subroutine latlon_field4d_link
+
+  subroutine latlon_field4d_mul(this, idx4, other, with_halo)
+
+    class(latlon_field4d_type), intent(inout) :: this
+    integer, intent(in) :: idx4
+    type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    if (with_halo_opt) then
+      is = this%mesh%full_ims; ie = this%mesh%full_ime
+      js = this%mesh%full_jms; je = this%mesh%full_jme
+      ks = this%mesh%full_kms; ke = this%mesh%full_kme
+    else
+      is = this%mesh%full_ids; ie = this%mesh%full_ide
+      js = this%mesh%full_jds; je = this%mesh%full_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    end if
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k,idx4) = this%d(i,j,k,idx4) * other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field4d_mul
+
+  subroutine latlon_field4d_div(this, idx4, other, with_halo)
+
+    class(latlon_field4d_type), intent(inout) :: this
+    integer, intent(in) :: idx4
+    type(latlon_field3d_type), intent(in) :: other
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    if (with_halo_opt) then
+      is = this%mesh%full_ims; ie = this%mesh%full_ime
+      js = this%mesh%full_jms; je = this%mesh%full_jme
+      ks = this%mesh%full_kms; ke = this%mesh%full_kme
+    else
+      is = this%mesh%full_ids; ie = this%mesh%full_ide
+      js = this%mesh%full_jds; je = this%mesh%full_jde
+      ks = this%mesh%full_kds; ke = this%mesh%full_kde
+    end if
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k,idx4) = this%d(i,j,k,idx4) / other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field4d_div 
 
   subroutine latlon_field4d_final(this)
 

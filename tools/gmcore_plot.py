@@ -18,24 +18,12 @@ import pint
 import os
 
 g = 9.80616 * units.m / units.s ** 2
+rd = 287.0 * units.J / units.kg / units.K
+rv = 461.5 * units.J / units.kg / units.K
 cp = 1004.5 * units.J / units.kg / units.K
 
-def vinterp_z(zi, var, zo, method='cubic'):
-	res = None
-	if method == 'cubic':
-		if len(np.shape(var)) == 1:
-			cubic = CubicSpline(zi[:], var[:])
-			res = cubic(zo)
-		elif len(np.shape(var)) == 2:
-			res = np.zeros((len(zo), np.shape(var)[1]))
-			for i in range(np.shape(var)[1]):
-				cubic = CubicSpline(zi[::-1,i], var[::-1,i], bc_type='not-a-knot')
-				res[:,i] = cubic(zo)
-	elif method == 'linear':
-		res = interpolate_1d(zo, zi, var)
-	else:
-		print(f'[Error]: Method {method} is not supported!')
-		exit(1)
+def vinterp_z(zi, var, zo, axis=0):
+	res = interpolate_1d(zo, zi, var, axis=axis)
 	if isinstance(var, xr.DataArray):
 		res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 		res.attrs = var.attrs
@@ -49,9 +37,9 @@ def vinterp_z(zi, var, zo, method='cubic'):
 			res['ilev'].attrs['units'] = zo.units
 	return res
 
-def vinterp_p(zi, var, zo):
-	plev = np.array([zo]) * units.hPa
-	res = interpolate_1d(plev, zi, var)
+def vinterp_p(pi, var, po):
+	plev = np.array([po]) * units.hPa
+	res = interpolate_1d(plev, pi, var)
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	return res
 

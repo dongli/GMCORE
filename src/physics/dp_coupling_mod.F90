@@ -91,12 +91,12 @@ contains
             pstate%v      (icol,k) = aux    %v     %d(i,j,k)
             pstate%t_old  (icol,k) = aux    %t     %d(i,j,k)
             pstate%t      (icol,k) = aux    %t     %d(i,j,k)
-            pstate%pt_old (icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%p%d(i,j,k))
+            pstate%pt_old (icol,k) = dry_potential_temperature(aux%t%d(i,j,k), dstate%ph%d(i,j,k))
             pstate%pt     (icol,k) = pstate %pt_old (icol,k)
-            pstate%p      (icol,k) = dstate %p     %d(i,j,k)
-            pstate%pk     (icol,k) = dstate %p     %d(i,j,k)**rd_o_cpd / pk0
-            pstate%lnp    (icol,k) = log(dstate%p  %d(i,j,k))
-            pstate%dp     (icol,k) = dstate %p_lev %d(i,j,k+1) - dstate%p_lev%d(i,j,k)
+            pstate%p      (icol,k) = dstate %ph    %d(i,j,k)
+            pstate%pk     (icol,k) = dstate %ph    %d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp    (icol,k) = log(dstate%ph %d(i,j,k))
+            pstate%dp     (icol,k) = dstate %ph_lev%d(i,j,k+1) - dstate%ph_lev%d(i,j,k)
             pstate%dp_dry (icol,k) = dstate %dmg   %d(i,j,k)
             pstate%omg    (icol,k) = aux    %omg   %d(i,j,k)
             pstate%z      (icol,k) = dstate %gz    %d(i,j,k) / g
@@ -137,9 +137,9 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%p_lev  (icol,k) = dstate%p_lev%d(i,j,k)
-            pstate%pk_lev (icol,k) = dstate%p_lev%d(i,j,k)**rd_o_cpd / pk0
-            pstate%lnp_lev(icol,k) = log(dstate%p_lev%d(i,j,k))
+            pstate%p_lev  (icol,k) = dstate%ph_lev%d(i,j,k)
+            pstate%pk_lev (icol,k) = dstate%ph_lev%d(i,j,k)**rd_o_cpd / pk0
+            pstate%lnp_lev(icol,k) = log(dstate%ph_lev%d(i,j,k))
             pstate%z_lev  (icol,k) = dstate%gz_lev%d(i,j,k) / g
             icol = icol + 1
           end do
@@ -219,6 +219,7 @@ contains
                  old_q  => tracers%q           , &
                  old_qm => tracers%qm          )
       if (ptend%updated_ps) then
+        icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             dpsdt%d(i,j) = ptend%dpsdt(icol)
@@ -249,17 +250,31 @@ contains
       end if
       if (ptend%updated_t) then
         ! Convert temperature tendency to modified potential temperature tendency.
-        do k = mesh%full_kds, mesh%full_kde
-          icol = 1
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
-                (1 + rv_o_rd * old_q%d(i,j,k,idx_qv)) * ptend%dtdt(icol,k) + &
-                rv_o_rd * pstate%t(icol,k) * ptend%dqdt(icol,k,idx_qv) * (1 + old_qm%d(i,j,k)))
-              icol = icol + 1
+        if (physics_use_wet_tracers(idx_qv)) then
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
+                  (1 + old_q%d(i,j,k,idx_qv) * rv_o_rd) * ptend%dtdt(icol,k) + &
+                  pstate%t(icol,k) * rv_o_rd * ptend%dqdt(icol,k,idx_qv))
+                icol = icol + 1
+              end do
             end do
           end do
-        end do
+        else
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) / (1 + old_q%d(i,j,k,idx_qv)) * ( &
+                  (1 + old_q%d(i,j,k,idx_qv) / rv_o_rd) * ptend%dtdt(icol,k) + &
+                  pstate%t(icol,k) / rv_o_rd * ptend%dqdt(icol,k,idx_qv))
+                icol = icol + 1
+              end do
+            end do
+          end do
+        end if
         if (filter_ptend) then
           call filter_run(block%big_filter, dptdt)
         end if

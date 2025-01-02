@@ -35,7 +35,10 @@ module physics_mod
   public physics_init_stage2
   public physics_init_stage3
   public physics_run
-  public physics_update
+  public physics_update_after_dynamics
+  public physics_update_after_advection
+  public physics_update_after_physics
+  public physics_update_after_rk_substep
   public physics_final
   public physics_add_output
   public physics_output
@@ -179,36 +182,19 @@ contains
 
   end subroutine physics_run
 
-  subroutine physics_update(block, itime, dt)
+  subroutine physics_update_uv(block, dstate, dt)
 
-    type(block_type), intent(inout) :: block
-    integer, intent(in) :: itime
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(inout) :: dstate
     real(r8), intent(in) :: dt
 
-    class(physics_tend_type), pointer :: tend
-    integer i, j, k, m
+    integer i, j, k
 
-    call perf_start('physics_update')
-
-    associate (mesh  => block%mesh               , &
-               dudt  => block%aux%dudt_phys      , & ! in
-               dvdt  => block%aux%dvdt_phys      , & ! in
-               dptdt => block%aux%dptdt_phys     , & ! in
-               dpsdt => block%aux%dpsdt_phys     , & ! in
-               dqdt  => block%aux%dqdt_phys      , & ! in
-               dmg   => block%dstate(itime)%dmg  , & ! in
-               mgs   => block%dstate(itime)%mgs  , & ! inout
-               u_lon => block%dstate(itime)%u_lon, & ! inout
-               v_lat => block%dstate(itime)%v_lat, & ! inout
-               pt    => block%dstate(itime)%pt   , & ! inout
-               q     => tracers(block%id)%q      )   ! inout
-    ! Update dynamics.
-    do j = mesh%full_jds, mesh%full_jde
-      do i = mesh%full_ids, mesh%full_ide
-        mgs%d(i,j) = mgs%d(i,j) + dt * dpsdt%d(i,j)
-      end do
-    end do
-    call fill_halo(mgs)
+    associate (mesh  => block%mesh         , &
+               dudt  => block%aux%dudt_phys, & ! in
+               dvdt  => block%aux%dvdt_phys, & ! in
+               u_lon => dstate%u_lon       , & ! inout
+               v_lat => dstate%v_lat       )   ! inout
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
@@ -225,6 +211,43 @@ contains
       end do
     end do
     call fill_halo(v_lat)
+    end associate
+
+  end subroutine physics_update_uv
+
+  subroutine physics_update_mgs(block, dstate, dt)
+
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j
+
+    associate (mesh  => block%mesh          , &
+               dpsdt => block%aux%dpsdt_phys, & ! in
+               mgs   => dstate%mgs          )   ! inout
+    do j = mesh%full_jds, mesh%full_jde
+      do i = mesh%full_ids, mesh%full_ide
+        mgs%d(i,j) = mgs%d(i,j) + dt * dpsdt%d(i,j)
+      end do
+    end do
+    call fill_halo(mgs)
+    end associate
+
+  end subroutine physics_update_mgs
+
+  subroutine physics_update_pt(block, dstate, dt)
+
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j, k
+
+    associate (mesh  => block%mesh          , &
+               dptdt => block%aux%dptdt_phys, & ! in
+               dmg   => dstate%dmg          , & ! in
+               pt    => dstate%pt           )   ! inout
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
@@ -233,7 +256,22 @@ contains
       end do
     end do
     call fill_halo(pt)
-    ! Update tracers.
+    end associate
+
+  end subroutine physics_update_pt
+
+  subroutine physics_update_q(block, dstate, dt)
+
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(in) :: dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j, k, m
+
+    associate (mesh  => block%mesh         , &
+               dqdt  => block%aux%dqdt_phys, & ! in
+               dmg   => dstate%dmg         , & ! in
+               q     => tracers(block%id)%q)   ! inout
     do m = 1, ntracers
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
@@ -247,9 +285,96 @@ contains
     call tracer_calc_qm(block)
     end associate
 
-    call perf_stop('physics_update')
+  end subroutine physics_update_q
 
-  end subroutine physics_update
+  subroutine physics_update_after_dynamics(block, itime, dt)
+
+    type(block_type), intent(inout) :: block
+    integer, intent(in) :: itime
+    real(r8), intent(in) :: dt
+
+    call perf_start('physics_update_dynamics')
+
+    select case (pdc_type)
+    case (1)
+      call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_pt (block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    case (14)
+      call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    end select
+
+    call perf_stop('physics_update_after_dynamics')
+
+  end subroutine physics_update_after_dynamics
+
+  subroutine physics_update_after_advection(block, itime, dt)
+
+    type(block_type), intent(inout) :: block
+    integer, intent(in) :: itime
+    real(r8), intent(in) :: dt
+
+    call perf_start('physics_update_after_advection')
+
+    if (pdc_type == 2) then
+      call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_pt (block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    end if
+
+    call perf_stop('physics_update_after_advection')
+
+  end subroutine physics_update_after_advection
+
+  subroutine physics_update_after_physics(block, itime, dt)
+
+    type(block_type), intent(inout) :: block
+    integer, intent(in) :: itime
+    real(r8), intent(in) :: dt
+
+    call perf_start('physics_update_after_physics')
+
+    select case (pdc_type)
+    case (3)
+      call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_pt (block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    case (34)
+      call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    end select
+
+    call perf_stop('physics_update_after_physics')
+
+  end subroutine physics_update_after_physics
+
+  subroutine physics_update_after_rk_substep(block, dstate, dt)
+
+    type(block_type), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+
+    call perf_start('physics_update_after_rk_substep')
+
+    select case (pdc_type)
+    case (4)
+      call physics_update_uv (block, dstate, dt)
+      call physics_update_mgs(block, dstate, dt)
+      call physics_update_pt (block, dstate, dt)
+      call physics_update_q  (block, dstate, dt)
+    case (14, 34)
+      call physics_update_pt (block, dstate, dt)
+    end select
+
+    call perf_stop('physics_update_after_rk_substep')
+
+  end subroutine physics_update_after_rk_substep
 
   subroutine physics_final()
 

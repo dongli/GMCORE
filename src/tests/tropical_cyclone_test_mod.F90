@@ -120,7 +120,7 @@ contains
 
   subroutine tropical_cyclone_test_init()
 
-    call tracer_add('q', dt_adv, 'qv', 'kg/kg', 'Water vapor mixing ratio')
+    call tracer_add('moist', dt_adv, 'qv', 'kg/kg', 'Water vapor mixing ratio')
 
   end subroutine tropical_cyclone_test_init
 

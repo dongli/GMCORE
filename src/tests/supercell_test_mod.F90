@@ -39,6 +39,7 @@ module supercell_test_mod
 !=======================================================================
 
   use flogger
+  use const_mod
   use namelist_mod
   use math_mod
   use formula_mod
@@ -56,55 +57,37 @@ module supercell_test_mod
   public supercell_test_set_ic
 
 !=======================================================================
-!    Physical constants
-!=======================================================================
-
-  real(8), parameter ::               &
-       a     = 6371220.0d0,           & ! Reference Earth's Radius (m)
-       Rd    = 287.0d0,               & ! Ideal gas const dry air (J kg^-1 K^1)
-       g     = 9.80616d0,             & ! Gravity (m s^2)
-       cp    = 1004.5d0,              & ! Specific heat capacity (J kg^-1 K^1)
-       Lvap  = 2.5d6,                 & ! Latent heat of vaporization of water
-       Rvap  = 461.5d0,               & ! Ideal gas constnat for water vapor
-       Mvap  = 0.608d0,               & ! Ratio of molar mass of dry air/water
-       pi    = 3.14159265358979d0,    & ! pi
-       p0    = 100000.0d0,            & ! surface pressure (Pa)
-       kappa = 2.d0/7.d0,             & ! Ratio of Rd to cp
-       omega = 7.29212d-5,            & ! Reference rotation rate of the Earth (s^-1)
-       deg2rad  = pi/180.d0             ! Conversion factor of degrees to radians
-
-!=======================================================================
 !    Test case parameters
 !=======================================================================
-  integer(4), parameter ::            &
-       nz         = 30         ,      & ! number of vertical levels in init
-       nphi       = 16                  ! number of meridional points in init
+  integer(4), parameter ::         &
+       nz         = 30         ,   & ! number of vertical levels in init
+       nphi       = 16               ! number of meridional points in init
 
-  real(8), parameter ::               &
-       z1         = 0.0d0      ,      & ! lower sample altitude
-       z2         = 50000.0d0           ! upper sample altitude
+  real(8), parameter ::            &
+       z1         = 0          ,   & ! lower sample altitude
+       z2         = 50000            ! upper sample altitude
 
-  real(8), parameter ::               &
-       X          = 120.d0     ,      & ! Earth reduction factor
-       theta0     = 300.d0     ,      & ! theta at the equatorial surface
-       theta_tr   = 343.d0     ,      & ! theta at the tropopause
-       z_tr       = 12000.d0   ,      & ! altitude at the tropopause
-       t_tr       = 213.d0     ,      & ! temperature at the tropopause
-       pseq       = 100000.0d0          ! surface pressure at equator (Pa)
+  real(8), parameter ::            &
+       X          = 120        ,   & ! Earth reduction factor
+       theta0     = 300        ,   & ! theta at the equatorial surface
+       theta_tr   = 343        ,   & ! theta at the tropopause
+       z_tr       = 12000      ,   & ! altitude at the tropopause
+       t_tr       = 213        ,   & ! temperature at the tropopause
+       pseq       = 100000           ! surface pressure at equator (Pa)
 
-  real(8), parameter ::               &
-       us         = 30.d0      ,      & ! maximum zonal wind velocity
-       uc         = 15.d0      ,      & ! coordinate reference velocity
-       zs         = 5000.d0    ,      & ! lower altitude of maximum velocity
-       zt         = 1000.d0             ! transition distance of velocity
+  real(8), parameter ::            &
+       us         = 30         ,   & ! maximum zonal wind velocity
+       uc         = 15         ,   & ! coordinate reference velocity
+       zs         = 5000       ,   & ! lower altitude of maximum velocity
+       zt         = 1000             ! transition distance of velocity
  
-  real(8), parameter ::               &
-       pert_dtheta = 3.d0         ,   & ! perturbation magnitude
-       pert_lonc   = 0.d0         ,   & ! perturbation longitude
-       pert_latc   = 0.d0         ,   & ! perturbation latitude
-       pert_rh     = 10000.d0 * X ,   & ! perturbation horiz. halfwidth
-       pert_zc     = 1500.d0      ,   & ! perturbation center altitude
-       pert_rz     = 1500.d0            ! perturbation vert. halfwidth
+  real(8), parameter ::            &
+       pert_dtheta = 3         ,   & ! perturbation magnitude
+       pert_lonc   = 0         ,   & ! perturbation longitude
+       pert_latc   = 0         ,   & ! perturbation latitude
+       pert_rh     = 10000     ,   & ! perturbation horiz. halfwidth
+       pert_zc     = 1500      ,   & ! perturbation center altitude
+       pert_rz     = 1500            ! perturbation vert. halfwidth
 
 !-----------------------------------------------------------------------
 !    Coefficients computed from initialization
@@ -129,9 +112,7 @@ contains
 
   subroutine supercell_test_set_params()
 
-    use const_mod
-
-    omega = 0.0_r8
+    omega = 0
     radius = radius / X
 
   end subroutine supercell_test_set_params
@@ -140,8 +121,10 @@ contains
 
     character(*), intent(in) :: file_path
 
+    integer ignore
+
     open(11, file=file_path, status='old', action='read')
-    read(11, nml=supercell_test_control)
+    read(11, nml=supercell_test_control, iostat=ignore)
     close(11)
 
     select case (ngauss)
@@ -166,7 +149,7 @@ contains
 
   end subroutine supercell_test_init
 
-  real(8) function get_dry_air_pressure(pert, lon, lat, ptop, ztop, z) result(res)
+  real(8) function get_dry_air_pressure(pert, lon, lat, ptop, ztop, z, ngauss, gaussx, gaussw) result(res)
 
     integer, intent(in) :: pert
     real(8), intent(in) :: lon
@@ -174,6 +157,9 @@ contains
     real(8), intent(in) :: ptop
     real(8), intent(in) :: ztop
     real(8), intent(in) :: z
+    integer, intent(in) :: ngauss
+    real(8), intent(in) :: gaussx(ngauss)
+    real(8), intent(in) :: gaussw(ngauss)
 
     integer jgw
     real(8) z1, z2, a, b, zg
@@ -211,6 +197,19 @@ contains
 
   end function get_pressure
 
+  real(8) function get_top_height(pert, lon, lat, ptop) result(res)
+
+    integer, intent(in) :: pert
+    real(8), intent(in) :: lon
+    real(8), intent(in) :: lat
+    real(8), intent(inout) :: ptop
+
+    real(8) thetav, rho, qv
+
+    call supercell_test(pert, lon, lat, ptop, res, 0, thetav, rho, qv)
+
+  end function get_top_height
+
   real(8) function get_height(pert, lon, lat, pabv, zabv, ps, p) result(res)
 
     integer, intent(in) :: pert
@@ -230,7 +229,7 @@ contains
     z2 = zabv; p2 = pabv
     do i = 1, 20
       zc = z2 - (p2 - p) * (z2 - z1) / (p2 - p1)
-      pc = get_dry_air_pressure(pert, lon, lat, pabv, zabv, zc)
+      pc = get_dry_air_pressure(pert, lon, lat, pabv, zabv, zc, ngauss, gaussx, gaussw)
       if (abs(pc - p) / p < eps) exit
       if (pc > p) then
         z2 = zc; p2 = pc
@@ -275,18 +274,14 @@ contains
                t      => block%aux      %t     , &
                pt     => block%dstate(1)%pt    , &
                q      => tracers(block%id)%q   )
-    if (proc%is_root()) call log_notice('Calculate model top height.')
+    if (proc%is_root()) call log_notice('Calculate model top height and surface dry air pressure.')
     do j = mesh%full_jds, mesh%full_jde
       do i = mesh%full_ids, mesh%full_ide
-        call supercell_test(pert, lon(i), lat(j), ptop, z_lev%d(i,j,1), 0, thetav, rho, qv)
+        z_lev%d(i,j,1) = get_top_height(0, lon(i), lat(j), ptop)
+        mgs%d(i,j) = get_dry_air_pressure(0, lon(i), lat(j), ptop, z_lev%d(i,j,1), 0.0_r8, 20, gaussx20, gaussw20)
       end do
     end do
-    if (proc%is_root()) call log_notice('Calculate surface dry air pressure.')
-    do j = mesh%full_jds, mesh%full_jde
-      do i = mesh%full_ids, mesh%full_ide
-        mgs%d(i,j) = get_dry_air_pressure(pert, lon(i), lat(j), ptop, z_lev%d(i,j,1), 0.0_r8)
-      end do
-    enddo
+    call fill_halo(mgs)
     if (proc%is_root()) call log_notice('Calculate dry air pressure at half levels.')
     do k = mesh%half_kds, mesh%half_kde
       do j = mesh%full_jds, mesh%full_jde
@@ -299,10 +294,11 @@ contains
     do k = mesh%half_kds + 1, mesh%half_kde ! Skip the first half level, since ztop has already been calculated.
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          z_lev%d(i,j,k) = get_height(pert, lon(i), lat(j), mg_lev%d(i,j,k-1), z_lev%d(i,j,k-1), mgs%d(i,j), mg_lev%d(i,j,k))
+          z_lev%d(i,j,k) = get_height(0, lon(i), lat(j), mg_lev%d(i,j,k-1), z_lev%d(i,j,k-1), mgs%d(i,j), mg_lev%d(i,j,k))
         end do
       end do
     end do
+    where (z_lev%d(:,:,mesh%half_kde) /= 0) z_lev%d(:,:,mesh%half_kde) = 0
     if (proc%is_root()) call log_notice('Calculate height at full levels.')
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
@@ -316,16 +312,16 @@ contains
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           call supercell_test(pert, lon(i), lat(j), p%d(i,j,k), z%d(i,j,k), 1, &
-            thetav, rho, qv, u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
-          if (idx_qv > 0) q%d(i,j,k,idx_qv) = qv
-          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), qv)
+            thetav, rho, q%d(i,j,k,idx_qv), u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
+          q%d(i,j,k,idx_qv) = dry_mixing_ratio(q%d(i,j,k,idx_qv), q%d(i,j,k,idx_qv))
+          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), q%d(i,j,k,idx_qv))
         end do
       end do
     end do
     call fill_halo(p)
     call fill_halo(u)
     call fill_halo(v)
-    if (idx_qv > 0) call fill_halo(q, idx_qv)
+    call fill_halo(q, idx_qv)
     call fill_halo(pt)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
@@ -343,7 +339,6 @@ contains
       end do
     end do
     call fill_halo(v_lat)
-    call fill_halo(mgs)
     if (proc%is_root()) call log_notice('Calculate variables on model half levels.')
     do k = mesh%half_kds, mesh%half_kde
       do j = mesh%full_jds, mesh%full_jde
@@ -511,12 +506,12 @@ contains
     thetavyz(1,:) = thetaeq
 
     ! Exner pressure at the equatorial surface
-    exnereqs = (pseq / p0)**(Rd/cp)
+    exnereqs = (pseq / p0)**rd_o_cpd
 
     ! Iterate on equatorial profile
     do iter = 1, 12
       ! Calculate Exner pressure in equatorial column (p0 at surface)
-      rhs(1,:) = - g / cp / thetavyz(1,:)
+      rhs(1,:) = - g / cpd / thetavyz(1,:)
       do k = 1, nz
         exnereq(k) = dot_product(intz(:,k), rhs(1,:))
       end do
@@ -527,7 +522,7 @@ contains
 
       ! Calculate new pressure and temperature
       do k = 1, nz
-        p = p0 * exnereq(k)**(cp/Rd)
+        p = p0 * exnereq(k)**(1.0d0 / rd_o_cpd)
         T = thetaeq(k) * exnereq(k)
 
         qvs = saturation_mixing_ratio(p, T)
@@ -568,7 +563,7 @@ contains
     end do
 
     ! Calculate pressure through remainder of domain
-    rhs = - ueq2 * sin(phicoordmat) * cos(phicoordmat) / cp / thetavyz
+    rhs = - ueq2 * sin(phicoordmat) * cos(phicoordmat) / cpd / thetavyz
 
     do k = 1, nz
       do i = 1, nphi
@@ -583,12 +578,6 @@ contains
 
     ! Initialization successful
     initialized = 1
-
-    open(11, file='sc.eq.txt')
-    do k = 1, nz
-      write(11, *) zcoord(k), thetavyz(1,k), exnereq(k)**(cp / Rd) * p0, qveq(k)
-    end do
-    close(11)
 
   end subroutine supercell_init
 
@@ -646,7 +635,7 @@ contains
 
     ! Temperature
     if (present(t)) then
-      t = thetav / (1.d0 + 0.61d0 * qv) * (p / p0)**(Rd / cp)
+      t = thetav / (1.d0 + 0.61d0 * qv) * (p / p0)**rd_o_cpd
     end if
 
   end subroutine supercell_test
@@ -693,7 +682,7 @@ contains
       varcol(k) = dot_product(fitphi, exneryz(:,k))
     end do
     exner = dot_product(fitz, varcol)
-    p = p0 * exner**(cp / Rd)
+    p = p0 * exner**(1.0d0 / rd_o_cpd)
 
     ! Sample the initialized fit at this point for theta_v
     do k = 1, nz
@@ -705,7 +694,7 @@ contains
     qv = dot_product(fitz, qveq)
 
     ! Fixed density
-    rho = p / (Rd * exner * thetav)
+    rho = p / (rd * exner * thetav)
 
     ! Modified virtual potential temperature
     if (pert /= 0) then
@@ -713,7 +702,7 @@ contains
     end if
 
     ! Updated pressure
-    p = p0 * (rho * Rd * thetav / p0)**(cp / (cp - Rd))
+    p = p0 * (rho * rd * thetav / p0)**(cpd / (cpd - rd))
 
   end subroutine supercell_z
 
@@ -794,8 +783,8 @@ contains
     ! Approximately spherical radius from the perturbation centerpoint
     real(8) Rtheta
 
-    gr = a * acos(sin(pert_latc * deg2rad) * sin(lat) + &
-         (cos(pert_latc * deg2rad) * cos(lat) * cos(lon - pert_lonc * deg2rad)))
+    gr = radius * acos(sin(pert_latc * rad) * sin(lat) + &
+         (cos(pert_latc * rad) * cos(lat) * cos(lon - pert_lonc * rad)))
 
     Rtheta = sqrt((gr / pert_rh)**2 + ((z - pert_zc) / pert_rz)**2)
 
@@ -836,7 +825,7 @@ contains
     if (z <= z_tr) then
       res = theta0 + (theta_tr - theta0) * (z / z_tr)**1.25d0
     else
-      res = theta_tr * exp(g / cp / t_tr * (z - z_tr))
+      res = theta_tr * exp(g / cpd / t_tr * (z - z_tr))
     end if
 
   end function equator_theta

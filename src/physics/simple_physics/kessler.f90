@@ -60,13 +60,13 @@
 !
 !=======================================================================
 
-subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
+subroutine kessler(nz, theta, qv, qc, qr, rho, pk, dt, z, precl)
+
+  use const_mod
 
   implicit none
 
   integer, intent(in   )                :: nz    ! Number of thermodynamic levels in the column
-  real(8), intent(in   )                :: rd    ! Gas constant for dry air (J/kg/K)
-  real(8), intent(in   )                :: cpd   ! Specific heat capacity of dry air at constant pressure (J/kg/K)
   real(8), intent(inout), dimension(nz) :: theta ! Potential temperature (K)
   real(8), intent(inout), dimension(nz) :: qv    ! Water vapor mixing ratio (gm/gm)
   real(8), intent(inout), dimension(nz) :: qc    ! Cloud water mixing ratio (gm/gm)
@@ -77,8 +77,6 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
   real(8), intent(in   ), dimension(nz) :: pk    ! Exner function (p/p0)**(R/cp)
   real(8), intent(in   )                :: dt    ! Time step (s)
 
-  real(8), parameter :: lv    = 2.5d6     ! Latent heat of vaporization (J/kg)
-  real(8), parameter :: c1    = 17.27d0   ! Constant for saturation vapor pressure (dimensionless)
   real(8), parameter :: psl   = 1000.0d0  ! Pressure at sea level (hPa)
   real(8), parameter :: rhoqr = 1000.0d0  ! Density of liquid water (kg/m^3)
 
@@ -87,8 +85,6 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
   real(8), dimension(nz) :: velqr
   real(8), dimension(nz) :: sed
   real(8), dimension(nz) :: pc
-  real(8) c2
-  real(8) xk
   real(8) ern
   real(8) qrprod
   real(8) prod
@@ -97,13 +93,11 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
   real(8) dt0
   integer k, rainsplit, nt
 
-  c2 = 237.3d0 * c1 * lv / cpd
-  xk = rd / cpd
-
   do k = 1, nz
     r    (k) = 0.001d0 * rho(k) ! g cm-3
     rhalf(k) = sqrt(rho(nz) / rho(k))
-    pc   (k) = 3.8d0 / (pk(k)**(1.0d0 / xk) * psl) ! hPa
+    pc   (k) = 3.8d0 / (pk(k)**(1.0d0 / rd_o_cpd) * psl) ! hPa
+    qr   (k) = max(qr(k), 0.0d0)
     ! Liquid water terminal velocity (m/s) following KW eq. 2.15
     velqr(k) = 36.34d0 * (qr(k) * r(k))**0.1364d0 * rhalf(k)
   end do
@@ -111,13 +105,15 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
   ! Maximum time step size in accordance with CFL condition
   dt_max = dt
   do k = nz, 2, -1
-    if (velqr(k) /= 0) then
+    if (abs(velqr(k)) > 1.0d-12) then
       dt_max = min(dt_max, 0.8d0 * (z(k-1) - z(k)) / velqr(k))
     end if
   end do
 
   ! Number of subcycles
   rainsplit = ceiling(dt / dt_max)
+  if (rainsplit < 1) stop 'Kessler: rainsplit < 1'
+  rainsplit = 1
   dt0 = dt / real(rainsplit, 8)
 
   ! Subcycle through rain process
@@ -140,17 +136,17 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
       qr(k) = max(qr(k) + qrprod + sed(k), 0.0d0)
 
       ! Saturation vapor mixing ratio (gm/gm) following KW eq. 2.11
-      qvs = pc(k) * exp(c1 * (pk(k) * theta(k) - 273.0d0) / (pk(k) * theta(k)- 36.0d0))
-      prod = (qv(k) - qvs) / (1 + qvs * c2 / (pk(k) * theta(k) - 36.0d0)**2)
+      qvs = pc(k) * exp(17.27d0 * (pk(k) * theta(k) - 273) / (pk(k) * theta(k)- 36))
+      prod = (qv(k) - qvs) / (1 + qvs * (4093 * lv / cpd) / (pk(k) * theta(k) - 36)**2)
 
       ! Evaporation rate following KW eq. 2.14a,b
-      ern = min(dt0 * (((1.6d0 + 124.9d0 * (r(k) * qr(k))**0.2046d0)  &
-            * (r(k) * qr(k))**0.525d0) / (2550000d0 * pc(k)           &
-            / (3.8d0 * qvs) + 540000d0)) * (dim(qvs, qv(k))           &
-            /(r(k) * qvs)), max(-prod - qc(k), 0.0d0), qr(k))
+      ern = min(dt0 * (((1.6d0 + 124.9d0 * (r(k) * qr(k))**0.2046d0) &
+            * (r(k) * qr(k))**0.525d0) / (2.55d6 * pc(k)             &
+            / (3.8d0 * qvs) + 5.4d5)) * (dim(qvs, qv(k))             &
+            / (r(k) * qvs)), max(-prod - qc(k), 0.0d0), qr(k))
 
       ! Saturation adjustment following KW eq. 3.10
-      theta(k) = theta(k) + 2500000d0 / (1003.0d0 * pk(k)) * (max(prod, -qc(k)) - ern)
+      theta(k) = theta(k) + lv / (cpd * pk(k)) * (max(prod, -qc(k)) - ern)
       qv(k) = max(qv(k) - max(prod, -qc(k)) + ern, 0.0d0)
       qc(k) = qc(k) + max(prod, -qc(k))
       qr(k) = qr(k) - ern
@@ -161,6 +157,15 @@ subroutine kessler(nz, rd, cpd, theta, qv, qc, qr, rho, pk, dt, z, precl)
       do k = 1, nz
         velqr(k)  = 36.34d0 * (qr(k) * r(k))**0.1364 * rhalf(k)
       end do
+      ! Recompute rainsplit since velqr has changed.
+      do k = nz, 2, -1
+        if (abs(velqr(k)) > 1.0d-12) then
+          dt_max = min(dt_max, 0.8d0 * (z(k-1) - z(k)) / velqr(k))
+        end if
+      end do
+      rainsplit = ceiling(dt / dt_max)
+      if (rainsplit < 1) stop 'Kessler: rainsplit < 1'
+      dt0 = dt / real(rainsplit, 8)
     end if
   end do
 

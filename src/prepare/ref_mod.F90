@@ -42,7 +42,7 @@ contains
         call fill_halo(ref_ps)
         ref_ps_smth%d = ref_ps%d
         do i = 1, 50
-          call laplace_damp_run(ref_ps_smth, 2, 1.0e6_r8)
+          call laplace_damp_run(block, ref_ps_smth, 2, 1.0e6_r8)
         end do
         ref_ps_perb%d = ref_ps%d - ref_ps_smth%d
         end associate

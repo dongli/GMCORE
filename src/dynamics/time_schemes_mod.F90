@@ -26,7 +26,7 @@ module time_schemes_mod
   use operators_mod
   use latlon_parallel_mod
   use process_mod, only: proc
-  use adv_mod
+  use physics_mod
   use filter_mod
   use perf_mod
 
@@ -239,6 +239,8 @@ contains
       call fill_halo(new_dstate%v_lat)
     end if
     end associate
+
+    call physics_update_after_rk_substep(block, new_dstate, dt)
 
   end subroutine update_state
 

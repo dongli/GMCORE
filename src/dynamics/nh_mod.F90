@@ -278,8 +278,10 @@ contains
         d(mesh%half_nlev) = new_w_lev%d(i,j,mesh%half_nlev)
         call tridiag_thomas(a, b, c, d, new_w_lev%d(i,j,mesh%half_kds:mesh%half_kde))
 
-        call rayleigh_damp_w(dt, star_gz_lev%d(i,j,mesh%half_kds:mesh%half_kde), &
-                                   new_w_lev%d(i,j,mesh%half_kds:mesh%half_kde))
+        if (use_rayleigh_damp_w) then
+          call rayleigh_damp_w(dt, star_gz_lev%d(i,j,mesh%half_kds:mesh%half_kde), &
+                                    new_w_lev%d(i,j,mesh%half_kds:mesh%half_kde))
+        end if
 
         ! Update gz after w is solved.
         do k = mesh%half_kds, mesh%half_kde - 1
@@ -339,6 +341,7 @@ contains
                new_w_lev  => new_dstate%w_lev        , & ! in
                adv_w_lev  => block%aux%adv_w_lev     , & ! in
                qm_lev     => tracers(block%id)%qm_lev)   ! in
+    ! Use linearized ideal gas equation to calculate pressure on full levels.
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1

@@ -186,9 +186,7 @@ contains
                dmg     => dstate%dmg          , & ! in
                qm      => tracers(block%id)%qm, & ! in
                ph_lev  => dstate%ph_lev       , & ! out
-               ph      => dstate%ph           , & ! out
-               phs     => dstate%phs          , & ! pointer
-               ps      => dstate%ps           )   ! out
+               ph      => dstate%ph           )   ! out
     is = mesh%full_ids - 1
     ie = mesh%full_ide + 1
     js = mesh%full_jds - merge(0, 1, mesh%has_south_pole())
@@ -202,16 +200,13 @@ contains
         end do
       end do
     end do
-    ph%d(:,:,mesh%full_kds) = mg%d(:,:,mesh%full_kds)
-    do k = mesh%full_kds + 1, mesh%full_kde
+    do k = mesh%full_kds, mesh%full_kde
       do j = js, je
         do i = is, ie
-          ph%d(i,j,k) = ph%d(i,j,k-1) + (mg%d(i,j,k) - mg%d(i,j,k-1)) * (1 + 0.5_r8 * (qm%d(i,j,k) + qm%d(i,j,k-1)))
+          ph%d(i,j,k) = 0.5_r8 * (ph_lev%d(i,j,k) + ph_lev%d(i,j,k+1))
         end do
       end do
     end do
-    ! NOTE: Move this to other place?
-    if (hydrostatic) ps%d = phs%d
     end associate
 
     call perf_stop('calc_ph')

@@ -12,10 +12,12 @@ module damp_mod
   use const_mod
   use namelist_mod
   use block_mod
+  use tracer_mod
   use div_damp_mod
   use vor_damp_mod
   use smag_damp_mod
   use laplace_damp_mod
+  use latlon_parallel_mod
 
   implicit none
 
@@ -51,7 +53,7 @@ contains
     type(dstate_type), intent(inout) :: dstate
     real(r8), intent(in) :: dt
 
-    integer j
+    integer j, m
     real(r8) c
     associate (mesh => block%mesh, u_lon => dstate%u_lon, v_lat => dstate%v_lat)
     ! This nudging of polar v helps to keep the flow neat around the poles.
@@ -79,6 +81,21 @@ contains
     if (use_smag_damp) then
       do j = 1, smag_damp_cycles
         call smag_damp_run(block, dstate, dt / smag_damp_cycles)
+      end do
+    end if
+    if (use_laplace_damp) then
+      call laplace_damp_run(block, dstate%u_lon, 2, dt, 500.0_r8)
+      call laplace_damp_run(block, dstate%v_lat, 2, dt, 500.0_r8)
+      call laplace_damp_run(block, dstate%w_lev, 2, dt, 500.0_r8)
+      call dstate%pt%mul(dstate%dmg, with_halo=.true.)
+      call laplace_damp_run(block, dstate%pt   , 2, dt, 1500.0_r8, no_fill_halo=.true.)
+      call dstate%pt%div(dstate%dmg)
+      call fill_halo(dstate%pt)
+      do m = 1, ntracers
+        call tracers(block%id)%q%mul(m, dstate%dmg, with_halo=.true.)
+        call laplace_damp_run(block, tracers(block%id)%q, m, 2, dt, 1500.0_r8, no_fill_halo=.true.)
+        call tracers(block%id)%q%div(m, dstate%dmg)
+        call fill_halo(tracers(block%id)%q, m)
       end do
     end if
 

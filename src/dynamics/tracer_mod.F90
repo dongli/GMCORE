@@ -229,7 +229,7 @@ contains
         end do
       end if
     end do
-    if (nonhydrostatic) call interp_run(qm, qm_lev)
+    if (nonhydrostatic) call interp_run(qm, qm_lev, extrap=.false.)
     end associate
 
   end subroutine tracer_calc_qm
