@@ -107,6 +107,8 @@ module latlon_field_types_mod
   contains
     procedure :: init  => latlon_field4d_init
     procedure :: clear => latlon_field4d_clear
+    procedure, private :: latlon_field4d_copy_3d
+    generic :: copy    => latlon_field4d_copy_3d
     procedure :: link  => latlon_field4d_link
     procedure :: mul   => latlon_field4d_mul
     procedure :: div   => latlon_field4d_div
@@ -1004,6 +1006,45 @@ contains
     this%initial         = .false.
 
   end subroutine latlon_field4d_clear
+
+  subroutine latlon_field4d_copy_3d(this, other, m, with_halo)
+
+    class(latlon_field4d_type), intent(in) :: this
+    type(latlon_field3d_type), intent(inout) :: other
+    integer, intent(in) :: m
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, k, is, ie, js, je, ks, ke
+
+    if (this%loc /= other%loc) call log_error('Location does not match!', __FILE__, __LINE__)
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    select case (this%loc)
+    case ('cell')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+        ks = this%mesh%full_kms; ke = this%mesh%full_kme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+        ks = this%mesh%full_kds; ke = this%mesh%full_kde
+      end if
+    case default
+      call log_error('Unhandled branch in latlon_field4d_copy!', __FILE__, __LINE__)
+    end select
+
+    do k = ks, ke
+      do j = js, je
+        do i = is, ie
+          this%d(i,j,k,m) = other%d(i,j,k)
+        end do
+      end do
+    end do
+
+  end subroutine latlon_field4d_copy_3d
 
   subroutine latlon_field4d_link(this, other)
 

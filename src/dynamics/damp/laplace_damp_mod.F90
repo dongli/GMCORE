@@ -45,20 +45,19 @@ contains
 
   end subroutine laplace_damp_final
 
-  subroutine laplace_damp_run_2d(block, f, order, dt, coef)
+  subroutine laplace_damp_run_2d(block, f, order, coef)
 
     type(block_type), intent(inout) :: block
     type(latlon_field2d_type), intent(inout) :: f
     integer, intent(in) :: order
-    real(r8), intent(in) :: dt
     real(r8), intent(in), optional :: coef
 
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide), pole
-    real(r8) c0, s
+    real(r8) c0
     integer i, j, l
 
     c0 = 1.0_r8; if (present(coef)) c0 = coef
-    s = (-1)**(order / 2)
+    c0 = (-1)**(order / 2) * c0
 
     select case (f%loc)
     case ('cell')
@@ -145,7 +144,7 @@ contains
       call filter_run(block%big_filter, dxdt)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          f%d(i,j) = f%d(i,j) - s * dt * c0 * (dxdt%d(i,j) + ( &
+          f%d(i,j) = f%d(i,j) - c0 * (dxdt%d(i,j) + ( &
               fy%d(i,j  ) * mesh%le_lat(j  ) - &
               fy%d(i,j-1) * mesh%le_lat(j-1)   &
             ) / mesh%area_cell(j))
@@ -157,7 +156,7 @@ contains
           work(i) = fy%d(i,j)
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do i = mesh%full_ids, mesh%full_ide
           f%d(i,j) = f%d(i,j) - pole
         end do
@@ -168,7 +167,7 @@ contains
           work(i) = fy%d(i,j-1)
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do i = mesh%full_ids, mesh%full_ide
           f%d(i,j) = f%d(i,j) - pole
         end do
@@ -180,33 +179,28 @@ contains
 
   end subroutine laplace_damp_run_2d
 
-  subroutine laplace_damp_run_3d(block, f, order, dt, coef, no_fill_halo)
+  subroutine laplace_damp_run_3d(block, f, order, coef, dfdt)
 
     type(block_type), intent(inout) :: block
-    type(latlon_field3d_type), intent(inout) :: f
+    type(latlon_field3d_type), intent(in) :: f
     integer, intent(in) :: order
-    real(r8), intent(in) :: dt
     real(r8), intent(in), optional :: coef
-    logical, intent(in), optional :: no_fill_halo
+    type(latlon_field3d_type), intent(inout) :: dfdt
 
-    logical no_fill_halo_opt
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
-    real(r8) c0, s
+    real(r8) c0
     integer i, j, k, l
 
-    no_fill_halo_opt = .false.; if (present(no_fill_halo)) no_fill_halo_opt = no_fill_halo
-
     c0 = 1.0_r8; if (present(coef)) c0 = coef
-    s = (-1)**(order / 2)
+    c0 = (-1)**(order / 2) * c0
 
     select case (f%loc)
     case ('cell')
-      associate (mesh => block%mesh       , &
-                 g1   => block%aux%g1_3d  , &
-                 g2   => block%aux%g2_3d  , &
-                 fx   => block%aux%fx_3d  , &
-                 fy   => block%aux%fy_3d  , &
-                 dxdt => block%aux%dxdt_3d)
+      associate (mesh => block%mesh     , &
+                 g1   => block%aux%g1_3d, &
+                 g2   => block%aux%g2_3d, &
+                 fx   => block%aux%fx_3d, &
+                 fy   => block%aux%fy_3d)
       call g1%copy(f, with_halo=.true.)
       do l = 1, (order - 2) / 2
         do k = mesh%full_kds, mesh%full_kde
@@ -289,11 +283,10 @@ contains
           end do
         end do
       end if
-      ! Filter the zonal tendency.
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
-            dxdt%d(i,j,k) = (                                  &
+            dfdt%d(i,j,k) = -c0 * (                            &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -301,14 +294,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
-          end do
-        end do
-      end do
+      call filter_run(block%big_filter, dfdt)
       if (mesh%has_south_pole()) then
         j = mesh%full_jds
         do k = mesh%full_kds, mesh%full_kde
@@ -317,10 +303,10 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+            dfdt%d(i,j,k) = -pole(k)
           end do
         end do
       end if
@@ -332,21 +318,20 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+            dfdt%d(i,j,k) = -pole(k)
           end do
         end do
       end if
       end associate
     case ('lon')
-      associate (mesh => block%mesh           , &
-                 g1   => block%aux%g1_3d_lon  , &
-                 g2   => block%aux%g2_3d_lon  , &
-                 fx   => block%aux%fx_3d_lon  , &
-                 fy   => block%aux%fy_3d_lon  , &
-                 dxdt => block%aux%dxdt_3d_lon)
+      associate (mesh => block%mesh         , &
+                 g1   => block%aux%g1_3d_lon, &
+                 g2   => block%aux%g2_3d_lon, &
+                 fx   => block%aux%fx_3d_lon, &
+                 fy   => block%aux%fy_3d_lon)
       call g1%copy(f, with_halo=.true.)
       do l = 1, (order - 2) / 2
         do k = mesh%full_kds, mesh%full_kde
@@ -403,7 +388,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
-            dxdt%d(i,j,k) = (                                  &
+            dfdt%d(i,j,k) = -c0 * (                            &
               (fx%d(i+1,j,k) - fx%d(i,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -411,22 +396,14 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%half_ids, mesh%half_ide
-            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
-          end do
-        end do
-      end do
+      call filter_run(block%big_filter, dfdt)
       end associate
     case ('lat')
-      associate (mesh => block%mesh           , &
-                 g1   => block%aux%g1_3d_lat  , &
-                 g2   => block%aux%g2_3d_lat  , &
-                 fx   => block%aux%fx_3d_lat  , &
-                 fy   => block%aux%fy_3d_lat  , &
-                 dxdt => block%aux%dxdt_3d_lat)
+      associate (mesh => block%mesh         , &
+                 g1   => block%aux%g1_3d_lat, &
+                 g2   => block%aux%g2_3d_lat, &
+                 fx   => block%aux%fx_3d_lat, &
+                 fy   => block%aux%fy_3d_lat)
       call g1%copy(f, with_halo=.true.)
       do l = 1, (order - 2) / 2
         do k = mesh%full_kds, mesh%full_kde
@@ -483,7 +460,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            dxdt%d(i,j,k) = (                                  &
+            dfdt%d(i,j,k) = -c0 * (                            &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%de_lat(j) + &
               fy%d(i,j+1,k) * mesh%de_lon(j+1) -               &
               fy%d(i,j  ,k) * mesh%de_lon(j  )                 &
@@ -491,22 +468,14 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%half_jds, mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
-          end do
-        end do
-      end do
+      call filter_run(block%big_filter, dfdt)
       end associate
     case ('lev')
-      associate (mesh => block%mesh           , &
-                 g1   => block%aux%g1_3d_lev  , &
-                 g2   => block%aux%g2_3d_lev  , &
-                 fx   => block%aux%fx_3d_lev  , &
-                 fy   => block%aux%fy_3d_lev  , &
-                 dxdt => block%aux%dxdt_3d_lev)
+      associate (mesh => block%mesh         , &
+                 g1   => block%aux%g1_3d_lev, &
+                 g2   => block%aux%g2_3d_lev, &
+                 fx   => block%aux%fx_3d_lev, &
+                 fy   => block%aux%fy_3d_lev)
       call g1%copy(f, with_halo=.true.)
       do l = 1, (order - 2) / 2
         do k = mesh%half_kds + 1, mesh%half_kde - 1
@@ -591,7 +560,7 @@ contains
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
-            dxdt%d(i,j,k) = (                                  &
+            dfdt%d(i,j,k) = -c0 * (                            &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -599,14 +568,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
-      do k = mesh%half_kds + 1, mesh%half_kde - 1
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - s * dt * c0 * dxdt%d(i,j,k)
-          end do
-        end do
-      end do
+      call filter_run(block%big_filter, dfdt)
       if (mesh%has_south_pole()) then
         j = mesh%full_jds
         do k = mesh%half_kds + 1, mesh%half_kde - 1
@@ -615,10 +577,10 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+            dfdt%d(i,j,k) = -pole(k)
           end do
         end do
       end if
@@ -630,48 +592,41 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k) = f%d(i,j,k) - pole(k)
+            dfdt%d(i,j,k) = -pole(k)
           end do
         end do
       end if
       end associate
     end select
 
-    if (.not. no_fill_halo_opt) call fill_halo(f)
-
   end subroutine laplace_damp_run_3d
 
-  subroutine laplace_damp_run_4d(block, f, m, order, dt, coef, no_fill_halo)
+  subroutine laplace_damp_run_4d(block, f, m, order, coef, dfdt)
 
     type(block_type), intent(inout) :: block
-    type(latlon_field4d_type), intent(inout) :: f
+    type(latlon_field4d_type), intent(in) :: f
     integer, intent(in) :: m
     integer, intent(in) :: order
-    real(r8), intent(in) :: dt
     real(r8), intent(in), optional :: coef
-    logical, intent(in), optional :: no_fill_halo
+    type(latlon_field4d_type), intent(inout) :: dfdt
 
-    logical no_fill_halo_opt
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
-    real(r8) c0, s
+    real(r8) c0
     integer i, j, k, l
 
-    no_fill_halo_opt = .false.; if (present(no_fill_halo)) no_fill_halo_opt = no_fill_halo
-
     c0 = 1.0_r8; if (present(coef)) c0 = coef
-    s = (-1)**(order / 2)
+    c0 = (-1)**(order / 2) * c0
 
     select case (f%loc)
     case ('cell')
-      associate (mesh => block%mesh       , &
-                 g1   => block%aux%g1_3d  , &
-                 g2   => block%aux%g2_3d  , &
-                 fx   => block%aux%fx_3d  , &
-                 fy   => block%aux%fy_3d  , &
-                 dxdt => block%aux%dxdt_3d)
+      associate (mesh => block%mesh     , &
+                 g1   => block%aux%g1_3d, &
+                 g2   => block%aux%g2_3d, &
+                 fx   => block%aux%fx_3d, &
+                 fy   => block%aux%fy_3d)
       call g1%copy(f, m, with_halo=.true.)
       do l = 1, (order - 2) / 2
         do k = mesh%full_kds, mesh%full_kde
@@ -758,7 +713,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
-            dxdt%d(i,j,k) = (                                  &
+            dfdt%d(i,j,k,m) = -c0 * (                          &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -766,14 +721,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-          do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k,m) = f%d(i,j,k,m) - s * dt * c0 * dxdt%d(i,j,k)
-          end do
-        end do
-      end do
+      call filter_run(block%big_filter, dfdt, m)
       if (mesh%has_south_pole()) then
         j = mesh%full_jds
         do k = mesh%full_kds, mesh%full_kde
@@ -782,10 +730,10 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = s * dt * c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k,m) = f%d(i,j,k,m) - pole(k)
+            dfdt%d(i,j,k,m) = -pole(k)
           end do
         end do
       end if
@@ -797,17 +745,15 @@ contains
           end do
         end do
         call zonal_sum(proc%zonal_circle, work, pole)
-        pole = -s * dt * c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            f%d(i,j,k,m) = f%d(i,j,k,m) - pole(k)
+            dfdt%d(i,j,k,m) = -pole(k)
           end do
         end do
       end if
       end associate
     end select
-
-    if (.not. no_fill_halo) call fill_halo(f, m)
 
   end subroutine laplace_damp_run_4d
 

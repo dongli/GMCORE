@@ -68,6 +68,25 @@ contains
     end do
     end associate
 
+    if (use_laplace_damp) then
+      call laplace_damp_run(block, dstate%u_lon, 2, 500.0_r8, block%aux%dudt_damp)
+      call laplace_damp_run(block, dstate%v_lat, 2, 500.0_r8, block%aux%dvdt_damp)
+      call laplace_damp_run(block, dstate%w_lev, 2, 500.0_r8, block%aux%dwdt_damp)
+      associate (tmp => block%aux%div)
+      call tmp%copy(dstate%pt, with_halo=.true.)
+      call tmp%mul(dstate%dmg, with_halo=.true.)
+      call laplace_damp_run(block, tmp, 2, 1500.0_r8, block%aux%dptdt_damp)
+      call tmp%div(dstate%dmg)
+      call dstate%pt%copy(tmp)
+      do m = 1, ntracers
+        call tmp%copy(tracers(block%id)%q, m, with_halo=.true.)
+        call tmp%mul(dstate%dmg, with_halo=.true.)
+        call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
+        call tmp%div(dstate%dmg)
+        call tracers(block%id)%q%copy(tmp, m)
+      end do
+      end associate
+    end if
     if (use_vor_damp) then
       do j = 1, vor_damp_cycles
         call vor_damp_run(block, dstate, dt / vor_damp_cycles)
@@ -81,21 +100,6 @@ contains
     if (use_smag_damp) then
       do j = 1, smag_damp_cycles
         call smag_damp_run(block, dstate, dt / smag_damp_cycles)
-      end do
-    end if
-    if (use_laplace_damp) then
-      call laplace_damp_run(block, dstate%u_lon, 2, dt, 500.0_r8)
-      call laplace_damp_run(block, dstate%v_lat, 2, dt, 500.0_r8)
-      call laplace_damp_run(block, dstate%w_lev, 2, dt, 500.0_r8)
-      call dstate%pt%mul(dstate%dmg, with_halo=.true.)
-      call laplace_damp_run(block, dstate%pt   , 2, dt, 1500.0_r8, no_fill_halo=.true.)
-      call dstate%pt%div(dstate%dmg)
-      call fill_halo(dstate%pt)
-      do m = 1, ntracers
-        call tracers(block%id)%q%mul(m, dstate%dmg, with_halo=.true.)
-        call laplace_damp_run(block, tracers(block%id)%q, m, 2, dt, 1500.0_r8, no_fill_halo=.true.)
-        call tracers(block%id)%q%div(m, dstate%dmg)
-        call fill_halo(tracers(block%id)%q, m)
       end do
     end if
 

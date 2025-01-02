@@ -190,15 +190,17 @@ contains
 
     integer i, j, k
 
-    associate (mesh  => block%mesh         , &
-               dudt  => block%aux%dudt_phys, & ! in
-               dvdt  => block%aux%dvdt_phys, & ! in
-               u_lon => dstate%u_lon       , & ! inout
-               v_lat => dstate%v_lat       )   ! inout
+    associate (mesh      => block%mesh         , &
+               dudt_phys => block%aux%dudt_phys, & ! in
+               dvdt_phys => block%aux%dvdt_phys, & ! in
+               dudt_damp => block%aux%dudt_damp, & ! in
+               dvdt_damp => block%aux%dvdt_damp, & ! in
+               u_lon     => dstate%u_lon       , & ! inout
+               v_lat     => dstate%v_lat       )   ! inout
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * 0.5_r8 * (dudt%d(i,j,k) + dudt%d(i+1,j,k))
+          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * (0.5_r8 * (dudt_phys%d(i,j,k) + dudt_phys%d(i+1,j,k)) + dudt_damp%d(i,j,k))
         end do
       end do
     end do
@@ -206,7 +208,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * 0.5_r8 * (dvdt%d(i,j,k) + dvdt%d(i,j+1,k))
+          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * (0.5_r8 * (dvdt_phys%d(i,j,k) + dvdt_phys%d(i,j+1,k)) + dvdt_damp%d(i,j,k))
         end do
       end do
     end do
@@ -244,14 +246,15 @@ contains
 
     integer i, j, k
 
-    associate (mesh  => block%mesh          , &
-               dptdt => block%aux%dptdt_phys, & ! in
-               dmg   => dstate%dmg          , & ! in
-               pt    => dstate%pt           )   ! inout
+    associate (mesh       => block%mesh          , &
+               dptdt_phys => block%aux%dptdt_phys, & ! in
+               dptdt_damp => block%aux%dptdt_damp, & ! in
+               dmg        => dstate%dmg          , & ! in
+               pt         => dstate%pt           )   ! inout
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = pt%d(i,j,k) + dt * dptdt%d(i,j,k) / dmg%d(i,j,k)
+          pt%d(i,j,k) = pt%d(i,j,k) + dt * (dptdt_phys%d(i,j,k) + dptdt_damp%d(i,j,k)) / dmg%d(i,j,k)
         end do
       end do
     end do
@@ -268,15 +271,16 @@ contains
 
     integer i, j, k, m
 
-    associate (mesh  => block%mesh         , &
-               dqdt  => block%aux%dqdt_phys, & ! in
-               dmg   => dstate%dmg         , & ! in
-               q     => tracers(block%id)%q)   ! inout
+    associate (mesh      => block%mesh         , &
+               dqdt_phys => block%aux%dqdt_phys, & ! in
+               dqdt_damp => block%aux%dqdt_damp, & ! in
+               dmg       => dstate%dmg         , & ! in
+               q         => tracers(block%id)%q)   ! inout
     do m = 1, ntracers
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            q%d(i,j,k,m) = q%d(i,j,k,m) + dt * dqdt%d(i,j,k,m) / dmg%d(i,j,k)
+            q%d(i,j,k,m) = q%d(i,j,k,m) + dt * (dqdt_phys%d(i,j,k,m) + dqdt_damp%d(i,j,k,m)) / dmg%d(i,j,k)
           end do
         end do
       end do

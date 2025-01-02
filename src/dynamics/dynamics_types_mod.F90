@@ -126,10 +126,6 @@ module dynamics_types_mod
     type(latlon_field3d_type) fx_3d, fx_3d_lon, fx_3d_lat, fx_3d_lev
     type(latlon_field3d_type) fy_3d, fy_3d_lon, fy_3d_lat, fy_3d_lev
     type(latlon_field2d_type) dxdt_2d
-    type(latlon_field3d_type) dxdt_3d
-    type(latlon_field3d_type) dxdt_3d_lon
-    type(latlon_field3d_type) dxdt_3d_lat
-    type(latlon_field3d_type) dxdt_3d_lev
     ! Other variables
     type(latlon_field3d_type) u           ! Zonal wind speed at cell center (m s-1)
     type(latlon_field3d_type) v           ! Meridional wind speed at cell center (m s-1)
@@ -167,6 +163,12 @@ module dynamics_types_mod
     type(latlon_field3d_type) dptdt_phys
     type(latlon_field2d_type) dpsdt_phys
     type(latlon_field4d_type) dqdt_phys
+    ! Tendencies from damping processes
+    type(latlon_field3d_type) dudt_damp
+    type(latlon_field3d_type) dvdt_damp
+    type(latlon_field3d_type) dwdt_damp
+    type(latlon_field3d_type) dptdt_damp
+    type(latlon_field4d_type) dqdt_damp
     ! Perturbed quantities for calculating HPGF
     type(latlon_field3d_type) p_ptb
     type(latlon_field3d_type) gz_ptb
@@ -1179,46 +1181,6 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         field           =this%dxdt_2d                                        )
-      call append_field(this%fields                                          , &
-        name            ='dxdt_3d'                                           , &
-        long_name       ='Temporal array for 3D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='cell'                                              , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%dxdt_3d                                        )
-      call append_field(this%fields                                          , &
-        name            ='dxdt_3d_lon'                                       , &
-        long_name       ='Temporal array for 3D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='lon'                                               , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%dxdt_3d_lon                                    )
-      call append_field(this%fields                                          , &
-        name            ='dxdt_3d_lat'                                       , &
-        long_name       ='Temporal array for 3D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='lat'                                               , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%dxdt_3d_lat                                    )
-      call append_field(this%fields                                          , &
-        name            ='dxdt_3d_lev'                                       , &
-        long_name       ='Temporal array for 3D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='lev'                                               , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%dxdt_3d_lev                                    )
     end if
     if (baroclinic .or. advection) then
       call append_field(this%fields                                          , &
@@ -1725,6 +1687,62 @@ contains
         output          ='h1'                                                , &
         restart         =.true.                                              , &
         field           =this%dqdt_phys                                      )
+    end if
+
+    if (use_laplace_damp) then
+      call append_field(this%fields                                          , &
+        name            ='dudt_damp'                                         , &
+        long_name       ='Tendency of zonal wind due to damping'             , &
+        units           ='m s-2'                                             , &
+        loc             ='lon'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dudt_damp                                      )
+      call append_field(this%fields                                          , &
+        name            ='dvdt_damp'                                         , &
+        long_name       ='Tendency of meridional wind due to damping'        , &
+        units           ='m s-2'                                             , &
+        loc             ='lat'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dvdt_damp                                      )
+      call append_field(this%fields                                          , &
+        name            ='dwdt_damp'                                         , &
+        long_name       ='Tendency of vertical wind due to damping'          , &
+        units           ='m s-2'                                             , &
+        loc             ='lev'                                               , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dwdt_damp                                      )
+      call append_field(this%fields                                          , &
+        name            ='dptdt_damp'                                        , &
+        long_name       ='Tendency of temperature due to damping'            , &
+        units           ='K s-1'                                             , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dptdt_damp                                     )
+      call append_field(this%fields                                          , &
+        name            ='dqdt_damp'                                         , &
+        long_name       ='Tendency of tracer dry mixing ratio due to damping', &
+        units           ='kg kg-1 s-1'                                       , &
+        loc             ='cell'                                              , &
+        mesh            =filter_mesh                                         , &
+        dim4_name       ='tracers'                                           , &
+        dim4_size       =ntracers                                            , &
+        var4_names      =tracer_names                                        , &
+        halo            =filter_halo                                         , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%dqdt_damp                                      )
     end if
 
   end subroutine aux_array_init_phys
