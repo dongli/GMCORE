@@ -126,9 +126,9 @@ contains
             state%precl(icol  )  &
           )
         end do
-        do k = 1, mesh%nlev
-          do icol = 1, mesh%ncol
-            do m = 1, ntracers
+        do m = 1, ntracers
+          do k = 1, mesh%nlev
+            do icol = 1, mesh%ncol
               tend%dqdt(icol,k,m) = (state%q(icol,k,m) - state%q_old(icol,k,m)) / dt
             end do
           end do
@@ -137,7 +137,7 @@ contains
         do k = 1, mesh%nlev
           do icol = 1, mesh%ncol
             tend%dptdt(icol,k) = (1 + rv_o_rd * state%qv_old(icol,k)) * (state%pt(icol,k) - state%pt_old(icol,k)) / dt + &
-                                 (rv_o_rd * state%pt_old(icol,k) * tend%dqvdt(icol,k))
+                                 rv_o_rd * state%pt_old(icol,k) * tend%dqvdt(icol,k)
           end do
         end do
         tend%updated_pt = .true.
