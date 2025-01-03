@@ -91,7 +91,6 @@ contains
       associate (mesh  => objects(iblk)%mesh , &
                  state => objects(iblk)%state, &
                  tend  => objects(iblk)%tend )
-      call tend%reset()
       select case (physics_suite)
       case ('simple_physics:v6')
         call simple_physics(     &

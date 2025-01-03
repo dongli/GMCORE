@@ -69,23 +69,15 @@ contains
     end associate
 
     if (use_laplace_damp) then
-      call laplace_damp_run(block, dstate%u_lon, 2, 500.0_r8, block%aux%dudt_damp)
-      call laplace_damp_run(block, dstate%v_lat, 2, 500.0_r8, block%aux%dvdt_damp)
-      call laplace_damp_run(block, dstate%w_lev, 2, 500.0_r8, block%aux%dwdt_damp)
-      associate (tmp => block%aux%div)
-      call tmp%copy(dstate%pt, with_halo=.true.)
-      call tmp%mul(dstate%dmg, with_halo=.true.)
-      call laplace_damp_run(block, tmp, 2, 1500.0_r8, block%aux%dptdt_damp)
-      call tmp%div(dstate%dmg)
-      call dstate%pt%copy(tmp)
-      do m = 1, ntracers
-        call tmp%copy(tracers(block%id)%q, m, with_halo=.true.)
-        call tmp%mul(dstate%dmg, with_halo=.true.)
-        call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
-        call tmp%div(dstate%dmg)
-        call tracers(block%id)%q%copy(tmp, m)
-      end do
-      end associate
+      call laplace_damp_run(block, dstate%u_lon, 2,  500.0_r8, block%aux%dudt_damp)
+      call laplace_damp_run(block, dstate%v_lat, 2,  500.0_r8, block%aux%dvdt_damp)
+      call laplace_damp_run(block, dstate%w_lev, 2,  500.0_r8, block%aux%dwdt_damp)
+      call laplace_damp_run(block, dstate%pt   , 2, 1500.0_r8, block%aux%dptdt_damp)
+      call block%aux%dptdt_damp%mul(dstate%dmg)
+      ! do m = 1, ntracers
+      !   call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
+      !   call block%aux%dqdt_damp%mul(dstate%dmg, m)
+      ! end do
     end if
     if (use_vor_damp) then
       do j = 1, vor_damp_cycles

@@ -330,7 +330,7 @@ contains
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     case (24)
-      call physics_update_pt (block, block%dstate(itime), dt)
+      call physics_update_uv (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
