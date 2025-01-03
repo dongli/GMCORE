@@ -217,6 +217,28 @@ contains
 
   end subroutine physics_update_uv
 
+  subroutine physics_update_w(block, dstate, dt)
+
+    type(block_type), intent(in) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j, k
+
+    associate (mesh      => block%mesh         , &
+               dwdt_damp => block%aux%dwdt_damp, & ! in
+               w_lev     => dstate%w_lev       )   ! inout
+    do k = mesh%half_kds + 1, mesh%half_kde - 1
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          w_lev%d(i,j,k) = w_lev%d(i,j,k) + dt * dwdt_damp%d(i,j,k)
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine physics_update_w
+
   subroutine physics_update_mgs(block, dstate, dt)
 
     type(block_type), intent(in) :: block
@@ -302,6 +324,7 @@ contains
     select case (pdc_type)
     case (1)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
@@ -326,6 +349,7 @@ contains
     select case (pdc_type)
     case (2)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
@@ -350,6 +374,7 @@ contains
     select case (pdc_type)
     case (3)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
@@ -374,6 +399,7 @@ contains
     select case (pdc_type)
     case (4)
       call physics_update_uv (block, dstate, dt)
+      call physics_update_w  (block, dstate, dt)
       call physics_update_mgs(block, dstate, dt)
       call physics_update_pt (block, dstate, dt)
       call physics_update_q  (block, dstate, dt)
