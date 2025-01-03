@@ -82,10 +82,10 @@ module physics_types_mod
     real(r8), allocatable, dimension(:,:  ) :: dz
     ! Height thickness on half levels (m)
     real(r8), allocatable, dimension(:,:  ) :: dz_lev
-    ! Air density on full levels (kg m-3)
-    real(r8), allocatable, dimension(:,:  ) :: rho
-    ! Air density on half levels (kg m-3)
-    real(r8), allocatable, dimension(:,:  ) :: rho_lev
+    ! Dry air density on full levels (kg m-3)
+    real(r8), allocatable, dimension(:,:  ) :: rhod
+    ! Dry air density on half levels (kg m-3)
+    real(r8), allocatable, dimension(:,:  ) :: rhod_lev
     ! Surface pressure (hydrostatic) (Pa)
     real(r8), allocatable, dimension(:    ) :: ps
     ! Surface temperature (K)
@@ -211,8 +211,8 @@ contains
     allocate(this%z_lev       (mesh%ncol,mesh%nlev+1       )); this%z_lev        = 0
     allocate(this%dz          (mesh%ncol,mesh%nlev         )); this%dz           = 0
     allocate(this%dz_lev      (mesh%ncol,mesh%nlev+1       )); this%dz_lev       = 0
-    allocate(this%rho         (mesh%ncol,mesh%nlev         )); this%rho          = 0
-    allocate(this%rho_lev     (mesh%ncol,mesh%nlev+1       )); this%rho_lev      = 0
+    allocate(this%rhod        (mesh%ncol,mesh%nlev         )); this%rhod         = 0
+    allocate(this%rhod_lev    (mesh%ncol,mesh%nlev+1       )); this%rhod_lev     = 0
     allocate(this%ps          (mesh%ncol                   )); this%ps           = 0
     allocate(this%ts          (mesh%ncol                   )); this%ts           = 0
     allocate(this%wsp_bot     (mesh%ncol                   )); this%wsp_bot      = 0
@@ -279,8 +279,8 @@ contains
     if (allocated(this%z            )) deallocate(this%z            )
     if (allocated(this%z_lev        )) deallocate(this%z_lev        )
     if (allocated(this%dz           )) deallocate(this%dz           )
-    if (allocated(this%rho          )) deallocate(this%rho          )
-    if (allocated(this%rho_lev      )) deallocate(this%rho_lev      )
+    if (allocated(this%rhod         )) deallocate(this%rhod         )
+    if (allocated(this%rhod_lev     )) deallocate(this%rhod_lev     )
     if (allocated(this%ps           )) deallocate(this%ps           )
     if (allocated(this%ts           )) deallocate(this%ts           )
     if (allocated(this%wsp_bot      )) deallocate(this%wsp_bot      )

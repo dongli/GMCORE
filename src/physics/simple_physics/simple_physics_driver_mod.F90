@@ -30,10 +30,6 @@ module simple_physics_driver_mod
 
   real(r8) dt
 
-  logical :: use_ptend_pt = .false.
-
-  namelist /simple_physics_control/ use_ptend_pt
-
 contains
 
   subroutine simple_physics_init_stage1(namelist_path, dt_adv, dt_phys)
@@ -45,10 +41,6 @@ contains
     integer ignore
 
     call simple_physics_final()
-
-    open(11, file=namelist_path, status='old', action='read')
-    read(11, nml=simple_physics_control, iostat=ignore)
-    close(11)
 
     select case (physics_suite)
     case ('simple_physics:v6')
@@ -127,29 +119,13 @@ contains
             state%qv   (icol,:), &
             state%qc   (icol,:), &
             state%qr   (icol,:), &
-            state%rho  (icol,:), &
+            state%rhod (icol,:), &
             state%pk   (icol,:), &
             dt                 , &
             state%z    (icol,:), &
             state%precl(icol  )  &
           )
         end do
-        if (use_ptend_pt) then
-          do k = 1, mesh%nlev
-            do icol = 1, mesh%ncol
-              tend%dptdt(icol,k) = (state%pt(icol,k) - state%pt_old(icol,k)) / dt
-            end do
-          end do
-          tend%updated_pt = .true.
-        else
-          do k = 1, mesh%nlev
-            do icol = 1, mesh%ncol
-              state%t(icol,k) = state%pt(icol,k) * state%pk(icol,k)
-              tend%dtdt(icol,k) = (state%t(icol,k) - state%t_old(icol,k)) / dt
-            end do
-          end do
-          tend%updated_t = .true.
-        end if
         do k = 1, mesh%nlev
           do icol = 1, mesh%ncol
             do m = 1, ntracers
@@ -158,6 +134,13 @@ contains
           end do
         end do
         tend%updated_q = .true.
+        do k = 1, mesh%nlev
+          do icol = 1, mesh%ncol
+            tend%dptdt(icol,k) = (1 + rv_o_rd * state%qv_old(icol,k)) * (state%pt(icol,k) - state%pt_old(icol,k)) / dt + &
+                                 (rv_o_rd * state%pt_old(icol,k) * tend%dqvdt(icol,k))
+          end do
+        end do
+        tend%updated_pt = .true.
       end select
       end associate
     end do

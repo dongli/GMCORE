@@ -536,7 +536,7 @@ contains
               state%tm_sfc      (icol,:  ), & ! inout
               state%dstflx_wsl  (icol    ), & ! out
               state%dstflx_ddl  (icol    ), & ! out
-              state%rho         (icol,:  ), & ! out
+              state%rhod        (icol,:  ), & ! out
               state%deposit     (icol,:  ), & ! out
               state%tmflx_sfc_dn(icol,:  )  & ! out
             )

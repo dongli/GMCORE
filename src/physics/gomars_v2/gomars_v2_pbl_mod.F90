@@ -55,7 +55,7 @@ contains
                v      => state%v      , & ! in
                ps     => state%ps     , & ! in
                ts     => state%ts     , & ! in
-               rho    => state%rho    , & ! in
+               rho    => state%rhod   , & ! in
                ustar  => state%ustar  , & ! in
                tstar  => state%tstar  , & ! in
                cdh    => state%cdh    , & ! in

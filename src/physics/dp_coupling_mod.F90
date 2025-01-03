@@ -100,8 +100,8 @@ contains
             pstate%dp_dry (icol,k) = dstate %dmg   %d(i,j,k)
             pstate%omg    (icol,k) = aux    %omg   %d(i,j,k)
             pstate%z      (icol,k) = dstate %gz    %d(i,j,k) / g
-            pstate%dz     (icol,k) = (dstate%gz_lev%d(i,j,k+1) - dstate%gz_lev%d(i,j,k)) / g
-            pstate%rho    (icol,k) = dry_air_density(pstate%t(icol,k), pstate%p(icol,k))
+            pstate%dz     (icol,k) = (dstate%gz_lev%d(i,j,k) - dstate%gz_lev%d(i,j,k+1)) / g
+            pstate%rhod   (icol,k) = pstate%dp_dry(icol,k) / pstate%dz(icol,k) / g
             icol = icol + 1
           end do
         end do
@@ -149,7 +149,7 @@ contains
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            pstate%dz_lev(icol,k) = pstate%z(icol,k) - pstate%z(icol,k-1)
+            pstate%dz_lev(icol,k) = pstate%z(icol,k-1) - pstate%z(icol,k)
             icol = icol + 1
           end do
         end do

@@ -16,9 +16,9 @@ module simple_physics_types_mod
   implicit none
 
   type, extends(physics_state_type) :: simple_state_type
-    real(r8), pointer    , dimension(:,:) :: qv
-    real(r8), pointer    , dimension(:,:) :: qc
-    real(r8), pointer    , dimension(:,:) :: qr
+    real(r8), pointer, dimension(:,:) :: qv, qv_old
+    real(r8), pointer, dimension(:,:) :: qc
+    real(r8), pointer, dimension(:,:) :: qr
   contains
     procedure :: init  => simple_state_init
     procedure :: clear => simple_state_clear
@@ -26,9 +26,9 @@ module simple_physics_types_mod
   end type simple_state_type
 
   type, extends(physics_tend_type) :: simple_tend_type
-    real(r8), pointer    , dimension(:,:) :: dqvdt
-    real(r8), pointer    , dimension(:,:) :: dqcdt
-    real(r8), pointer    , dimension(:,:) :: dqrdt
+    real(r8), pointer, dimension(:,:) :: dqvdt
+    real(r8), pointer, dimension(:,:) :: dqcdt
+    real(r8), pointer, dimension(:,:) :: dqrdt
   contains
     procedure :: init  => simple_tend_init
     procedure :: clear => simple_tend_clear
@@ -47,7 +47,10 @@ contains
 
     call this%physics_state_init(mesh)
 
-    if (idx_qv > 0) this%qv => this%q(:,:,idx_qv)
+    if (idx_qv > 0) then
+      this%qv_old => this%q_old(:,:,idx_qv)
+      this%qv     => this%q    (:,:,idx_qv)
+    end if
     if (idx_qc > 0) this%qc => this%q(:,:,idx_qc)
     if (idx_qr > 0) this%qr => this%q(:,:,idx_qr)
 
@@ -59,9 +62,10 @@ contains
 
     call this%physics_state_clear()
 
-    nullify(this%qv)
-    nullify(this%qc)
-    nullify(this%qr)
+    nullify(this%qv_old)
+    nullify(this%qv    )
+    nullify(this%qc    )
+    nullify(this%qr    )
 
   end subroutine simple_state_clear
 
@@ -82,7 +86,9 @@ contains
 
     call this%physics_tend_init(mesh)
 
-    this%dqvdt => this%dqdt(:,:,idx_qv)
+    if (idx_qv > 0) this%dqvdt => this%dqdt(:,:,idx_qv)
+    if (idx_qc > 0) this%dqcdt => this%dqdt(:,:,idx_qc)
+    if (idx_qr > 0) this%dqrdt => this%dqdt(:,:,idx_qr)
 
   end subroutine simple_tend_init
 
@@ -91,6 +97,10 @@ contains
     class(simple_tend_type), intent(inout) :: this
 
     call this%physics_tend_clear()
+
+    nullify(this%dqvdt)
+    nullify(this%dqcdt)
+    nullify(this%dqrdt)
 
   end subroutine simple_tend_clear
 
