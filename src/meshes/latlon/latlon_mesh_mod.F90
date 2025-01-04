@@ -10,6 +10,7 @@
 module latlon_mesh_mod
 
   use flogger
+  use string
   use const_mod, only: pi, pi2, pi05, radius, omega, inf, deg, eps
   use sphere_geometry_mod
 
@@ -136,6 +137,10 @@ contains
     lev_hw_opt =  3; if (present(lev_hw)) lev_hw_opt = lev_hw
 
     call this%clear(keep_lev)
+
+    if (mod(nlon, 2) /= 0) then
+      call log_error('nlon is ' // to_str(nlon) // ', but it must be an even number!', __FILE__, __LINE__)
+    end if
 
     this%full_nlon = nlon
     this%half_nlon = nlon
