@@ -235,6 +235,7 @@ contains
         end do
       end do
     end do
+    call fill_halo(w_lev)
     end associate
 
   end subroutine physics_update_w
@@ -330,6 +331,7 @@ contains
       call physics_update_q  (block, block%dstate(itime), dt)
     case (14)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
@@ -355,7 +357,10 @@ contains
       call physics_update_q  (block, block%dstate(itime), dt)
     case (24)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
+      call physics_update_q  (block, block%dstate(itime), dt)
+    case (5)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
 
@@ -380,6 +385,7 @@ contains
       call physics_update_q  (block, block%dstate(itime), dt)
     case (34)
       call physics_update_uv (block, block%dstate(itime), dt)
+      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
@@ -404,6 +410,10 @@ contains
       call physics_update_pt (block, dstate, dt)
       call physics_update_q  (block, dstate, dt)
     case (14, 24, 34)
+      call physics_update_pt (block, dstate, dt)
+    case (5)
+      call physics_update_uv (block, dstate, dt)
+      call physics_update_w  (block, dstate, dt)
       call physics_update_pt (block, dstate, dt)
     end select
 

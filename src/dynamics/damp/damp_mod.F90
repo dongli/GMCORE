@@ -72,12 +72,12 @@ contains
       call laplace_damp_run(block, dstate%u_lon, 2,  500.0_r8, block%aux%dudt_damp)
       call laplace_damp_run(block, dstate%v_lat, 2,  500.0_r8, block%aux%dvdt_damp)
       call laplace_damp_run(block, dstate%w_lev, 2,  500.0_r8, block%aux%dwdt_damp)
-      call laplace_damp_run(block, dstate%pt   , 2, 1500.0_r8, block%aux%dptdt_damp)
+      call laplace_damp_run(block, dstate%pt, 2, 1500.0_r8, block%aux%dptdt_damp)
       call block%aux%dptdt_damp%mul(dstate%dmg)
-      ! do m = 1, ntracers
-      !   call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
-      !   call block%aux%dqdt_damp%mul(dstate%dmg, m)
-      ! end do
+      do m = 1, ntracers
+        call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
+        call block%aux%dqdt_damp%mul(m, dstate%dmg)
+      end do
     end if
     if (use_vor_damp) then
       do j = 1, vor_damp_cycles

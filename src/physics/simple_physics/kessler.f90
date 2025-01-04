@@ -21,10 +21,8 @@
 !  relative to the surrounding air). There  are no ice categories.
 !  Variables in the column are ordered from the surface to the top.
 !
-!  SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, rainnc)
-!
 !  Input variables:
-!     theta  - potential temperature (K)
+!     pt     - potential temperature (K)
 !     qv     - water vapor mixing ratio (gm/gm)
 !     qc     - cloud water mixing ratio (gm/gm)
 !     qr     - rain  water mixing ratio (gm/gm)
@@ -36,7 +34,7 @@
 !     precl  - Precipitation rate (m_water/s)
 !
 ! Output variables:
-!     Increments are added into t, qv, qc, qr, and rainnc which are
+!     Increments are added into pt, qv, qc, qr, and precl which are
 !     returned to the routine from which KESSLER was called. To obtain
 !     the total precip qt, after calling the KESSLER routine, compute:
 !
@@ -68,9 +66,9 @@ subroutine kessler(nz, pt, qv, qc, qr, rho, pk, dt, z, precl)
 
   integer, intent(in   )                :: nz    ! Number of thermodynamic levels in the column
   real(8), intent(inout), dimension(nz) :: pt    ! Potential temperature (K)
-  real(8), intent(inout), dimension(nz) :: qv    ! Water vapor mixing ratio (gm/gm)
-  real(8), intent(inout), dimension(nz) :: qc    ! Cloud water mixing ratio (gm/gm)
-  real(8), intent(inout), dimension(nz) :: qr    ! Rain  water mixing ratio (gm/gm)
+  real(8), intent(inout), dimension(nz) :: qv    ! Water vapor mixing ratio (g/g)
+  real(8), intent(inout), dimension(nz) :: qc    ! Cloud water mixing ratio (g/g)
+  real(8), intent(inout), dimension(nz) :: qr    ! Rain  water mixing ratio (g/g)
   real(8), intent(in   ), dimension(nz) :: rho   ! Dry air density (not mean state as in KW) (kg/m^3)
   real(8), intent(in   ), dimension(nz) :: pk    ! Exner function (p/p0)**(R/cp)
   real(8), intent(in   )                :: dt    ! Time step (s)
@@ -93,7 +91,7 @@ subroutine kessler(nz, pt, qv, qc, qr, rho, pk, dt, z, precl)
   real(8) dt0
   integer k, rainsplit, nt
 
-  do k = 1, nz
+  do k = nz, 1, -1
     r    (k) = 0.001d0 * rho(k) ! g cm-3
     rhalf(k) = sqrt(rho(nz) / rho(k))
     pc   (k) = 3.8d0 / (pk(k)**(1.0d0 / rd_o_cpd) * psl) ! hPa
@@ -135,7 +133,7 @@ subroutine kessler(nz, pt, qv, qc, qr, rho, pk, dt, z, precl)
       qr(k) = max(qr(k) + qrprod + sed(k), 0.0d0)
 
       ! Saturation vapor mixing ratio (gm/gm) following KW eq. 2.11
-      qvs = pc(k) * exp(17.27d0 * (pk(k) * pt(k) - 273) / (pk(k) * pt(k)- 36))
+      qvs = pc(k) * exp(17.27d0 * (pk(k) * pt(k) - 273) / (pk(k) * pt(k) - 36))
       prod = (qv(k) - qvs) / (1 + qvs * (4093 * lv / cpd) / (pk(k) * pt(k) - 36)**2)
 
       ! Evaporation rate following KW eq. 2.14a,b
