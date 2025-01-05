@@ -200,7 +200,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * (0.5_r8 * (dudt_phys%d(i,j,k) + dudt_phys%d(i+1,j,k)) + dudt_damp%d(i,j,k))
+          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * 0.5_r8 * (dudt_phys%d(i,j,k) + dudt_phys%d(i+1,j,k))
         end do
       end do
     end do
@@ -208,7 +208,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * (0.5_r8 * (dvdt_phys%d(i,j,k) + dvdt_phys%d(i,j+1,k)) + dvdt_damp%d(i,j,k))
+          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * 0.5_r8 * (dvdt_phys%d(i,j,k) + dvdt_phys%d(i,j+1,k))
         end do
       end do
     end do
@@ -216,29 +216,6 @@ contains
     end associate
 
   end subroutine physics_update_uv
-
-  subroutine physics_update_w(block, dstate, dt)
-
-    type(block_type), intent(in) :: block
-    type(dstate_type), intent(inout) :: dstate
-    real(r8), intent(in) :: dt
-
-    integer i, j, k
-
-    associate (mesh      => block%mesh         , &
-               dwdt_damp => block%aux%dwdt_damp, & ! in
-               w_lev     => dstate%w_lev       )   ! inout
-    do k = mesh%half_kds + 1, mesh%half_kde - 1
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          w_lev%d(i,j,k) = w_lev%d(i,j,k) + dt * dwdt_damp%d(i,j,k)
-        end do
-      end do
-    end do
-    call fill_halo(w_lev)
-    end associate
-
-  end subroutine physics_update_w
 
   subroutine physics_update_mgs(block, dstate, dt)
 
@@ -271,13 +248,12 @@ contains
 
     associate (mesh       => block%mesh          , &
                dptdt_phys => block%aux%dptdt_phys, & ! in
-               dptdt_damp => block%aux%dptdt_damp, & ! in
                dmg        => dstate%dmg          , & ! in
                pt         => dstate%pt           )   ! inout
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = pt%d(i,j,k) + dt * (dptdt_phys%d(i,j,k) + dptdt_damp%d(i,j,k)) / dmg%d(i,j,k)
+          pt%d(i,j,k) = pt%d(i,j,k) + dt * dptdt_phys%d(i,j,k) / dmg%d(i,j,k)
         end do
       end do
     end do
@@ -296,14 +272,13 @@ contains
 
     associate (mesh      => block%mesh         , &
                dqdt_phys => block%aux%dqdt_phys, & ! in
-               dqdt_damp => block%aux%dqdt_damp, & ! in
                dmg       => dstate%dmg         , & ! in
                q         => tracers(block%id)%q)   ! inout
     do m = 1, ntracers
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            q%d(i,j,k,m) = q%d(i,j,k,m) + dt * (dqdt_phys%d(i,j,k,m) + dqdt_damp%d(i,j,k,m)) / dmg%d(i,j,k)
+            q%d(i,j,k,m) = q%d(i,j,k,m) + dt * dqdt_phys%d(i,j,k,m) / dmg%d(i,j,k)
           end do
         end do
       end do
@@ -325,13 +300,11 @@ contains
     select case (pdc_type)
     case (1)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     case (14)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
@@ -351,13 +324,11 @@ contains
     select case (pdc_type)
     case (2)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     case (24)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     case (5)
@@ -379,13 +350,11 @@ contains
     select case (pdc_type)
     case (3)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_pt (block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     case (34)
       call physics_update_uv (block, block%dstate(itime), dt)
-      call physics_update_w  (block, block%dstate(itime), dt)
       call physics_update_mgs(block, block%dstate(itime), dt)
       call physics_update_q  (block, block%dstate(itime), dt)
     end select
@@ -405,7 +374,6 @@ contains
     select case (pdc_type)
     case (4)
       call physics_update_uv (block, dstate, dt)
-      call physics_update_w  (block, dstate, dt)
       call physics_update_mgs(block, dstate, dt)
       call physics_update_pt (block, dstate, dt)
       call physics_update_q  (block, dstate, dt)
@@ -413,7 +381,6 @@ contains
       call physics_update_pt (block, dstate, dt)
     case (5)
       call physics_update_uv (block, dstate, dt)
-      call physics_update_w  (block, dstate, dt)
       call physics_update_pt (block, dstate, dt)
     end select
 
