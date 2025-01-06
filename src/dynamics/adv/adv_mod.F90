@@ -26,6 +26,7 @@ module adv_mod
   use upwind_mod
   use weno_mod
   use physics_mod
+  use damp_mod, only: damp_update_q
   use perf_mod
 
   implicit none
@@ -317,7 +318,11 @@ contains
               qmax = q_new%max()
               if (proc%is_root()) print *, qmin, qmax
             end if
-            call fill_halo(q_new)
+            if (use_laplace_damp) then
+              call damp_update_q(block, block%dstate(new), dt_adv, idx)
+            else
+              call fill_halo(q_new)
+            end if
             end associate
           end do
           end associate

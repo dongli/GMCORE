@@ -122,6 +122,7 @@ def plot_contour_map(ax, var,
 	use_scientific=False,
 	show_lat_labels=True,
 	with_contour=True,
+	contour_levels=None,
 	linewidth=0.5):
 	if left_string is not None:
 		ax.set_title(left_string)
@@ -149,7 +150,11 @@ def plot_contour_map(ax, var,
 	# Use transform_first as in https://scitools.org.uk/cartopy/docs/latest/gallery/scalar_data/contour_transforms.html to avoid failure in contouring.
 	lon2d, lat2d = np.meshgrid(lon, lat) # Needs 2D coordinates for transform_first=True.
 	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=True)
-	if with_contour: ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=True)
+	if with_contour:
+		if contour_levels is None:
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=True)
+		else:
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, linewidths=linewidth, colors='k', transform_first=True)
 	if with_grid:
 		gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, color='gray', alpha=0.5, linestyle='--')
 		gl.top_labels = False

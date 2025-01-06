@@ -363,25 +363,37 @@ contains
 
   end subroutine physics_update_after_physics
 
-  subroutine physics_update_after_rk_substep(block, dstate, dt)
+  subroutine physics_update_after_rk_substep(block, dstate, dt, pass)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
     real(r8), intent(in) :: dt
+    integer, intent(in) :: pass
 
     call perf_start('physics_update_after_rk_substep')
 
     select case (pdc_type)
     case (4)
-      call physics_update_uv (block, dstate, dt)
-      call physics_update_mgs(block, dstate, dt)
-      call physics_update_pt (block, dstate, dt)
-      call physics_update_q  (block, dstate, dt)
+      select case (pass)
+      case (backward_pass)
+        call physics_update_uv (block, dstate, dt)
+      case (forward_pass)
+        call physics_update_mgs(block, dstate, dt)
+        call physics_update_pt (block, dstate, dt)
+        call physics_update_q  (block, dstate, dt)
+      end select
     case (14, 24, 34)
-      call physics_update_pt (block, dstate, dt)
+      select case (pass)
+      case (forward_pass)
+        call physics_update_pt (block, dstate, dt)
+      end select
     case (5)
-      call physics_update_uv (block, dstate, dt)
-      call physics_update_pt (block, dstate, dt)
+      select case (pass)
+      case (backward_pass)
+        call physics_update_uv (block, dstate, dt)
+      case (forward_pass)
+        call physics_update_pt (block, dstate, dt)
+      end select
     end select
 
     call perf_stop('physics_update_after_rk_substep')

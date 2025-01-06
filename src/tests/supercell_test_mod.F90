@@ -11,9 +11,9 @@ module supercell_test_mod
 !  SUBROUTINE supercell_test(
 !    lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert)
 !
-!  Given a point specified by: 
-!      lon    longitude (radians) 
-!      lat    latitude (radians) 
+!  Given a point specified by:
+!      lon    longitude (radians)
+!      lat    latitude (radians)
 !      p/z    pressure (Pa) / height (m)
 !  zcoords    1 if z is specified, 0 if p is specified
 !     pert    1 if thermal perturbation included, 0 if not
@@ -80,7 +80,7 @@ module supercell_test_mod
        uc         = 15         ,   & ! coordinate reference velocity
        zs         = 5000       ,   & ! lower altitude of maximum velocity
        zt         = 1000             ! transition distance of velocity
- 
+
   real(8), parameter ::            &
        pert_dtheta = 3         ,   & ! perturbation magnitude
        pert_lonc   = 0         ,   & ! perturbation longitude
@@ -91,7 +91,7 @@ module supercell_test_mod
 
 !-----------------------------------------------------------------------
 !    Coefficients computed from initialization
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
   integer(4)                  :: initialized = 0
 
   real(8), dimension(nphi   ) :: phicoord
@@ -389,7 +389,7 @@ contains
 
     ! Buffer matrices for iteration
     real(8), dimension(nphi,nz) :: phicoordmat, dztheta, rhs, irhs
-  
+
     ! Buffer for sampled potential temperature at equator
     real(8), dimension(nz) :: thetaeq
 
@@ -585,7 +585,7 @@ contains
 !    Evaluate the supercell initial conditions
 !-----------------------------------------------------------------------
   subroutine supercell_test(pert, lon, lat, p, z, zcoords, thetav, rho, qv, u, v, t, ps)
- 
+
     integer, intent(in   )           :: pert    ! 1 if perturbation should be included
                                                 ! 0 if no perturbation should be included
     real(8), intent(in   )           :: lon     ! Longitude (radians)
@@ -812,7 +812,7 @@ contains
     end if
 
     res = res * cos(lat)
-  
+
   end function zonal_velocity
 
 !-----------------------------------------------------------------------
@@ -879,7 +879,7 @@ contains
     real(8), intent(in) :: xs
 
     integer(4) i, j
-    
+
     ! Compute the lagrangian polynomial coefficients
     do i = 1, npts
       coeffs(i) = 1.0d0

@@ -28,6 +28,7 @@ module time_schemes_mod
   use process_mod, only: proc
   use physics_mod
   use filter_mod
+  use damp_mod
   use perf_mod
 
   implicit none
@@ -122,7 +123,7 @@ contains
     integer, intent(in) :: substep
 
     call space_operators(block, old_dstate, star_dstate, new_dstate, dtend, dt, all_pass, substep)
-    call update_state(block, dtend, old_dstate, new_dstate, dt, substep)
+    call update_state(block, dtend, old_dstate, new_dstate, dt, all_pass, substep)
 
   end subroutine step_all
 
@@ -138,19 +139,20 @@ contains
     integer, intent(in) :: substep
 
     call space_operators(block, old_dstate, star_dstate, new_dstate, dtend, dt, forward_pass, substep)
-    call update_state(block, dtend, old_dstate, new_dstate, dt, substep)
+    call update_state(block, dtend, old_dstate, new_dstate, dt, forward_pass, substep)
     call space_operators(block, old_dstate, star_dstate, new_dstate, dtend, dt, backward_pass, substep)
-    call update_state(block, dtend, old_dstate, new_dstate, dt, substep)
+    call update_state(block, dtend, old_dstate, new_dstate, dt, backward_pass, substep)
 
   end subroutine step_forward_backward
 
-  subroutine update_state(block, dtend, old_dstate, new_dstate, dt, substep)
+  subroutine update_state(block, dtend, old_dstate, new_dstate, dt, pass, substep)
 
     type(block_type ), intent(inout) :: block
     type(dtend_type ), intent(inout) :: dtend
     type(dstate_type), intent(in   ) :: old_dstate
     type(dstate_type), intent(inout) :: new_dstate
     real(r8), intent(in) :: dt
+    integer, intent(in) :: pass
     integer, intent(in) :: substep
 
     integer i, j, k
@@ -193,7 +195,11 @@ contains
             end do
           end do
         end do
-        call fill_halo(new_dstate%pt)
+        if (use_laplace_damp) then
+          call damp_update_pt(block, new_dstate, dt)
+        else
+          call fill_halo(new_dstate%pt)
+        end if
       end if
     else
       if (dtend%update_gz) then
@@ -235,12 +241,17 @@ contains
           end do
         end do
       end do
-      call fill_halo(new_dstate%u_lon)
-      call fill_halo(new_dstate%v_lat)
+      if (use_laplace_damp) then
+        call damp_update_uv(block, new_dstate, dt)
+      else
+        call fill_halo(new_dstate%u_lon)
+        call fill_halo(new_dstate%v_lat)
+      end if
+      call calc_div(block, new_dstate)
     end if
     end associate
 
-    call physics_update_after_rk_substep(block, new_dstate, dt)
+    call physics_update_after_rk_substep(block, new_dstate, dt, pass)
 
   end subroutine update_state
 

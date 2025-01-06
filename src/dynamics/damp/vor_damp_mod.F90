@@ -14,7 +14,6 @@ module vor_damp_mod
   use namelist_mod
   use latlon_parallel_mod
   use block_mod
-  use operators_mod
   use filter_mod
 
   implicit none
@@ -78,8 +77,6 @@ contains
     real(8), intent(in) :: dt
 
     integer i, j, k
-
-    call calc_vor(block, dstate)
 
     associate (mesh => block%mesh      , &
                vor  => block%aux%vor   , &
