@@ -146,7 +146,7 @@ module namelist_mod
   logical         :: use_div_damp         = .false.
   integer         :: div_damp_cycles      = 1
   integer         :: div_damp_order       = 2
-  real(r8)        :: div_damp_top         = 3
+  real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
   real(r8)        :: div_damp_pole        = 10
   real(r8)        :: div_damp_lat0        = 80

@@ -318,11 +318,7 @@ contains
               qmax = q_new%max()
               if (proc%is_root()) print *, qmin, qmax
             end if
-            if (use_laplace_damp) then
-              call damp_update_q(block, block%dstate(new), dt_adv, idx)
-            else
-              call fill_halo(q_new)
-            end if
+            call fill_halo(q_new)
             end associate
           end do
           end associate

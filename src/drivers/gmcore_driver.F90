@@ -17,6 +17,15 @@ program gmcore_driver
   use initial_mod
   use restart_mod
   use gmcore_mod
+  use mountain_zonal_flow_test_mod
+  use rossby_haurwitz_wave_test_mod
+  use jet_zonal_flow_test_mod
+  use steady_geostrophic_flow_test_mod
+  use cross_pole_flow_test_mod
+  use shallow_water_waves_test_mod
+  use vortex_erosion_test_mod
+  use splash_test_mod
+  use colliding_modons_test_mod
   use steady_state_test_mod
   use rossby_haurwitz_wave_3d_test_mod
   use mountain_wave_test_mod
@@ -53,26 +62,32 @@ program gmcore_driver
   call gmcore_init_stage0()
 
   select case (test_case)
+  case ('swm_sp')
+    call splash_test_set_params()
+  case ('swm_cm')
+    call colliding_modons_test_set_params()
   case ('ksp15_01', 'ksp15_02')
     call ksp15_test_set_params()
-  case ('steady_state_pgf')
+  case ('ss_pgf')
     call steady_state_pgf_test_set_params()
   case ('dcmip31')
     call dcmip31_test_set_params()
-  case ('supercell')
+  case ('sc')
     call supercell_test_set_params()
   end select
 
   call gmcore_init_stage1(namelist_path)
 
+  call gmcore_init_stage2(namelist_path)
+
   select case (test_case)
-  case ('baroclinic_wave')
+  case ('bw')
     call baroclinic_wave_test_init()
-  case ('mountain_wave')
+  case ('mz')
     call mountain_wave_test_init()
-  case ('tropical_cyclone')
+  case ('tc')
     call tropical_cyclone_test_init()
-  case ('supercell')
+  case ('sc')
     call supercell_test_init(namelist_path)
   end select
 
@@ -83,8 +98,6 @@ program gmcore_driver
     call initial_read_init()
   end if
 
-  call gmcore_init_stage2(namelist_path)
-
   if (restart) then
     call restart_read()
   else if (initial_file /= 'N/A') then
@@ -94,17 +107,35 @@ program gmcore_driver
     call prepare_final() ! Release memory for preparation.
   else
     select case (test_case)
-    case ('steady_state')
+    case ('swm_mz')
+      set_ic => mountain_zonal_flow_test_set_ic
+    case ('swm_rh')
+      set_ic => rossby_haurwitz_wave_test_set_ic
+    case ('swm_jz')
+      set_ic => jet_zonal_flow_test_set_ic
+    case ('swm_sg')
+      set_ic => steady_geostrophic_flow_test_set_ic
+    case ('swm_cp')
+      set_ic => cross_pole_flow_test_set_ic
+    case ('swm_sw')
+      set_ic => shallow_water_waves_test_set_ic
+    case ('swm_vr')
+      set_ic => vortex_erosion_test_set_ic
+    case ('swm_sp')
+      set_ic => splash_test_set_ic
+    case ('swm_cm')
+      set_ic => colliding_modons_test_set_ic
+    case ('ss')
       set_ic => steady_state_test_set_ic
-    case ('steady_state_pgf')
+    case ('ss_pgf')
       set_ic => steady_state_pgf_test_set_ic
-    case ('rossby_haurwitz_wave')
+    case ('rh')
       set_ic => rossby_haurwitz_wave_3d_test_set_ic
-    case ('mountain_wave')
+    case ('mz')
       set_ic => mountain_wave_test_set_ic
-    case ('baroclinic_wave')
+    case ('bw')
       set_ic => baroclinic_wave_test_set_ic
-    case ('held_suarez')
+    case ('hs')
       set_ic => held_suarez_test_set_ic
     case ('ksp15_01')
       set_ic => ksp15_01_test_set_ic
@@ -114,17 +145,19 @@ program gmcore_driver
       set_ic => dcmip31_test_set_ic
     case ('mars_cold_run')
       set_ic => mars_cold_run_set_ic
-    case ('tropical_cyclone')
+    case ('tc')
       set_ic => tropical_cyclone_test_set_ic
-    case ('supercell')
+    case ('sc')
       set_ic => supercell_test_set_ic
     case default
       if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
     end select
 
-    do iblk = 1, size(blocks)
-      call set_ic(blocks(iblk))
-    end do
+    if (proc%is_model()) then
+      do iblk = 1, size(blocks)
+        call set_ic(blocks(iblk))
+      end do
+    end if
   end if
 
   call gmcore_init_stage3()

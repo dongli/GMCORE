@@ -26,6 +26,7 @@ module damp_mod
   public damp_init
   public damp_final
   public damp_run
+  public damp_update
   public damp_update_uv
   public damp_update_w
   public damp_update_pt
@@ -82,6 +83,7 @@ contains
         call laplace_damp_run(block, tracers(block%id)%q, m, 2, 1500.0_r8, block%aux%dqdt_damp)
         call block%aux%dqdt_damp%mul(m, dstate%dmg)
       end do
+      call damp_update(block, dstate, dt)
     end if
     if (use_vor_damp) then
       call vor_damp_run(block, dstate, dt)
@@ -94,6 +96,72 @@ contains
     end if
 
   end subroutine damp_run
+
+  subroutine damp_update(block, dstate, dt)
+
+    type(block_type), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+
+    integer i, j, k, m
+
+    associate (mesh  => block%mesh          , &
+               dmg   => dstate%dmg          , & ! in
+               dudt  => block%aux%dudt_damp , & ! in
+               dvdt  => block%aux%dvdt_damp , & ! in
+               dwdt  => block%aux%dwdt_damp , & ! in
+               dptdt => block%aux%dptdt_damp, & ! in
+               dqdt => block%aux%dqdt_damp  , & ! in
+               u_lon => dstate%u_lon        , & ! out
+               v_lat => dstate%v_lat        , & ! out
+               w_lev => dstate%w_lev        , & ! out
+               pt    => dstate%pt           , & ! out
+               q     => tracers(block%id)%q )   ! out
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids, mesh%half_ide
+          u_lon%d(i,j,k) = u_lon%d(i,j,k) + dt * dudt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(u_lon)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%half_jds, mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          v_lat%d(i,j,k) = v_lat%d(i,j,k) + dt * dvdt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(v_lat)
+    do k = mesh%half_kds + 1, mesh%half_kde - 1
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          w_lev%d(i,j,k) = w_lev%d(i,j,k) + dt * dwdt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(w_lev)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          pt%d(i,j,k) = pt%d(i,j,k) + dt * dptdt%d(i,j,k) / dmg%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(pt)
+    do m = 1, ntracers
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            q%d(i,j,k,m) = q%d(i,j,k,m) + dt * dqdt%d(i,j,k,m) / dmg%d(i,j,k)
+          end do
+        end do
+      end do
+      call fill_halo(q, m)
+    end do
+    end associate
+
+  end subroutine damp_update
 
   subroutine damp_update_uv(block, dstate, dt)
 

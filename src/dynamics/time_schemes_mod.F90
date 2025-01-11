@@ -28,7 +28,6 @@ module time_schemes_mod
   use process_mod, only: proc
   use physics_mod
   use filter_mod
-  use damp_mod
   use perf_mod
 
   implicit none
@@ -195,11 +194,7 @@ contains
             end do
           end do
         end do
-        if (use_laplace_damp) then
-          call damp_update_pt(block, new_dstate, dt)
-        else
-          call fill_halo(new_dstate%pt)
-        end if
+        call fill_halo(new_dstate%pt)
       end if
     else
       if (dtend%update_gz) then
@@ -241,12 +236,8 @@ contains
           end do
         end do
       end do
-      if (use_laplace_damp) then
-        call damp_update_uv(block, new_dstate, dt)
-      else
-        call fill_halo(new_dstate%u_lon)
-        call fill_halo(new_dstate%v_lat)
-      end if
+      call fill_halo(new_dstate%u_lon)
+      call fill_halo(new_dstate%v_lat)
       call calc_div(block, new_dstate)
     end if
     end associate

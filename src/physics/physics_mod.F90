@@ -70,6 +70,8 @@ contains
 
     if (physics_suite /= 'N/A') then
       call time_add_alert('phys', seconds=dt_phys/time_scale)
+    else
+      return
     end if
 
     nblk = size(blocks)
