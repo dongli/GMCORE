@@ -91,7 +91,7 @@ contains
           dt                   , &
           mesh%lat             , &
           state%t              , &
-          state%qv             , &
+          state%qv             , & ! Wet mixing ratio
           state%u              , &
           state%v              , &
           state%p              , &
@@ -116,9 +116,9 @@ contains
           call kessler(          &
             mesh%nlev          , &
             state%pt   (icol,:), &
-            state%qv   (icol,:), &
-            state%qc   (icol,:), &
-            state%qr   (icol,:), &
+            state%qv   (icol,:), & ! Dry mixing ratio
+            state%qc   (icol,:), & ! Dry mixing ratio
+            state%qr   (icol,:), & ! Dry mixing ratio
             state%rhod (icol,:), &
             state%pk   (icol,:), &
             dt                 , &
@@ -136,8 +136,7 @@ contains
         tend%updated_q = .true.
         do k = 1, mesh%nlev
           do icol = 1, mesh%ncol
-            tend%dptdt(icol,k) = (1 + rv_o_rd * state%qv_old(icol,k)) * (state%pt(icol,k) - state%pt_old(icol,k)) / dt + &
-                                 rv_o_rd * state%pt_old(icol,k) * tend%dqvdt(icol,k)
+            tend%dptdt(icol,k) = (state%pt(icol,k) - state%pt_old(icol,k)) / dt
           end do
         end do
         tend%updated_pt = .true.

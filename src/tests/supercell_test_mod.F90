@@ -105,8 +105,9 @@ module supercell_test_mod
 
   integer :: ngauss = 5
   integer :: pert = 1
+  integer :: max_iter = 200
 
-  namelist /supercell_test_control/ ngauss, pert
+  namelist /supercell_test_control/ ngauss, pert, max_iter
 
 contains
 
@@ -227,8 +228,8 @@ contains
 
     z1 = 0   ; p1 = ps
     z2 = zabv; p2 = pabv
-    do i = 1, 20
-      zc = z2 - (p2 - p) * (z2 - z1) / (p2 - p1)
+    do i = 1, max_iter
+      zc = z2 + (z2 - z1) / (p2 - p1) * (p - p2)
       pc = get_dry_air_pressure(pert, lon, lat, pabv, zabv, zc, ngauss, gaussx, gaussw)
       if (abs(pc - p) / p < eps) exit
       if (pc > p) then
@@ -237,7 +238,7 @@ contains
         z1 = zc; p1 = pc
       end if
     end do
-    if (i == 21) then
+    if (i == max_iter + 1) then
       call log_error('get_height: Iteration did not converge!', __FILE__, __LINE__)
     end if
     res = zc

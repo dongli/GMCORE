@@ -216,8 +216,8 @@ contains
                  dptdt  => block%aux%dptdt_phys, & ! out
                  dpsdt  => block%aux%dpsdt_phys, & ! out
                  dqdt   => block%aux%dqdt_phys , & ! out
-                 old_q  => tracers%q           , &
-                 old_qm => tracers%qm          )
+                 q_old  => tracers%q           , & ! in
+                 qm_old => tracers%qm          )   ! in
       if (ptend%updated_ps) then
         icol = 1
         do j = mesh%full_jds, mesh%full_jde
@@ -248,59 +248,15 @@ contains
         call fill_halo(dudt, west_halo=.false., south_halo=.false., north_halo=.false.)
         call fill_halo(dvdt, west_halo=.false., east_halo=.false., south_halo=.false.)
       end if
-      if (ptend%updated_t) then
-        ! Convert temperature tendency to modified potential temperature tendency.
-        if (physics_use_wet_tracers(idx_qv)) then
-          do k = mesh%full_kds, mesh%full_kde
-            icol = 1
-            do j = mesh%full_jds, mesh%full_jde
-              do i = mesh%full_ids, mesh%full_ide
-                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
-                  (1 + old_q%d(i,j,k,idx_qv) * rv_o_rd) * ptend%dtdt(icol,k) + &
-                  pstate%t(icol,k) * rv_o_rd * ptend%dqdt(icol,k,idx_qv))
-                icol = icol + 1
-              end do
-            end do
-          end do
-        else
-          do k = mesh%full_kds, mesh%full_kde
-            icol = 1
-            do j = mesh%full_jds, mesh%full_jde
-              do i = mesh%full_ids, mesh%full_ide
-                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) / (1 + old_q%d(i,j,k,idx_qv)) * ( &
-                  (1 + old_q%d(i,j,k,idx_qv) / rv_o_rd) * ptend%dtdt(icol,k) + &
-                  pstate%t(icol,k) / rv_o_rd * ptend%dqdt(icol,k,idx_qv))
-                icol = icol + 1
-              end do
-            end do
-          end do
-        end if
-        if (filter_ptend) then
-          call filter_run(block%big_filter, dptdt)
-        end if
-      else if (ptend%updated_pt) then
-        do k = mesh%full_kds, mesh%full_kde
-          icol = 1
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) * ptend%dptdt(icol,k)
-              icol = icol + 1
-            end do
-          end do
-        end do
-        if (filter_ptend) then
-          call filter_run(block%big_filter, dptdt)
-        end if
-      end if
       do m = 1, ntracers
-        ! FIXME: Actually, most physics codes directly update q, so we do not need dqdt.
         if (ptend%updated_q(m)) then
           if (physics_use_wet_tracers(m)) then
             do k = mesh%full_kds, mesh%full_kde
               icol = 1
               do j = mesh%full_jds, mesh%full_jde
                 do i = mesh%full_ids, mesh%full_ide
-                  dqdt%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + old_qm%d(i,j,k))
+                  ! NOTE: Here we make an approximation on (1 + qm).
+                  dqdt%d(i,j,k,m) = dstate%dmg%d(i,j,k) * ptend%dqdt(icol,k,m) * (1 + qm_old%d(i,j,k))
                   icol = icol + 1
                 end do
               end do
@@ -321,6 +277,69 @@ contains
           end if
         end if
       end do
+      if (ptend%updated_t) then
+        ! Convert temperature tendency to modified potential temperature tendency.
+        if (idx_qv > 0) then
+          ! Assume dqdt is set.
+          ! - Temperature and dry mixing ratio tendencies
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ( &
+                  (1 + q_old%d(i,j,k,idx_qv) * rv_o_rd) * ptend%dtdt(icol,k) + &
+                  pstate%t_old(icol,k) * rv_o_rd * dqdt%d(i,j,k,idx_qv) / dstate%dmg%d(i,j,k))
+                icol = icol + 1
+              end do
+            end do
+          end do
+        else
+          ! - No moisture
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) / pstate%pk(icol,k) * ptend%dtdt(icol,k)
+                icol = icol + 1
+              end do
+            end do
+          end do
+        end if
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dptdt)
+        end if
+      else if (ptend%updated_pt) then
+        ! Convert potential temperature to modified potential temperature tendency.
+        if (idx_qv > 0) then
+          ! Assume dqdt is set.
+          ! - Potential temperature tendency
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) * ( &
+                  (1 + q_old%d(i,j,k,idx_qv) * rv_o_rd) * ptend%dptdt(icol,k) + &
+                  pstate%pt_old(icol,k) * rv_o_rd * dqdt%d(i,j,k,idx_qv) / dstate%dmg%d(i,j,k))
+                icol = icol + 1
+              end do
+            end do
+          end do
+        else
+          ! - No moisture
+          do k = mesh%full_kds, mesh%full_kde
+            icol = 1
+            do j = mesh%full_jds, mesh%full_jde
+              do i = mesh%full_ids, mesh%full_ide
+                dptdt%d(i,j,k) = dstate%dmg%d(i,j,k) * ptend%dptdt(icol,k)
+                icol = icol + 1
+              end do
+            end do
+          end do
+        end if
+        if (filter_ptend) then
+          call filter_run(block%big_filter, dptdt)
+        end if
+      end if
       end associate
 
     end subroutine common_p2d
