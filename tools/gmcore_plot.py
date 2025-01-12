@@ -194,3 +194,7 @@ def plot_time_series(ax, time, var, ylim=None, color='black', font_size=8):
 		ax.set_xlabel('Time')
 	else:
 		ax.set_xlabel('Sol')
+
+def window_closed(event):
+	plt.close()
+	exit(0)
