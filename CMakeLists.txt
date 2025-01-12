@@ -436,9 +436,6 @@ endif ()
 add_executable(gmcore_prepare.exe src/drivers/gmcore_prepare.F90)
 target_link_libraries(gmcore_prepare.exe gmcore)
 
-add_executable(gmcore_swm_driver.exe src/drivers/gmcore_swm_driver.F90)
-target_link_libraries(gmcore_swm_driver.exe gmcore)
-
 add_executable(gmcore_driver.exe src/drivers/gmcore_driver.F90)
 target_link_libraries(gmcore_driver.exe gmcore)
 
