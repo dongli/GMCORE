@@ -96,14 +96,28 @@ MODULE baroclinic_wave_test_mod
        moistT0    = 273.16d0,         & ! Reference temperature (K)
        moistE0Ast = 610.78d0            ! Saturation vapor pressure at T0 (Pa) 
 
+  integer :: moist = 0
+
+  namelist /baroclinic_wave_control/ moist
+
 CONTAINS
 
-  subroutine baroclinic_wave_test_init()
+  subroutine baroclinic_wave_test_init(namelist_path)
 
     use namelist_mod
     use tracer_mod
 
-    call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    character(*), intent(in) :: namelist_path
+
+    integer ignore
+
+    open(11, file=namelist_path, status='old')
+    read(11, nml=baroclinic_wave_control, iostat=ignore)
+    close(11)
+
+    if (moist == 1) then
+      call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
+    end if
 
     ptop = 226.0d0 ! Recommended pressure at the model top
 
@@ -120,7 +134,7 @@ CONTAINS
     type(block_type), intent(inout), target :: block
 
     integer i, j, k
-    real(8) thetav, rho, z
+    real(8) thetav, rho, z, qv
 
     associate (mesh   => block%mesh            , &
                gzs    => block%static%gzs      , & ! out
@@ -144,7 +158,7 @@ CONTAINS
         do i = mesh%full_ids, mesh%full_ide
           call baroclinic_wave_test(  &
             deep   =0               , &
-            moist  =0               , &
+            moist  =moist           , &
             pertt  =0               , &
             X      =1.0d0           , &
             lon    =mesh%full_lon(i), &
@@ -159,35 +173,45 @@ CONTAINS
             phis   =gzs%d(i,j)      , &
             ps     =mgs%d(i,j)      , &
             rho    =rho             , &
-            q      =q%d(i,j,k,1)    )
+            q      =qv              )
+          if (moist == 1) then
+            q%d(i,j,k,1) = qv
+          end if
         end do
       end do
     end do
     ! Remove water vapor weight from surface pressure to get dry air pressure.
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          mgs%d(i,j) = mgs%d(i,j) - (ph_lev%d(i,j,k+1) - ph_lev%d(i,j,k)) * q%d(i,j,k,1)
+    if (moist == 1) then
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            mgs%d(i,j) = mgs%d(i,j) - (ph_lev%d(i,j,k+1) - ph_lev%d(i,j,k)) * q%d(i,j,k,1)
+          end do
         end do
       end do
-    end do
-    call fill_halo(mgs)
-    ! Calculate dry mixing ratio of water vapor.
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds, mesh%full_jde
-        do i = mesh%full_ids, mesh%full_ide
-          ! NOTE: qm is currently the total wet mixing ratio of water substances.
-          q%d(i,j,k,1) = q%d(i,j,k,1) / (1 - q%d(i,j,k,1))
+      call fill_halo(mgs)
+      ! Calculate dry mixing ratio of water vapor.
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,1) = q%d(i,j,k,1) / (1 - q%d(i,j,k,1))
+          end do
         end do
       end do
-    end do
-    call fill_halo(q, 1)
+      call fill_halo(q, 1)
+    end if
     ! Calculate potential temperature.
     call calc_mg(block, block%dstate(1))
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), mg%d(i,j,k), q%d(i,j,k,1))
+          if (moist == 1) then
+            qv = q%d(i,j,k,1)
+          else
+            qv = 0
+          end if
+          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), mg%d(i,j,k), qv)
         end do
       end do
     end do

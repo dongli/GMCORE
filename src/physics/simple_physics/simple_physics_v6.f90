@@ -402,7 +402,7 @@ subroutine simple_physics(pcols, pver, dtime, lat, t, q, u, v, pmid, pint, pdel,
       u   (i,k) = CEm(i,k) * u(i,k-1) + CFu(i,k)
       v   (i,k) = CEm(i,k) * v(i,k-1) + CFv(i,k)
       tmp       = (CE(i,k) * t(i,k-1) * (p0 / pmid(i,k-1))**(rair / cpair) + CFt(i,k)) * (pmid(i,k) / p0)**(rair / cpair)
-      dtdt(i,k) = dtdt(i,k) + (tmp -t(i,k)) / dtime
+      dtdt(i,k) = dtdt(i,k) + (tmp - t(i,k)) / dtime
       t   (i,k) = tmp
       tmp       = CE(i,k) * q(i,k-1) + CFq(i,k)
       dqdt(i,k) = dqdt(i,k) + (tmp - q(i,k)) / dtime

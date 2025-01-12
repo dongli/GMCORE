@@ -78,11 +78,9 @@ program gmcore_driver
 
   call gmcore_init_stage1(namelist_path)
 
-  call gmcore_init_stage2(namelist_path)
-
   select case (test_case)
   case ('bw')
-    call baroclinic_wave_test_init()
+    call baroclinic_wave_test_init(namelist_path)
   case ('mz')
     call mountain_wave_test_init()
   case ('tc')
@@ -90,6 +88,8 @@ program gmcore_driver
   case ('sc')
     call supercell_test_init(namelist_path)
   end select
+
+  call gmcore_init_stage2(namelist_path)
 
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then
     call prepare_topo()
