@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -123,7 +124,8 @@ def plot_contour_map(ax, var,
 	show_lat_labels=True,
 	with_contour=True,
 	contour_levels=None,
-	linewidth=0.5):
+	linewidth=0.5,
+	transform_first=True):
 	if left_string is not None:
 		ax.set_title(left_string)
 		# How to set title font size?
@@ -149,12 +151,12 @@ def plot_contour_map(ax, var,
 	if add_cyclic_point: var, lon = cutil.add_cyclic_point(var, coord=lon)
 	# Use transform_first as in https://scitools.org.uk/cartopy/docs/latest/gallery/scalar_data/contour_transforms.html to avoid failure in contouring.
 	lon2d, lat2d = np.meshgrid(lon, lat) # Needs 2D coordinates for transform_first=True.
-	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=True)
+	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=transform_first)
 	if with_contour:
 		if contour_levels is None:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=True)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 		else:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, linewidths=linewidth, colors='k', transform_first=True)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 	if with_grid:
 		gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, color='gray', alpha=0.5, linestyle='--')
 		gl.top_labels = False
