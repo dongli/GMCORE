@@ -129,7 +129,7 @@ module namelist_mod
   real(r8)        :: upwind_wgt           = 0.75_r8
 
   character(30)   :: time_scheme          = 'wrfrk3'
-  logical         :: save_dyn_calc        = .false.
+  logical         :: save_dyn_calc        = .true.
 
   ! Filter settings
   real(r8)        :: filter_wave_speed    = 300.0_r8

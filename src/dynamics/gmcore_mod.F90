@@ -225,7 +225,7 @@ contains
     end select
     call time_add_alert('print', seconds=seconds)
 
-    call operators_prepare(blocks, old, dt_dyn)
+    if (.not. advection) call operators_prepare(blocks, old, dt_dyn)
     call physics_init_stage3()
     call history_init_stage3()
 

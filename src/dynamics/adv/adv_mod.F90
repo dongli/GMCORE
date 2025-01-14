@@ -26,7 +26,6 @@ module adv_mod
   use upwind_mod
   use weno_mod
   use physics_mod
-  use damp_mod, only: damp_update_q
   use perf_mod
 
   implicit none
