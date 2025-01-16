@@ -740,7 +740,7 @@ contains
                v_lat => dstate%v_lat   , & ! in
                u_lat => block%aux%u_lat, & ! in
                vor   => block%aux%vor  )   ! out
-    call curl_operator(u_lon, v_lat, vor)
+    call curl_operator(u_lon, v_lat, vor, with_halo=.true.)
     if (pv_pole_stokes) then
       ! Special treatment of vorticity around Poles
       if (mesh%has_south_pole()) then

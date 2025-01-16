@@ -7,7 +7,7 @@ module tropical_cyclone_test_mod
 !  Function for setting up idealized tropical cyclone initial conditions
 !
 !  SUBROUTINE tropical_cyclone_sample(
-!    lon,lat,p,z,zcoords,u,v,t,ptv,phis,ps,rho,q)
+!    lon,lat,p,z,zcoords,ptv,rho,qv,u,v,t,phis)
 !
 !  Given a point specified by:
 !      lon    longitude (radians)
@@ -23,9 +23,8 @@ module tropical_cyclone_test_mod
 !        t    temperature (K)
 !      ptv    virtual potential temperature (K)
 !     phis    surface geopotential (m^2 s^-2)
-!       ps    surface pressure (Pa)
 !      rho    density (kj m^-3)
-!        q    specific humidity (kg/kg)
+!       qv    specific humidity (kg/kg)
 !
 !  Initial data are currently identical to:
 !
@@ -43,8 +42,14 @@ module tropical_cyclone_test_mod
 !   2023-08: Revised by Li Dong following Yi Zhang's work.
 ! ======================================================================
 
+  use mpi
+  use string
   use flogger
-  use const_mod, only: r8, pi, rad, deg, rd, g, cpd, omega, a => radius
+  use math_mod
+  use const_mod, only: r8, pi, rad, deg, rd, g, cpd, rd_o_cpd, omega, a => radius
+  use block_mod
+  use formula_mod
+  use vert_coord_mod
   use namelist_mod
   use tracer_mod
   use latlon_parallel_mod
@@ -56,54 +61,30 @@ module tropical_cyclone_test_mod
   public tropical_cyclone_test_init
   public tropical_cyclone_test_set_ic
 
-  integer , parameter :: ngauss = 20
-  real(r8), parameter, dimension(ngauss), private :: gaussx = &
-    [-0.0765265211334973, 0.0765265211334973, &
-     -0.2277858511416451, 0.2277858511416451, &
-     -0.3737060887154195, 0.3737060887154195, &
-     -0.5108670019508271, 0.5108670019508271, &
-     -0.6360536807265150, 0.6360536807265150, &
-     -0.7463319064601508, 0.7463319064601508, &
-     -0.8391169718222188, 0.8391169718222188, &
-     -0.9122344282513259, 0.9122344282513259, &
-     -0.9639719272779138, 0.9639719272779138, &
-     -0.9931285991850949, 0.9931285991850949]
-  real(r8), parameter, dimension(ngauss), private :: gaussw = &
-    [0.1527533871307258 , 0.1527533871307258, &
-     0.1491729864726037 , 0.1491729864726037, &
-     0.1420961093183820 , 0.1420961093183820, &
-     0.1316886384491766 , 0.1316886384491766, &
-     0.1181945319615184 , 0.1181945319615184, &
-     0.1019301198172404 , 0.1019301198172404, &
-     0.0832767415767048 , 0.0832767415767048, &
-     0.0626720483341091 , 0.0626720483341091, &
-     0.0406014298003869 , 0.0406014298003869, &
-     0.0176140071391521 , 0.0176140071391521]
-
-!=======================================================================
-!    Physical constants
-!=======================================================================
+  ! ====================================================================
+  ! Physical constants
+  ! ====================================================================
 
   real(r8), parameter ::   &
-    Lvap  = 2.5d6        , & ! Latent heat of vaporization of water
-    Mvap  = 0.608d0      , & ! Ratio of molar mass of dry air/water
-    p0    = 100000.0d0       ! surface pressure (Pa)
+    Lvap     = 2.5d6     , & ! Latent heat of vaporization of water
+    Mvap     = 0.608d0   , & ! Ratio of molar mass of dry air/water
+    p0       = 100000.0d0    ! Surface pressure (Pa)
 
-!=======================================================================
-!    Test case parameters
-!=======================================================================
+  ! ====================================================================
+  ! Test case parameters
+  ! ====================================================================
   real(r8), parameter ::   &
     rp       = 282000.d0 , & ! Radius for calculation of PS
     dp       = 1115.d0   , & ! Delta P for calculation of PS
     zp       = 7000.d0   , & ! Height for calculation of P
-    q0       = 0.021d0   , & ! q at surface from Jordan
+    q0       = 0.021d0   , & ! qv at surface from Jordan
     gamma    = 0.007d0   , & ! lapse rate
     Ts0      = 302.15d0  , & ! Surface temperature (SST)
     p00      = 101500.d0 , & ! global mean surface pressure
     cen_lat  = 10 * rad  , & ! Center latitude of initial vortex
     cen_lon  = 180 * rad , & ! Center longitufe of initial vortex
-    zq1      = 3000.d0   , & ! Height 1 for q calculation
-    zq2      = 8000.d0   , & ! Height 2 for q calculation
+    zq1      = 3000.d0   , & ! Height 1 for qv calculation
+    zq2      = 8000.d0   , & ! Height 2 for qv calculation
     exppr    = 1.5d0     , & ! Exponent for r dependence of p
     exppz    = 2.d0      , & ! Exponent for z dependence of p
     ztrop    = 15000.d0  , & ! Tropopause Height
@@ -116,25 +97,48 @@ module tropical_cyclone_test_mod
   real(r8) exponent          ! rd * gamma / g
   real(r8) ptrop             ! Tropopause pressure
 
+  real(r8), pointer :: gaussx(:) => null()
+  real(r8), pointer :: gaussw(:) => null()
+
+  integer :: ngauss = 5
+  integer :: max_iter = 200
+
 contains
 
   subroutine tropical_cyclone_test_init()
 
-    call tracer_add('moist', dt_adv, 'qv', 'kg/kg', 'Water vapor mixing ratio')
+    select case (ngauss)
+    case (3)
+      gaussx => gaussx3
+      gaussw => gaussw3
+    case (5)
+      gaussx => gaussx5
+      gaussw => gaussw5
+    case (20)
+      gaussx => gaussx20
+      gaussw => gaussw20
+    case default
+      if (proc%is_root()) call log_error('supercell_test_init: Invalid ngauss value!', __FILE__, __LINE__)
+    end select
+
+    if (idx_qv == 0) call tracer_add('moist', dt_adv, 'qv', 'Water vapor', 'kg kg-1')
 
   end subroutine tropical_cyclone_test_init
 
-  real(r8) function get_dry_air_pressure(lon, lat, ptop, ztop, z) result(res)
+  real(r8) function get_dry_air_pressure(lon, lat, ptop, ztop, z, ngauss, gaussx, gaussw) result(res)
 
     real(r8), intent(in) :: lon
     real(r8), intent(in) :: lat
     real(r8), intent(in) :: ptop
     real(r8), intent(in) :: ztop
     real(r8), intent(in) :: z
+    integer , intent(in) :: ngauss
+    real(r8), intent(in) :: gaussx(ngauss)
+    real(r8), intent(in) :: gaussw(ngauss)
 
     integer jgw
     real(r8) z1, z2, a, b, zg
-    real(r8) p, u, v, t, ptv, gzs, ps, rho, qv
+    real(r8) p, ptv, rho, qv
 
     ! Set vertical height range.
     z1 = z
@@ -146,7 +150,7 @@ contains
     res = 0
     do jgw = 1, ngauss
       zg = a * gaussx(jgw) + b
-      call tropical_cyclone_test(lon, lat, p, zg, 1, u, v, t, ptv, gzs, ps, rho, qv)
+      call tropical_cyclone_test(lon, lat, p, zg, 1, ptv, rho, qv)
       ! Remove water vapor from integration.
       ! Note: qv is wet mixing ratio or specific humidity here.
       res = res + gaussw(jgw) * rho * (1 - qv)
@@ -157,60 +161,70 @@ contains
 
   real(r8) function get_pressure(lon, lat, z) result(res)
 
-    real(r8), intent(in) :: lon
-    real(r8), intent(in) :: lat
+    real(r8), intent(in   ) :: lon
+    real(r8), intent(in   ) :: lat
     real(r8), intent(inout) :: z
 
-    real(r8) u, v, t, ptv, gzs, ps, rho, qv
+    real(r8) ptv, rho, qv
 
-    call tropical_cyclone_test(lon, lat, res, z, 1, u, v, t, ptv, gzs, ps, rho, qv)
+    call tropical_cyclone_test(lon, lat, res, z, 1, ptv, rho, qv)
 
   end function get_pressure
 
-  real(r8) function get_height(lon, lat, ptop, ztop, p) result(res)
+  real(r8) function get_top_height(lon, lat, ptop) result(res)
+
+    real(r8), intent(in   ) :: lon
+    real(r8), intent(in   ) :: lat
+    real(r8), intent(inout) :: ptop
+
+    real(r8) ptv, rho, qv
+
+    call tropical_cyclone_test(lon, lat, ptop, res, 0, ptv, rho, qv)
+
+  end function get_top_height
+
+  real(r8) function get_height(lon, lat, pabv, zabv, ps, p) result(res)
 
     real(r8), intent(in) :: lon
     real(r8), intent(in) :: lat
-    real(r8), intent(in) :: ptop
-    real(r8), intent(in) :: ztop
-    real(r8), intent(in) :: p    ! Dry air pressure
+    real(r8), intent(in) :: pabv ! Dry air pressure of above level (Pa)
+    real(r8), intent(in) :: zabv ! Height of above level (m)
+    real(r8), intent(in) :: ps   ! Dry air surface pressure (Pa)
+    real(r8), intent(in) :: p    ! Dry air pressure (Pa)
 
     real(r8), parameter :: eps = 1.0e-12_r8
-    real(r8) z0, z1, z2
-    real(r8) p0, p1, p2
+    real(r8) z1, z2, zc
+    real(r8) p1, p2, pc
     integer i
 
-    z0 = 0    ; p0 = get_dry_air_pressure(lon, lat, ptop, ztop, z0)
-    z1 = 10000; p1 = get_dry_air_pressure(lon, lat, ptop, ztop, z1)
+    z1 = 0   ; p1 = ps
+    z2 = zabv; p2 = pabv
     do i = 1, 1000
-      z2 = z1 - (p1 - p) * (z1 - z0) / (p1 - p0)
-      p2 = get_dry_air_pressure(lon, lat, ptop, ztop, z2)
-      if (abs(p2 - p) / p < eps .or. abs(z1 - z2) < eps .or. abs(p1 - p2) < eps) then
-        exit
+      zc = z2 + (z2 - z1) / (p2 - p1) * (p - p2)
+      pc = get_dry_air_pressure(lon, lat, pabv, zabv, zc, ngauss, gaussx, gaussw)
+      if (abs(pc - p) / p < eps) exit
+      if (pc > p) then
+        z2 = zc; p2 = pc
+      else
+        z1 = zc; p1 = pc
       end if
-      z0 = z1; p0 = p1
-      z1 = z2; p1 = p2
     end do
     if (i == 1001) then
-      call log_error('get_height: Iteration did not converge!')
+      call log_error('get_height: Iteration did not converge!', __FILE__, __LINE__)
     end if
-    res = z2
+    res = zc
 
   end function get_height
 
   subroutine tropical_cyclone_test_set_ic(block)
 
-    use block_mod
-    use tracer_mod
-    use formula_mod
-    use vert_coord_mod
-
     type(block_type), intent(inout), target :: block
 
-    integer i, j, k, jgw
-    real(r8) ztop, ps, rho, ptv
+    integer i, j, k
+    real(r8) ptv, rho, qv
+    real(8) time1, time2
 
-    real(r8) tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8
+    time1 = MPI_Wtime()
 
     exponent = rd * gamma / g
     ptrop = p00 * (Ttrop / T0)**(1.d0 / exponent)
@@ -221,8 +235,8 @@ contains
                gzs    => block%static%gzs      , &
                mgs    => block%dstate(1)%mgs   , &
                mg_lev => block%dstate(1)%mg_lev, &
-               ph     => block%dstate(1)%ph    , &
-               ph_lev => block%dstate(1)%ph_lev, &
+               p      => block%dstate(1)%p     , &
+               p_lev  => block%dstate(1)%p_lev , &
                z      => block%dstate(1)%gz    , &
                z_lev  => block%dstate(1)%gz_lev, &
                u      => block%aux      %u     , &
@@ -232,32 +246,51 @@ contains
                t      => block%aux%t           , &
                pt     => block%dstate(1)%pt    , &
                q      => tracers(block%id)%q   )
+    if (proc%is_root()) call log_notice('Calculate model top height and surface dry air pressure.')
     do j = mesh%full_jds, mesh%full_jde
       do i = mesh%full_ids, mesh%full_ide
-        ! 1. Get model top height.
-        call tropical_cyclone_test(lon(i), lat(j), ptop, ztop, 0, &
-          tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8)
-        ! 2. Get dry air surface pressure from temperature and moisture
-        !    profiles by using Gaussian quadrature.
-        mgs%d(i,j) = get_dry_air_pressure(lon(i), lat(j), ptop, ztop, 0.0_r8)
-        ! 3. Get heights of model half levels and full levels.
-        do k = mesh%half_kds, mesh%half_kde
+        z_lev%d(i,j,1) = get_top_height(lon(i), lat(j), ptop)
+        mgs%d(i,j) = get_dry_air_pressure(lon(i), lat(j), ptop, z_lev%d(i,j,1), 0.0_r8, 20, gaussx20, gaussw20)
+      end do
+    end do
+    call fill_halo(mgs)
+    if (proc%is_root()) call log_notice('Calculate dry air pressure at half levels.')
+    do k = mesh%half_kds, mesh%half_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
           mg_lev%d(i,j,k) = vert_coord_calc_mg_lev(k, mgs%d(i,j))
-          z_lev %d(i,j,k) = get_height(lon(i), lat(j), ptop, ztop, mg_lev%d(i,j,k))
-        end do
-        do k = mesh%full_kds, mesh%full_kde
-          z%d(i,j,k) = 0.5_r8 * (z_lev%d(i,j,k) + z_lev%d(i,j,k+1))
-        end do
-        ! 4. Get variables on model full levels.
-        do k = mesh%full_kds, mesh%full_kde
-          call tropical_cyclone_test(lon(i), lat(j), ph%d(i,j,k), z%d(i,j,k), 1, &
-            u%d(i,j,k), v%d(i,j,k), t%d(i,j,k), ptv, gzs%d(i,j), ps, rho, q%d(i,j,k,idx_qv))
-          ! Convert to dry mixing ratio.
-          q%d(i,j,k,idx_qv) = q%d(i,j,k,idx_qv) / (1 - q%d(i,j,k,idx_qv))
-          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), ph%d(i,j,k), q%d(i,j,k,idx_qv))
         end do
       end do
     end do
+    if (proc%is_root()) call log_notice('Calculate height at half levels.')
+    do k = mesh%half_kds + 1, mesh%half_kde ! Skip the first half level, since ztop has already been calculated.
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          z_lev%d(i,j,k) = get_height(lon(i), lat(j), mg_lev%d(i,j,k-1), z_lev%d(i,j,k-1), mgs%d(i,j), mg_lev%d(i,j,k))
+        end do
+      end do
+    end do
+    where (z_lev%d(:,:,mesh%half_kde) /= 0) z_lev%d(:,:,mesh%half_kde) = 0
+    if (proc%is_root()) call log_notice('Calculate height at full levels.')
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          z%d(i,j,k) = 0.5_r8 * (z_lev%d(i,j,k) + z_lev%d(i,j,k+1))
+        end do
+      end do
+    end do
+    if (proc%is_root()) call log_notice('Calculate variables on model full levels.')
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          call tropical_cyclone_test(lon(i), lat(j), p%d(i,j,k), z%d(i,j,k), 1, &
+            ptv, rho, qv, u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
+          q%d(i,j,k,idx_qv) = dry_mixing_ratio(qv, qv)
+          pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), q%d(i,j,k,idx_qv))
+        end do
+      end do
+    end do
+    call fill_halo(p)
     call fill_halo(u)
     call fill_halo(v)
     call fill_halo(q, idx_qv)
@@ -278,49 +311,43 @@ contains
       end do
     end do
     call fill_halo(v_lat)
-    call fill_halo(mgs)
+    if (proc%is_root()) call log_notice('Calculate variables on model half levels.')
+    do k = mesh%half_kds, mesh%half_kde
+      do j = mesh%full_jds, mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          call tropical_cyclone_test(lon(i), lat(j), p_lev%d(i,j,k), z_lev%d(i,j,k), 1, ptv, rho, qv)
+        end do
+      end do
+    end do
+    call fill_halo(p_lev)
     z_lev%d = z_lev%d * g
     call fill_halo(z_lev)
+    z%d = z%d * g
+    call fill_halo(z)
     end associate
+
+    time2 = MPI_Wtime()
+    if (proc%is_root()) call log_notice('Time to set tropical_cyclone IC: ' // to_str(time2 - time1, 5) // ' seconds')
 
   end subroutine tropical_cyclone_test_set_ic
 
-!=======================================================================
-!    Evaluate the tropical cyclone initial conditions
-!=======================================================================
-  subroutine tropical_cyclone_test(lon, lat, p, z, zcoords, u, v, t, &
-                                   ptv, phis, ps, rho, q)
+  subroutine tropical_cyclone_test(lon, lat, p, z, zcoords, ptv, rho, qv, u, v, t, phis)
 
-    !------------------------------------------------
-    !   Input / output parameters
-    !------------------------------------------------
+    real(r8), intent(in   )           :: lon
+    real(r8), intent(in   )           :: lat
+    real(r8), intent(inout)           :: p
+    real(r8), intent(inout)           :: z
+    integer , intent(in   )           :: zcoords ! 1 if z coordinates are specified
+                                                 ! 0 if p coordinates are specified
+    real(r8), intent(  out)           :: ptv
+    real(r8), intent(  out)           :: rho
+    real(r8), intent(  out)           :: qv
+    real(r8), intent(  out), optional :: u
+    real(r8), intent(  out), optional :: v
+    real(r8), intent(  out), optional :: t
+    real(r8), intent(  out), optional :: phis
 
-    real(r8), intent(in) ::    &
-              lon,             &     ! Longitude (radians)
-              lat                    ! Latitude (radians)
-
-    real(r8), intent(inout) :: &
-              p,               &     ! Pressure (Pa)
-              z                      ! Height (m)
-
-    integer, intent(in) :: zcoords   ! 1 if z coordinates are specified
-                                     ! 0 if p coordinates are specified
-
-    real(r8), intent(out) ::   &
-              u,               &     ! Zonal wind (m s^-1)
-              v,               &     ! Meridional wind (m s^-1)
-              t,               &     ! Temperature (K)
-              ptv,             &     ! Virtual potential temperature (K)
-              phis,            &     ! Surface Geopotential (m^2 s^-2)
-              ps,              &     ! Surface Pressure (Pa)
-              rho,             &     ! Density (kg m^-3)
-              q                      ! Specific Humidity (kg/kg)
-
-    !------------------------------------------------
-    !   Local variables
-    !------------------------------------------------
-    real(r8)  d1, d2, d, vfac, ufac, gr, f, zn
-
+    real(r8)  ps, d1, d2, d, vfac, ufac, gr, f, zn, exner
     integer   n
 
     !------------------------------------------------
@@ -332,15 +359,8 @@ contains
     ! Great circle radius
     gr = a * acos(sin(cen_lat) * sin(lat) + cos(cen_lat) * cos(lat) * cos(lon - cen_lon))
 
-    !------------------------------------------------
-    !   Initialize PS (surface pressure)
-    !------------------------------------------------
     ps = p00 - dp * exp(-(gr / rp)**exppr)
 
-    !------------------------------------------------
-    !   Initialize altitude (z) if pressure provided
-    !   or pressure if altitude (z) is provided
-    !------------------------------------------------
     if (zcoords == 1) then
       ! Eqn (8):
       if (z > ztrop) then
@@ -366,7 +386,7 @@ contains
         do n = 1, 21
           zn = z - fpif(p, gr, z) / fpidfdz(gr, z)
           if (n == 21) then
-            write(*, *) 'FPI did not converge after 20 interations in q & T!!!'
+            write(*, *) 'FPI did not converge after 20 interations in qv & T!!!'
           else if (abs(zn - z) / abs(zn) > deltaz) then
             z = zn
           else
@@ -377,65 +397,52 @@ contains
       end if
     end if
 
-    !------------------------------------------------
-    !   Initialize U and V (wind components)
-    !------------------------------------------------
-    d1 = sin(cen_lat) * cos(lat) - &
-         cos(cen_lat) * sin(lat) * cos(lon - cen_lon)
-    d2 = cos(cen_lat) * sin(lon - cen_lon)
-    d  = max(1.0e-25_r8, sqrt(d1**2 + d2**2))
-    ufac = d1 / d
-    vfac = d2 / d
+    if (present(u) .and. present(v)) then
+      d1 = sin(cen_lat) * cos(lat) - &
+           cos(cen_lat) * sin(lat) * cos(lon - cen_lon)
+      d2 = cos(cen_lat) * sin(lon - cen_lon)
+      d  = max(1.0e-25_r8, sqrt(d1**2 + d2**2))
+      ufac = d1 / d
+      vfac = d2 / d
 
-    if (z > ztrop) then
-      u = 0
-      v = 0
-    else
-      v = vfac * (-f * gr / 2.d0 + sqrt((f * gr / 2.d0)**2 &
-          - exppr * (gr / rp)**exppr * rd * (T0 - gamma * z) &
-          / (exppz * z * rd * (T0 - gamma * z) / (g * zp**exppz) &
-          + (1 - p00 / dp * exp((gr / rp)**exppr) * exp((z / zp)**exppz)))))
-      u = ufac * (-f * gr / 2.d0 + sqrt((f * gr / 2.d0)**2 &
-          - exppr * (gr / rp)**exppr * rd * (T0 - gamma * z) &
-          / (exppz * z * rd * (T0 - gamma * z) / (g * zp**exppz) &
-          + (1 - p00 / dp * exp((gr / rp)**exppr) * exp((z / zp)**exppz)))))
+      if (z > ztrop) then
+        u = 0
+        v = 0
+      else
+        v = vfac * (-f * gr / 2.d0 + sqrt((f * gr / 2.d0)**2 &
+            - exppr * (gr / rp)**exppr * rd * (T0 - gamma * z) &
+            / (exppz * z * rd * (T0 - gamma * z) / (g * zp**exppz) &
+            + (1 - p00 / dp * exp((gr / rp)**exppr) * exp((z / zp)**exppz)))))
+        u = ufac * (-f * gr / 2.d0 + sqrt((f * gr / 2.d0)**2 &
+            - exppr * (gr / rp)**exppr * rd * (T0 - gamma * z) &
+            / (exppz * z * rd * (T0 - gamma * z) / (g * zp**exppz) &
+            + (1 - p00 / dp * exp((gr / rp)**exppr) * exp((z / zp)**exppz)))))
+      end if
     end if
 
-    !------------------------------------------------
-    !   Initialize water vapor mixing ratio (q)
-    !------------------------------------------------
     if (z > ztrop) then
-      q = qtrop
+      qv = qtrop
     else
-      q = q0 * exp(-z / zq1) * exp(-(z / zq2)**exppz)
+      qv = q0 * exp(-z / zq1) * exp(-(z / zq2)**exppz)
     end if
 
-    !------------------------------------------------
-    !   Initialize temperature (T)
-    !------------------------------------------------
+    exner = (p / p0)**rd_o_cpd
     if (z > ztrop) then
-      t = Ttrop
+      ptv = Ttrop * (1 + constTv * qv) / exner
     else
-      t = (T0 - gamma * z) / (1 + constTv * q) &
+      ptv = (T0 - gamma * z) / (1 + constTv * qv) &
           / (1 + exppz * rd * (T0 - gamma * z) * z &
           / (g * zp**exppz * (1 - p00 / dp * exp((gr / rp)**exppr) &
-          * exp((z / zp)**exppz))))
+          * exp((z / zp)**exppz)))) * (1 + constTv * qv) / exner
     end if
 
-    !-----------------------------------------------------
-    !   Initialize virtual potential temperature (ptv)
-    !-----------------------------------------------------
-    ptv = t * (1 + constTv * q) * (p0 / p)**(rd / cpd)
+    if (present(t)) then
+      t = ptv * exner / (1 + constTv * qv)
+    end if
 
-    !-----------------------------------------------------
-    !   Initialize surface geopotential (PHIS)
-    !-----------------------------------------------------
-    phis = 0
+    if (present(phis)) phis = 0
 
-    !-----------------------------------------------------
-    !   Initialize density (rho)
-    !-----------------------------------------------------
-    rho = p / (rd * t * (1 + constTv * q))
+    rho = p / (rd * exner * ptv)
 
   end subroutine tropical_cyclone_test
 

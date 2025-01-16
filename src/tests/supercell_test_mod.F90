@@ -9,7 +9,7 @@ module supercell_test_mod
 !  supercell_init() must be called.
 !
 !  SUBROUTINE supercell_test(
-!    lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert)
+!    lon,lat,p,z,zcoords,u,v,t,ptv,ps,rho,q,pert)
 !
 !  Given a point specified by:
 !      lon    longitude (radians)
@@ -24,7 +24,7 @@ module supercell_test_mod
 !        u    zonal wind (m s^-1)
 !        v    meridional wind (m s^-1)
 !        t    temperature (K)
-!   thetav    virtual potential temperature (K)
+!      ptv    virtual potential temperature (K)
 !       ps    surface pressure (Pa)
 !      rho    density (kj m^-3)
 !        q    water vapor mixing ratio (kg/kg)
@@ -96,7 +96,7 @@ module supercell_test_mod
 
   real(8), dimension(nphi   ) :: phicoord
   real(8), dimension(     nz) :: zcoord
-  real(8), dimension(nphi,nz) :: thetavyz
+  real(8), dimension(nphi,nz) :: ptvyz
   real(8), dimension(nphi,nz) :: exneryz
   real(8), dimension(     nz) :: qveq
 
@@ -164,7 +164,7 @@ contains
 
     integer jgw
     real(8) z1, z2, a, b, zg
-    real(8) p, thetav, rho, qv
+    real(8) p, ptv, rho, qv
 
     ! Set vertical height range.
     z1 = z
@@ -176,7 +176,7 @@ contains
     res = 0
     do jgw = 1, ngauss
       zg = a * gaussx(jgw) + b
-      call supercell_test(pert, lon, lat, p, zg, 1, thetav, rho, qv)
+      call supercell_test(pert, lon, lat, p, zg, 1, ptv, rho, qv)
       ! Remove water vapor from integration.
       ! Note: qv is wet mixing ratio or specific humidity here.
       res = res + gaussw(jgw) * rho * (1 - qv)
@@ -192,22 +192,22 @@ contains
     real(8), intent(in   ) :: lat
     real(8), intent(inout) :: z
 
-    real(8) u, v, t, thetav, ps, rho, qv
+    real(8) u, v, t, ptv, ps, rho, qv
 
-    call supercell_test(pert, lon, lat, res, z, 1, u, v, t, thetav, ps, rho, qv)
+    call supercell_test(pert, lon, lat, res, z, 1, u, v, t, ptv, ps, rho, qv)
 
   end function get_pressure
 
   real(8) function get_top_height(pert, lon, lat, ptop) result(res)
 
-    integer, intent(in) :: pert
-    real(8), intent(in) :: lon
-    real(8), intent(in) :: lat
+    integer, intent(in   ) :: pert
+    real(8), intent(in   ) :: lon
+    real(8), intent(in   ) :: lat
     real(8), intent(inout) :: ptop
 
-    real(8) thetav, rho, qv
+    real(8) ptv, rho, qv
 
-    call supercell_test(pert, lon, lat, ptop, res, 0, thetav, rho, qv)
+    call supercell_test(pert, lon, lat, ptop, res, 0, ptv, rho, qv)
 
   end function get_top_height
 
@@ -254,7 +254,7 @@ contains
     type(block_type), intent(inout), target :: block
 
     integer i, j, k
-    real(8) thetav, rho, qv
+    real(8) ptv, rho, qv
     real(8) time1, time2
 
     time1 = MPI_Wtime()
@@ -313,8 +313,8 @@ contains
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           call supercell_test(pert, lon(i), lat(j), p%d(i,j,k), z%d(i,j,k), 1, &
-            thetav, rho, q%d(i,j,k,idx_qv), u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
-          q%d(i,j,k,idx_qv) = dry_mixing_ratio(q%d(i,j,k,idx_qv), q%d(i,j,k,idx_qv))
+            ptv, rho, qv, u%d(i,j,k), v%d(i,j,k), t%d(i,j,k))
+          q%d(i,j,k,idx_qv) = dry_mixing_ratio(qv, qv)
           pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), p%d(i,j,k), q%d(i,j,k,idx_qv))
         end do
       end do
@@ -344,8 +344,7 @@ contains
     do k = mesh%half_kds, mesh%half_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          call supercell_test(pert, lon(i), lat(j), p_lev%d(i,j,k), z_lev%d(i,j,k), 1, &
-            thetav, rho, qv)
+          call supercell_test(pert, lon(i), lat(j), p_lev%d(i,j,k), z_lev%d(i,j,k), 1, ptv, rho, qv)
         end do
       end do
     end do
@@ -504,7 +503,7 @@ contains
       thetaeq(k) = equator_theta(zcoord(k))
       H(k) = equator_relative_humidity(zcoord(k))
     end do
-    thetavyz(1,:) = thetaeq
+    ptvyz(1,:) = thetaeq
 
     ! Exner pressure at the equatorial surface
     exnereqs = (pseq / p0)**rd_o_cpd
@@ -512,7 +511,7 @@ contains
     ! Iterate on equatorial profile
     do iter = 1, 12
       ! Calculate Exner pressure in equatorial column (p0 at surface)
-      rhs(1,:) = - g / cpd / thetavyz(1,:)
+      rhs(1,:) = - g / cpd / ptvyz(1,:)
       do k = 1, nz
         exnereq(k) = dot_product(intz(:,k), rhs(1,:))
       end do
@@ -529,7 +528,7 @@ contains
         qvs = saturation_mixing_ratio(p, T)
         qveq(k) = qvs * H(k)
 
-        thetavyz(1,k) = thetaeq(k) * (1.d0 + 0.61d0 * qveq(k))
+        ptvyz(1,k) = thetaeq(k) * (1.d0 + 0.61d0 * qveq(k))
       end do
     end do
 
@@ -538,13 +537,13 @@ contains
       ! Compute d/dz(theta)
       do i = 1, nphi
         do k = 1, nz
-          dztheta(i,k) = dot_product(ddz(:,k), thetavyz(i,:))
+          dztheta(i,k) = dot_product(ddz(:,k), ptvyz(i,:))
         end do
       end do
 
       ! Compute rhs
       rhs = sin(2.0d0*phicoordmat)/(2.0d0*g) &
-            * (ueq2 * dztheta - thetavyz * dueq2)
+            * (ueq2 * dztheta - ptvyz * dueq2)
 
       ! Integrate
       do k = 1, nz
@@ -555,16 +554,16 @@ contains
 
       ! Apply boundary conditions (fixed Dirichlet condition at equator)
       do i = 2, nphi
-        irhs(i,:) = irhs(i,:) + (thetavyz(1,:) - irhs(1,:))
+        irhs(i,:) = irhs(i,:) + (ptvyz(1,:) - irhs(1,:))
       end do
-      irhs(1,:) = thetavyz(1,:)
+      irhs(1,:) = ptvyz(1,:)
 
       ! Update iteration
-      thetavyz = irhs
+      ptvyz = irhs
     end do
 
     ! Calculate pressure through remainder of domain
-    rhs = - ueq2 * sin(phicoordmat) * cos(phicoordmat) / cpd / thetavyz
+    rhs = - ueq2 * sin(phicoordmat) * cos(phicoordmat) / cpd / ptvyz
 
     do k = 1, nz
       do i = 1, nphi
@@ -585,7 +584,7 @@ contains
 !-----------------------------------------------------------------------
 !    Evaluate the supercell initial conditions
 !-----------------------------------------------------------------------
-  subroutine supercell_test(pert, lon, lat, p, z, zcoords, thetav, rho, qv, u, v, t, ps)
+  subroutine supercell_test(pert, lon, lat, p, z, zcoords, ptv, rho, qv, u, v, t, ps)
 
     integer, intent(in   )           :: pert    ! 1 if perturbation should be included
                                                 ! 0 if no perturbation should be included
@@ -595,7 +594,7 @@ contains
     real(8), intent(inout)           :: z       ! Altitude (m)
     integer, intent(in   )           :: zcoords ! 1 if z coordinates are specified
                                                 ! 0 if p coordinates are specified
-    real(8), intent(  out)           :: thetav  ! Virtual potential Temperature (K)
+    real(8), intent(  out)           :: ptv     ! Virtual potential Temperature (K)
     real(8), intent(  out)           :: rho     ! Density (kg m^-3)
     real(8), intent(  out)           :: qv      ! Water vapor mixing ratio (kg/kg)
     real(8), intent(  out), optional :: u       ! Zonal wind (m s^-1)
@@ -614,14 +613,14 @@ contains
 
     ! Sample surface pressure
     if (present(ps)) then
-      call supercell_z(pert, lon, lat, 0.d0, ps, thetav, rho, qv)
+      call supercell_z(pert, lon, lat, 0.d0, ps, ptv, rho, qv)
     end if
 
     ! Calculate dependent variables
     if (zcoords == 1) then
-      call supercell_z(pert, lon, lat, z, p, thetav, rho, qv)
+      call supercell_z(pert, lon, lat, z, p, ptv, rho, qv)
     else
-      call supercell_p(pert, lon, lat, p, z, thetav, rho, qv)
+      call supercell_p(pert, lon, lat, p, z, ptv, rho, qv)
     end if
 
     ! Sample the zonal velocity
@@ -636,7 +635,7 @@ contains
 
     ! Temperature
     if (present(t)) then
-      t = thetav / (1.d0 + 0.61d0 * qv) * (p / p0)**rd_o_cpd
+      t = ptv / (1.d0 + 0.61d0 * qv) * (p / p0)**rd_o_cpd
     end if
 
   end subroutine supercell_test
@@ -644,7 +643,7 @@ contains
 !-----------------------------------------------------------------------
 !    Calculate pointwise pressure and temperature
 !-----------------------------------------------------------------------
-  subroutine supercell_z(pert, lon, lat, z, p, thetav, rho, qv)
+  subroutine supercell_z(pert, lon, lat, z, p, ptv, rho, qv)
 
     integer, intent(in ) :: pert  ! 1 if perturbation should be included
                                   ! 0 if no perturbation should be included
@@ -652,7 +651,7 @@ contains
     real(8), intent(in ) :: lat   ! Latitude (radians)
     real(8), intent(in ) :: z     ! Altitude (m)
     real(8), intent(out) :: p
-    real(8), intent(out) :: thetav
+    real(8), intent(out) :: ptv
     real(8), intent(out) :: rho
     real(8), intent(out) :: qv
 
@@ -687,30 +686,30 @@ contains
 
     ! Sample the initialized fit at this point for theta_v
     do k = 1, nz
-      varcol(k) = dot_product(fitphi, thetavyz(:,k))
+      varcol(k) = dot_product(fitphi, ptvyz(:,k))
     end do
-    thetav = dot_product(fitz, varcol)
+    ptv = dot_product(fitz, varcol)
 
     ! Sample water vapor mixing ratio
     qv = dot_product(fitz, qveq)
 
     ! Fixed density
-    rho = p / (rd * exner * thetav)
+    rho = p / (rd * exner * ptv)
 
     ! Modified virtual potential temperature
     if (pert /= 0) then
-      thetav = thetav + thermal_perturbation(lon, lat, z) * (1 + 0.61d0 * qv)
+      ptv = ptv + thermal_perturbation(lon, lat, z) * (1 + 0.61d0 * qv)
     end if
 
     ! Updated pressure
-    p = p0 * (rho * rd * thetav / p0)**(cpd / (cpd - rd))
+    p = p0 * (rho * rd * ptv / p0)**(cpd / (cpd - rd))
 
   end subroutine supercell_z
 
 !-----------------------------------------------------------------------
 !    Calculate pointwise z and temperature given pressure
 !-----------------------------------------------------------------------
-  subroutine supercell_p(pert, lon, lat, p, z, thetav, rho, qv)
+  subroutine supercell_p(pert, lon, lat, p, z, ptv, rho, qv)
 
     integer, intent(in ) :: pert   ! 1 if perturbation should be included
                                    ! 0 if no perturbation should be included
@@ -718,7 +717,7 @@ contains
     real(8), intent(in ) :: lat    ! Latitude (radians)
     real(8), intent(in ) :: p      ! Pressure (Pa)
     real(8), intent(out) :: z
-    real(8), intent(out) :: thetav
+    real(8), intent(out) :: ptv
     real(8), intent(out) :: rho
     real(8), intent(out) :: qv
 
@@ -730,8 +729,8 @@ contains
     za = z1
     zb = z2
 
-    call supercell_z(pert, lon, lat, za, pa, thetav, rho, qv)
-    call supercell_z(pert, lon, lat, zb, pb, thetav, rho, qv)
+    call supercell_z(pert, lon, lat, za, pa, ptv, rho, qv)
+    call supercell_z(pert, lon, lat, zb, pb, ptv, rho, qv)
 
     if (pa < p) then
       write(*,*) 'Requested pressure out of range on bottom, adjust sample interval'
@@ -748,7 +747,7 @@ contains
     do iter = 1, 1000
       zc = (za * (pb - p) - zb * (pa - p)) / (pb - pa)
 
-      call supercell_z(pert, lon, lat, zc, pc, thetav, rho, qv)
+      call supercell_z(pert, lon, lat, zc, pc, ptv, rho, qv)
 
       if (abs((pc - p) / p) < 1.d-12) exit
 

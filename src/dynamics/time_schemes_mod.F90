@@ -238,7 +238,6 @@ contains
       end do
       call fill_halo(new_dstate%u_lon)
       call fill_halo(new_dstate%v_lat)
-      call calc_div(block, new_dstate)
     end if
     end associate
 
