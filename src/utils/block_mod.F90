@@ -158,8 +158,8 @@ contains
         end do
       end if
       call this%dtend%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
-      call this%static%init_stage1(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
       call this%aux%init(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
+      call this%static%init_stage1(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
     end if
 
   end subroutine block_init_stage_2
@@ -175,6 +175,7 @@ contains
     call this%big_filter  %clear()
     call this%small_filter%clear()
     call this%dtend       %clear()
+    call this%static      %clear()
     call this%aux         %clear()
     call this%adv_batch_bg%clear()
     call this%adv_batch_pt%clear()

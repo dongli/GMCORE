@@ -251,9 +251,9 @@ contains
     ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) /= 'lev')
     ke = merge(mesh%full_kde, mesh%half_kde, curl%loc(1:3) /= 'lev')
     is = mesh%half_ids; if (present(with_halo)) is = merge(is - 1, is, with_halo)
-    ie = mesh%half_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
+    ie = mesh%half_ide
     js = mesh%half_jds; if (present(with_halo)) js = merge(js - 1, js, with_halo)
-    je = mesh%half_jde; if (present(with_halo)) je = merge(je + 1, je, with_halo)
+    je = mesh%half_jde
     do k = ks, ke
       do j = js, je
         do i = is, ie

@@ -15,6 +15,7 @@ module vor_damp_mod
   use latlon_parallel_mod
   use block_mod
   use filter_mod
+  use operators_mod
 
   implicit none
 
@@ -78,6 +79,8 @@ contains
 
     integer i, j, k
 
+    call calc_vor(block, dstate)
+
     associate (mesh => block%mesh      , &
                vor  => block%aux%vor   , &
                dv   => block%dtend%dvdt, &
@@ -85,7 +88,6 @@ contains
                v    => dstate%v_lat    )
     select case (vor_damp_order)
     case (2)
-      call fill_halo(vor, east_halo=.false., north_halo=.false.)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide

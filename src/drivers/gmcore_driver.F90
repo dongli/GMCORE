@@ -89,14 +89,14 @@ program gmcore_driver
     call supercell_test_init(namelist_path)
   end select
 
-  call gmcore_init_stage2(namelist_path)
-
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then
     call prepare_topo()
     call prepare_tracers()
   else if (initial_file /= 'N/A') then
     call initial_read_init()
   end if
+
+  call gmcore_init_stage2(namelist_path)
 
   if (restart) then
     call restart_read()

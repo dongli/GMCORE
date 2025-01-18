@@ -121,11 +121,11 @@ module dynamics_types_mod
     type(latlon_field2d_type) g2_2d
     type(latlon_field2d_type) fx_2d
     type(latlon_field2d_type) fy_2d
+    type(latlon_field2d_type) dxdt_2d
     type(latlon_field3d_type) g1_3d, g1_3d_lon, g1_3d_lat, g1_3d_lev
     type(latlon_field3d_type) g2_3d, g2_3d_lon, g2_3d_lat, g2_3d_lev
     type(latlon_field3d_type) fx_3d, fx_3d_lon, fx_3d_lat, fx_3d_lev
     type(latlon_field3d_type) fy_3d, fy_3d_lon, fy_3d_lat, fy_3d_lev
-    type(latlon_field2d_type) dxdt_2d
     ! Other variables
     type(latlon_field3d_type) u           ! Zonal wind speed at cell center (m s-1)
     type(latlon_field3d_type) v           ! Meridional wind speed at cell center (m s-1)
@@ -970,47 +970,57 @@ contains
         restart         =.false.                                             , &
         field           =this%kmh_lat                                        )
     end if
+    call append_field(this%fields                                            , &
+      name              ='g1_2d'                                             , &
+      long_name         ='Temporal array for 2D Laplacian damping'           , &
+      units             =''                                                  , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%g1_2d                                          )
+    call append_field(this%fields                                            , &
+      name              ='g2_2d'                                             , &
+      long_name         ='Temporal array for 2D Laplacian damping'           , &
+      units             =''                                                  , &
+      loc               ='cell'                                              , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%g2_2d                                          )
+    call append_field(this%fields                                            , &
+      name              ='fx_2d'                                             , &
+      long_name         ='Temporal array for 2D Laplacian damping'           , &
+      units             =''                                                  , &
+      loc               ='lon'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%fx_2d                                          )
+    call append_field(this%fields                                            , &
+      name              ='fy_2d'                                             , &
+      long_name         ='Temporal array for 2D Laplacian damping'           , &
+      units             =''                                                  , &
+      loc               ='lat'                                               , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%fy_2d                                          )
+    call append_field(this%fields                                            , &
+      name              ='dxdt_2d'                                           , &
+      long_name         ='Temporal array for 2D Laplacian damping'           , &
+      units             =''                                                  , &
+      loc               ='cell'                                              , &
+      mesh              =filter_mesh                                         , &
+      halo              =filter_halo                                         , &
+      output            =''                                                  , &
+      restart           =.false.                                             , &
+      field             =this%dxdt_2d                                        )
     if (use_laplace_damp) then
-      call append_field(this%fields                                          , &
-        name            ='g1_2d'                                             , &
-        long_name       ='Temporal array for 2D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%g1_2d                                          )
-      call append_field(this%fields                                          , &
-        name            ='g2_2d'                                             , &
-        long_name       ='Temporal array for 2D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%g2_2d                                          )
-      call append_field(this%fields                                          , &
-        name            ='fx_2d'                                             , &
-        long_name       ='Temporal array for 2D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='lon'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%fx_2d                                          )
-      call append_field(this%fields                                          , &
-        name            ='fy_2d'                                             , &
-        long_name       ='Temporal array for 2D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='lat'                                               , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%fy_2d                                          )
       call append_field(this%fields                                          , &
         name            ='g1_3d'                                             , &
         long_name       ='Temporal array for 3D Laplacian damping'           , &
@@ -1171,16 +1181,6 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         field           =this%fy_3d_lev                                      )
-      call append_field(this%fields                                          , &
-        name            ='dxdt_2d'                                           , &
-        long_name       ='Temporal array for 2D Laplacian damping'           , &
-        units           =''                                                  , &
-        loc             ='cell'                                              , &
-        mesh            =filter_mesh                                         , &
-        halo            =filter_halo                                         , &
-        output          =''                                                  , &
-        restart         =.false.                                             , &
-        field           =this%dxdt_2d                                        )
     end if
     if (baroclinic .or. advection) then
       call append_field(this%fields                                          , &
