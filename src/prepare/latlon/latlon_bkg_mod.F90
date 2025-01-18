@@ -52,6 +52,7 @@ module latlon_bkg_mod
   public latlon_bkg_regrid_v
   public latlon_bkg_calc_mgs
   public latlon_bkg_calc_mg
+  public latlon_bkg_calc_tv
   public latlon_bkg_calc_pt
 
 contains
@@ -632,6 +633,34 @@ contains
     end do
 
   end subroutine latlon_bkg_calc_mg
+
+  subroutine latlon_bkg_calc_tv()
+
+    integer iblk, i, j, k
+
+    if (proc%is_root()) call log_notice('Calculate virtual temperature.')
+
+    do iblk = 1, size(blocks)
+      associate (mesh => blocks(iblk)%mesh  , &
+                 t    => blocks(iblk)%aux%t , & ! in
+                 q    => tracers(iblk)%q    , & ! in
+                 qm   => tracers(iblk)%qm   , & ! in
+                 tv   => blocks(iblk)%aux%tv)   ! out
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            if (idx_qv == 0) then
+              tv%d(i,j,k) = 0
+            else
+              tv%d(i,j,k) = virtual_temperature(t%d(i,j,k), q%d(i,j,k,idx_qv), qm%d(i,j,k))
+            end if
+          end do
+        end do
+      end do
+      end associate
+    end do
+
+  end subroutine latlon_bkg_calc_tv
 
   subroutine latlon_bkg_calc_pt()
 

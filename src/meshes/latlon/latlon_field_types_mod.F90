@@ -84,9 +84,10 @@ module latlon_field_types_mod
   contains
     procedure :: init  => latlon_field3d_init
     procedure :: clear => latlon_field3d_clear
+    procedure, private :: latlon_field3d_copy_2d
     procedure, private :: latlon_field3d_copy_3d
     procedure, private :: latlon_field3d_copy_4d
-    generic :: copy    => latlon_field3d_copy_3d, latlon_field3d_copy_4d
+    generic :: copy    => latlon_field3d_copy_2d, latlon_field3d_copy_3d, latlon_field3d_copy_4d
     procedure, private :: latlon_field3d_link_3d
     procedure, private :: latlon_field3d_link_4d
     generic :: link    => latlon_field3d_link_3d, latlon_field3d_link_4d
@@ -437,6 +438,72 @@ contains
     this%initial         = .false.
 
   end subroutine latlon_field3d_clear
+
+
+  subroutine latlon_field3d_copy_2d(this, other, k, with_halo)
+
+    class(latlon_field3d_type), intent(inout) :: this
+    type(latlon_field2d_type), intent(in) :: other
+    integer, intent(in) :: k
+    logical, intent(in), optional :: with_halo
+
+    logical with_halo_opt
+    integer i, j, is, ie, js, je
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    select case (this%loc)
+    case ('cell')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+      end if
+    case ('lon')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+      end if
+    case ('lat')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+      end if
+    case ('lev')
+      if (with_halo_opt) then
+        is = this%mesh%full_ims; ie = this%mesh%full_ime
+        js = this%mesh%full_jms; je = this%mesh%full_jme
+      else
+        is = this%mesh%full_ids; ie = this%mesh%full_ide
+        js = this%mesh%full_jds; je = this%mesh%full_jde
+      end if
+    case ('vtx')
+      if (with_halo_opt) then
+        is = this%mesh%half_ims; ie = this%mesh%half_ime
+        js = this%mesh%half_jms; je = this%mesh%half_jme
+      else
+        is = this%mesh%half_ids; ie = this%mesh%half_ide
+        js = this%mesh%half_jds; je = this%mesh%half_jde
+      end if
+    case default
+      call log_error('Unhandled branch in latlon_field3d_copy!', __FILE__, __LINE__)
+    end select
+
+    do j = js, je
+      do i = is, ie
+        this%d(i,j,k) = other%d(i,j)
+      end do
+    end do
+
+  end subroutine latlon_field3d_copy_2d
 
   subroutine latlon_field3d_copy_3d(this, other, with_halo)
 

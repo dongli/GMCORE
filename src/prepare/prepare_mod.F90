@@ -68,7 +68,7 @@ contains
 
   subroutine prepare_bkg()
 
-    integer iblk
+    integer iblk, itime
 
     call latlon_bkg_read(min_lon, max_lon, min_lat, max_lat)
     if (proc%is_model()) then
@@ -95,10 +95,20 @@ contains
       call latlon_bkg_calc_dry_qs()
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
-        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
         if (ntracers > 0) tracers(iblk)%q%d(:,:,:,ntracers) = 1.0_r8
       end do
+      call latlon_bkg_calc_tv()
       call latlon_bkg_calc_pt()
+      ! Set geopotential by using hydrostatic balance.
+      do iblk = 1, size(blocks)
+        call calc_dmg   (blocks(iblk), blocks(iblk)%dstate(1))
+        call calc_ph    (blocks(iblk), blocks(iblk)%dstate(1))
+        do itime = lbound(blocks(iblk)%dstate, 1), ubound(blocks(iblk)%dstate, 1)
+          call blocks(iblk)%dstate(itime)%gz_lev%copy(blocks(iblk)%static%gzs, k=blocks(iblk)%mesh%half_kde, with_halo=.true.)
+        end do
+        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
+        call fill_halo(blocks(iblk)%dstate(1)%gz_lev)
+      end do
     end if
 
   end subroutine prepare_bkg

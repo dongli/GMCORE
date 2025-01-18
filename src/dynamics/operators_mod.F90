@@ -559,7 +559,6 @@ contains
     call perf_start('calc_gz_lev')
 
     associate (mesh   => block%mesh      , &
-               gzs    => block%static%gzs, & ! in
                tv     => block%aux%tv    , & ! in
                ph_lev => dstate%ph_lev   , & ! in
                gz_lev => dstate%gz_lev   , & ! out

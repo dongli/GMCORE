@@ -237,17 +237,13 @@ contains
 
     if (proc%is_model()) then
       do iblk = 1, size(blocks)
-        associate (block => blocks(iblk)     , &
-                   mesh  => blocks(iblk)%mesh, &
+        associate (block  => blocks(iblk)     , &
+                   mesh   => blocks(iblk)%mesh, &
                    dstate => blocks(iblk)%dstate(old))
         if (baroclinic) then
           ! Ensure bottom gz_lev is the same as gzs.
           do itime = lbound(block%dstate, 1), ubound(block%dstate, 1)
-            do j = mesh%full_jms, mesh%full_jme
-              do i = mesh%full_ims, mesh%full_ime
-                block%dstate(itime)%gz_lev%d(i,j,global_mesh%half_kde) = block%static%gzs%d(i,j)
-              end do
-            end do
+            call block%dstate(itime)%gz_lev%copy(block%static%gzs, k=mesh%half_kde)
             call fill_halo(block%dstate(itime)%gz_lev)
           end do
         end if
