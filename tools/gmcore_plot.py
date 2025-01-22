@@ -1,5 +1,5 @@
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -22,6 +22,10 @@ g = 9.80616 * units.m / units.s ** 2
 rd = 287.0 * units.J / units.kg / units.K
 rv = 461.5 * units.J / units.kg / units.K
 cp = 1004.5 * units.J / units.kg / units.K
+
+def parse_datetime(x):
+	res = datetime.fromtimestamp(x.values.tolist() / 1e9, timezone.utc)
+	return res
 
 def vinterp_z(zi, var, zo, axis=0):
 	res = interpolate_1d(zo, zi, var, axis=axis)

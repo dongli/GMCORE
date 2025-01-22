@@ -209,11 +209,6 @@ contains
       call fiona_start_output('h0', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
 
-    call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
-    call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
-    call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
-    call fiona_output('h0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat))
-    call fiona_output('h0', 'area', global_mesh%area_cell(1:global_mesh%full_nlat))
     select case (planet)
     case ('mars')
       call fiona_output('h0', 'Ls', curr_time%solar_longitude() * deg)
@@ -226,6 +221,11 @@ contains
     end if
 
     if (first_call .or. time_has_alert('h0_new_file')) then
+      call fiona_output('h0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon), only_root=.true.)
+      call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat), only_root=.true.)
+      call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon), only_root=.true.)
+      call fiona_output('h0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat), only_root=.true.)
+      call fiona_output('h0', 'area', global_mesh%area_cell(1:global_mesh%full_nlat), only_root=.true.)
       do iblk = 1, size(blocks)
         call write_fields('h0', blocks(iblk)%mesh, blocks(iblk)%static%fields)
       end do
@@ -314,12 +314,14 @@ contains
       call fiona_start_output('h1', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
 
-    first_call = .false.
+    if (first_call) then
+      call fiona_output('h1', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon), only_root=.true.)
+      call fiona_output('h1', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat), only_root=.true.)
+      call fiona_output('h1', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon), only_root=.true.)
+      call fiona_output('h1', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat), only_root=.true.)
+    end if
 
-    call fiona_output('h1', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
-    call fiona_output('h1', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
-    call fiona_output('h1', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
-    call fiona_output('h1', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat))
+    first_call = .false.
 
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh         , &
