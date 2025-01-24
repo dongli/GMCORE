@@ -108,7 +108,7 @@ module namelist_mod
 
   character(30)   :: pv_scheme            = 'upwind' ! midpoint, upwind, ffsl
   logical         :: pv_pole_stokes       = .true.
-  integer         :: upwind_order_pv      = 5
+  integer         :: upwind_order_pv      = 3
   real(r8)        :: upwind_wgt_pv        = 1
   real(r8)        :: pv_pole_wgt          = 1.0_r8
 
@@ -125,7 +125,7 @@ module namelist_mod
   character(8)    :: zonal_tridiag_solver = 'spk' ! mkl, spk
 
   integer         :: weno_order           = -1 ! -1, 3
-  integer         :: upwind_order         = 5  ! -1, 1, 3, 5
+  integer         :: upwind_order         = 3  ! -1, 1, 3, 5
   real(r8)        :: upwind_wgt           = 0.75_r8
 
   character(30)   :: time_scheme          = 'wrfrk3'
@@ -133,9 +133,9 @@ module namelist_mod
 
   ! Filter settings
   real(r8)        :: filter_wave_speed    = 300.0_r8
-  real(r8)        :: filter_coef_a        = 3.6_r8
-  real(r8)        :: filter_coef_b        = 0.2_r8
-  real(r8)        :: filter_coef_c        = 0.5_r8
+  real(r8)        :: filter_coef_a        = 3.5_r8
+  real(r8)        :: filter_coef_b        = 0.5_r8
+  real(r8)        :: filter_coef_c        = 0.3_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 0.0_r8
 
