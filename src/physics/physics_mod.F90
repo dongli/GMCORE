@@ -297,7 +297,9 @@ contains
     integer, intent(in) :: itime
     real(r8), intent(in) :: dt
 
-    call perf_start('physics_update_dynamics')
+    if (physics_suite == 'N/A') return
+
+    call perf_start('physics_update_after_dynamics')
 
     select case (pdc_type)
     case (1)
