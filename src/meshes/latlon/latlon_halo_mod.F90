@@ -36,6 +36,7 @@ module latlon_halo_mod
   integer, parameter :: nest_halo = 4
 
   type latlon_halo_type
+    logical :: initialized = .false.
     integer :: comm     = MPI_COMM_NULL
     integer :: host_id  = MPI_PROC_NULL
     integer :: proc_id  = MPI_PROC_NULL
@@ -64,23 +65,18 @@ module latlon_halo_mod
 
 contains
 
-  subroutine latlon_halo_init(this, mesh, orient, dtype, host_id, ngb_proc_id, iblk, &
-                              lon_hw, lat_hw, at_south_pole, at_north_pole)
+  subroutine latlon_halo_init(this, mesh, orient, dtype, host_id, ngb_id, iblk, lon_hw, lat_hw)
 
     class(latlon_halo_type), intent(out) :: this
     type(latlon_mesh_type), intent(in) :: mesh
     integer, intent(in) :: orient
     integer, intent(in) :: dtype
     integer, intent(in) :: host_id
-    integer, intent(in), optional :: ngb_proc_id
+    integer, intent(in), optional :: ngb_id
     integer, intent(in), optional :: iblk
     integer, intent(in), optional :: lon_hw
     integer, intent(in), optional :: lat_hw
-    logical, intent(in), optional :: at_south_pole
-    logical, intent(in), optional :: at_north_pole
 
-    logical at_south_pole_opt
-    logical at_north_pole_opt
     integer full_ihs, full_ihe
     integer full_jhs, full_jhe
     integer half_ihs, half_ihe
@@ -93,11 +89,8 @@ contains
     integer nlev(2)
     integer i, j, k, ierr
 
-    at_south_pole_opt = .false.; if (present(at_south_pole)) at_south_pole_opt = at_south_pole
-    at_north_pole_opt = .false.; if (present(at_north_pole)) at_north_pole_opt = at_north_pole
-
-    if (present(ngb_proc_id)) then
-      this%proc_id = ngb_proc_id
+    if (present(ngb_id)) then
+      this%proc_id = ngb_id
     else if (present(iblk)) then
       call log_error('Handle internal halo!', __FILE__, __LINE__)
     end if
@@ -112,24 +105,32 @@ contains
     select case (orient)
     case (south, north)
       full_ihs = mesh%lon_hw
-      full_ihe = mesh%full_nlon + mesh%lon_hw - 1
+      full_ihe = full_ihs + mesh%full_nlon - 1
     case (west)
       full_ihs = 0
       full_ihe = mesh%lon_hw - 1
     case (east)
       full_ihs = mesh%full_nlon + mesh%lon_hw
       full_ihe = full_ihs + mesh%lon_hw - 1
+    case (south_west, north_west)
+      ! NOTE: mesh%lon_hw may not equal to this%lon_hw.
+      full_ihs = mesh%lon_hw - this%lon_hw
+      full_ihe = full_ihs + this%lon_hw - 1
+    case (south_east, north_east)
+      full_ihs = mesh%full_nlon + mesh%lon_hw
+      full_ihe = full_ihs + this%lon_hw - 1
     end select
     half_ihs = full_ihs
     half_ihe = full_ihe
     select case (orient)
     case (west, east)
       full_jhs = mesh%lat_hw
-      full_jhe = mesh%full_nlat + mesh%lat_hw - 1
-    case (south)
+      full_jhe = full_jhs + mesh%full_nlat - 1
+    case (south, south_west, south_east)
+      ! NOET: mesh%lat_hw equals to this%lat_hw.
       full_jhs = 0
       full_jhe = mesh%lat_hw - 1
-    case (north)
+    case (north, north_west, north_east)
       full_jhs = mesh%full_nlat + mesh%lat_hw
       full_jhe = full_jhs + mesh%lat_hw - 1
     end select
@@ -160,16 +161,16 @@ contains
     ! |\\0\\|             |\\0\\|             |\\0\\|      
     ! |\\\\\|             |\\\\\|             |\\\\\|      
     !                                         
-    half_jhs = merge(full_jhs - 1, full_jhs, mesh%has_north_pole() .and. orient == north)
-    half_jhe = merge(full_jhe - 1, full_jhe, mesh%has_north_pole() .and. orient /= south)
+    half_jhs = full_jhs + merge(-1, 0, mesh%has_north_pole() .and. (orient == north .or.  orient == north_west .or.  orient == north_east))
+    half_jhe = full_jhe + merge(-1, 0, mesh%has_north_pole() .and. (orient /= south .and. orient /= south_west .and. orient /= south_east))
 
     !                          wx                          nx                          wx
     !                          |                           |                           |
     !                  |---------------|---------------------------------------|---------------|
     !                  |_______________|_______________________________________|_______________|__
-    !                  |\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |
-    !         wy + ny -|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |- wy
-    !                  |\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |
+    !                  |XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |
+    !         wy + ny -|XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |- wy
+    !                  |XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |
     !                  |_______|_______|_______________________________________|_______________|__|
     !                  |///////|///////|       |       |       |       |       |///////|///////|  |
     !     wy + ny - 1 -|///////|///////|       |       |       |       |       |///////|///////|  |
@@ -183,9 +184,9 @@ contains
     !              wy -|///////|///////|       |       |       |       |       |///////|///////|  |
     !                  |///////|///////|       |       |       |       |       |///////|///////|  |
     !                  |_______|_______|_______|_______|_______|_______|_______|_______|_______|__|
-    !                  |\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |
-    !               0 -|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |- wy
-    !                  |\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|  |
+    !                  |XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |
+    !               0 -|XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |- wy
+    !                  |XXXXXXX|XXXXXXX|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|\\\\\\\|XXXXXXX|XXXXXXX|  |
     !                  |_______|_______|_______|_______|_______|_______|_______|_______|_______|__|
     !                      |               |                       |       |       |
     !                      0               wx                      | wx + nx - 1   |
@@ -195,13 +196,6 @@ contains
     this%orient = orient
     this%type = cross_proc_halo
     nlev = [mesh%full_kme-mesh%full_kms+1,mesh%half_kme-mesh%half_kms+1]
-
-    if (orient == south .or. orient == north) then
-      full_ihs = full_ihs - this%lon_hw
-      full_ihe = full_ihe + this%lon_hw
-      half_ihs = half_ihs - this%lon_hw
-      half_ihe = half_ihe + this%lon_hw
-    end if
 
     do k = 1, 2 ! From full level to half level
       array_size(:,1,1) = [mesh%full_nlon+2*mesh%lon_hw,mesh%full_nlat+2*mesh%lat_hw,nlev(k)]
@@ -223,38 +217,86 @@ contains
       recv_subarray_start(:,2,2) = [half_ihs,half_jhs,0]
       select case (orient)
       case (west)
-        send_subarray_start(:,1,1) = [full_ihe+1,full_jhs,0]
-        send_subarray_start(:,2,1) = [half_ihe+1,full_jhs,0]
-        send_subarray_start(:,1,2) = [full_ihe+1,half_jhs,0]
-        send_subarray_start(:,2,2) = [half_ihe+1,half_jhs,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs              ,0]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs              ,0]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs              ,0]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs              ,0]
       case (east)
-        send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs,0]
-        send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs,0]
-        send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs,0]
-        send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs              ,0]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs              ,0]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs              ,0]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs              ,0]
       case (south)
-        if (at_south_pole_opt) then
-          send_subarray_start(:,1,1) = [full_ihs,full_jhe+2,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs,full_jhe+2,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs,half_jhe+1,0]
-          send_subarray_start(:,2,2) = [half_ihs,half_jhe+1,0]
+        if (mesh%has_south_pole()) then
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,0]
         else
-          send_subarray_start(:,1,1) = [full_ihs,full_jhe+1,0]
-          send_subarray_start(:,2,1) = [half_ihs,full_jhe+1,0]
-          send_subarray_start(:,1,2) = [full_ihs,half_jhe+1,0]
-          send_subarray_start(:,2,2) = [half_ihs,half_jhe+1,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+1            ,0]
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+1            ,0]
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,0]
         end if
       case (north)
-        if (at_north_pole_opt) then
-          send_subarray_start(:,1,1) = [full_ihs,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs,half_jhs-this%lat_hw  ,0]
+        if (mesh%has_north_pole()) then
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,0]
         else
-          send_subarray_start(:,1,1) = [full_ihs,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,1) = [half_ihs,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,1,2) = [full_ihs,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,0]
+        end if
+      case (south_west)
+        if (mesh%has_south_pole()) then
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,0]
+        else
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+1            ,0]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+1            ,0]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,0]
+        end if
+      case (south_east)
+        if (mesh%has_south_pole()) then
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+2            ,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,0]
+        else
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+1            ,0]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+1            ,0]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,0]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,0]
+        end if
+      case (north_west)
+        if (mesh%has_north_pole()) then
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,0]
+        else
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,0]
+        end if
+      case (north_east)
+        if (mesh%has_north_pole()) then
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
+        else
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
         end if
       end select
       do j = 1, 2
@@ -283,6 +325,8 @@ contains
         call MPI_TYPE_COMMIT(this%recv_type_2d(i,j), ierr)
       end do
     end do
+
+    this%initialized = .true.
 
   end subroutine latlon_halo_init
 
@@ -316,6 +360,8 @@ contains
         if (this%recv_type_2d(i,j) /= MPI_DATATYPE_NULL) call MPI_TYPE_FREE(this%recv_type_2d(i,j), ierr)
       end do
     end do
+
+    this%initialized = .false.
 
   end subroutine latlon_halo_clear
 

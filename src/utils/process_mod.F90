@@ -190,19 +190,24 @@ contains
         select case (proc%ngb(i)%orient)
         case (west, east)
           call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype, &
-                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id)
-          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,   &
-                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id)
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype, &
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id)
         case (south, north)
           lon_hw = 1 ! NOTE: We only exchange 1 grid in diagonal directions on the filter_mesh.
-          ! lon_hw = min(blocks(1)%filter_mesh%lon_hw, proc%ngb(i)%lon_hw)
-          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,    &
-                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
-                                      at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
+          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,   &
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
           lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(i)%lon_hw)
-          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                  &
-                                      host_id=proc%id_model, ngb_proc_id=proc%ngb(i)%id, lon_hw=lon_hw, &
-                                      at_south_pole=proc%at_south_pole, at_north_pole=proc%at_north_pole)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
+        case (south_west, south_east)
+          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(south)%lon_hw)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
+        case (north_west, north_east)
+          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(north)%lon_hw)
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
+                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
         end select
       end do
     end if

@@ -213,6 +213,7 @@ contains
       loc               ='lon'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
+      halo_diagonal     =.true.                                              , &
       output            ='h1'                                                , &
       restart           =.true.                                              , &
       field             =this%u_lon                                          )
@@ -223,6 +224,7 @@ contains
       loc               ='lat'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
+      halo_diagonal     =.true.                                              , &
       output            ='h1'                                                , &
       restart           =.true.                                              , &
       field             =this%v_lat                                          )
@@ -235,7 +237,7 @@ contains
         mesh            =mesh                                                , &
         halo            =halo                                                , &
         output          ='h0'                                                , &
-        restart         =.not. baroclinic                                    , & ! FIXME: Revise this.
+        restart         =.true.                                              , & ! FIXME: Revise this.
         field           =this%gz                                             )
       call append_field(this%fields                                          , &
         name            ='gz_lev'                                            , &
@@ -256,6 +258,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
+        halo_diagonal   =.not. baroclinic .and. .not. advection              , &
         output          ='h0'                                                , &
         restart         =.false.                                             , &
         field           =this%gz                                             )
@@ -348,6 +351,7 @@ contains
         loc             ='cell'                                              , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
+        halo_diagonal   =.true.                                              , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
         field           =this%mgs                                            )
@@ -1286,6 +1290,7 @@ contains
         loc             ='lon'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
+        halo_diagonal   =.true.                                              , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%pv_lon                                         )
@@ -1296,6 +1301,7 @@ contains
         loc             ='lat'                                               , &
         mesh            =mesh                                                , &
         halo            =halo                                                , &
+        halo_diagonal   =.true.                                              , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%pv_lat                                         )
@@ -1307,6 +1313,7 @@ contains
       loc               ='lon'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
+      halo_diagonal     =.true.                                              , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%dmg_lon                                        )
@@ -1317,6 +1324,7 @@ contains
       loc               ='lat'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
+      halo_diagonal     =.true.                                              , &
       output            ='h1'                                                , &
       restart           =.false.                                             , &
       field             =this%dmg_lat                                        )

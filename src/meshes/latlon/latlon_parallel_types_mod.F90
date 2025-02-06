@@ -27,6 +27,10 @@ module latlon_parallel_types_mod
   integer, public, parameter :: east  = 2
   integer, public, parameter :: south = 3
   integer, public, parameter :: north = 4
+  integer, public, parameter :: south_west = 5
+  integer, public, parameter :: south_east = 6
+  integer, public, parameter :: north_west = 7
+  integer, public, parameter :: north_east = 8
   integer, public, parameter :: proc_type_model = 1
   integer, public, parameter :: proc_type_io    = 2
 

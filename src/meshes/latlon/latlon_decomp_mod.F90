@@ -110,9 +110,26 @@ contains
     if (allocated(proc%ngb)) deallocate(proc%ngb)
     select case (proc%decomp_loc)
     case (decomp_normal_region)
-      allocate(proc%ngb(4))
+      allocate(proc%ngb(8))
       call MPI_CART_SHIFT(proc%cart_comm, cart_dim_lon-1, 1, proc%ngb(west )%cart_id, proc%ngb(east )%cart_id, ierr)
       call MPI_CART_SHIFT(proc%cart_comm, cart_dim_lat-1, 1, proc%ngb(south)%cart_id, proc%ngb(north)%cart_id, ierr)
+      ! Set diagonal neighbors.
+      if (proc%ngb(south)%cart_id /= MPI_PROC_NULL) then
+        call MPI_SENDRECV(proc%ngb(west)%cart_id, 1, MPI_INTEGER, proc%ngb(south)%cart_id, 100, &
+                          proc%ngb(south_west)%cart_id, 1, MPI_INTEGER, proc%ngb(south)%cart_id, 100, &
+                          proc%cart_comm, MPI_STATUS_IGNORE, ierr)
+        call MPI_SENDRECV(proc%ngb(east)%cart_id, 1, MPI_INTEGER, proc%ngb(south)%cart_id, 100, &
+                          proc%ngb(south_east)%cart_id, 1, MPI_INTEGER, proc%ngb(south)%cart_id, 100, &
+                          proc%cart_comm, MPI_STATUS_IGNORE, ierr)
+      end if
+      if (proc%ngb(north)%cart_id /= MPI_PROC_NULL) then
+        call MPI_SENDRECV(proc%ngb(west)%cart_id, 1, MPI_INTEGER, proc%ngb(north)%cart_id, 100, &
+                          proc%ngb(north_west)%cart_id, 1, MPI_INTEGER, proc%ngb(north)%cart_id, 100, &
+                          proc%cart_comm, MPI_STATUS_IGNORE, ierr)
+        call MPI_SENDRECV(proc%ngb(east)%cart_id, 1, MPI_INTEGER, proc%ngb(north)%cart_id, 100, &
+                          proc%ngb(north_east)%cart_id, 1, MPI_INTEGER, proc%ngb(north)%cart_id, 100, &
+                          proc%cart_comm, MPI_STATUS_IGNORE, ierr)
+      end if
     end select
 
     ! Translate Cartesian ID of neighbors to global ID.

@@ -404,7 +404,7 @@ contains
 
     character(*), intent(in) :: dtag
     type(latlon_mesh_type), intent(in) :: mesh
-    class(*), intent(in) :: field
+    class(*), intent(inout) :: field
 
     integer is, ie, js, je, ks, ke, i
     integer start2d(2), count2d(2), start3d(3), count3d(3)
