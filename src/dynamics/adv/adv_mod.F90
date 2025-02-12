@@ -283,6 +283,7 @@ contains
           do l = 1, block%adv_batches(m)%ntracers
             idx = batch%idx(l)
             call q_new%link(tracers(iblk)%q, idx)
+            call wait_halo(q_new)
             associate (m_old => batch%m   , & ! in
                        q_old => q_new     , & ! borrowed array
                        dqdt  => batch%qx  , & ! borrowed array
@@ -317,7 +318,7 @@ contains
               qmax = q_new%max()
               if (proc%is_root()) print *, qmin, qmax
             end if
-            call fill_halo(q_new)
+            call fill_halo(q_new, async=.true.)
             end associate
           end do
           end associate

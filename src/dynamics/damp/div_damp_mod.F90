@@ -153,8 +153,8 @@ contains
         end do
       end do
     end select
-    call fill_halo(u)
-    call fill_halo(v)
+    call fill_halo(u, async=.true.)
+    call fill_halo(v, async=.true.)
     end associate
 
   end subroutine div_damp_run

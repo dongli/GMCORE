@@ -201,11 +201,11 @@ contains
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
         case (south_west, south_east)
-          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(south)%lon_hw)
+          lon_hw = 2
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
         case (north_west, north_east)
-          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(north)%lon_hw)
+          lon_hw = 2
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
         end select

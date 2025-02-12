@@ -165,9 +165,7 @@ contains
     if (baroclinic) then
       if (dtend%update_mgs) then
         ! ----------------------------------------------------------------------
-        call perf_start('filter_dmgsdt')
         call filter_run(block%big_filter, dmgsdt)
-        call perf_stop('filter_dmgsdt')
         ! ----------------------------------------------------------------------
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -183,9 +181,7 @@ contains
       if (dtend%update_pt) then
         if (.not. dtend%update_mgs .and. proc%is_root()) call log_error('Mass is not updated or copied!')
         ! ----------------------------------------------------------------------
-        call perf_start('filter_dptdt')
         call filter_run(block%big_filter, dptdt)
-        call perf_stop('filter_dptdt')
         ! ----------------------------------------------------------------------
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -194,14 +190,12 @@ contains
             end do
           end do
         end do
-        call fill_halo(new_dstate%pt)
+        call fill_halo(new_dstate%pt, async=.true.)
       end if
     else
       if (dtend%update_gz) then
         ! ----------------------------------------------------------------------
-        call perf_start('filter_dgzdt')
         call filter_run(block%big_filter, dgzdt)
-        call perf_stop('filter_dgzdt')
         ! ----------------------------------------------------------------------
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -217,10 +211,8 @@ contains
 
     if (dtend%update_u .and. dtend%update_v) then
       ! ------------------------------------------------------------------------
-      call perf_start('filter_dudt_dvdt')
       call filter_run(block%big_filter, dudt)
       call filter_run(block%big_filter, dvdt)
-      call perf_stop('filter_dudt_dvdt')
       ! ------------------------------------------------------------------------
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
@@ -236,8 +228,8 @@ contains
           end do
         end do
       end do
-      call fill_halo(new_dstate%u_lon)
-      call fill_halo(new_dstate%v_lat)
+      call fill_halo(new_dstate%u_lon, async=.true.)
+      call fill_halo(new_dstate%v_lat, async=.true.)
     end if
     end associate
 

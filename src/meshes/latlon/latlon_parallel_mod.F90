@@ -26,6 +26,7 @@ module latlon_parallel_mod
 
   public proc
   public fill_halo
+  public wait_halo
   public zonal_sum
   public zonal_max
   public zonal_avg
@@ -39,18 +40,27 @@ module latlon_parallel_mod
     module procedure fill_halo_4d
   end interface fill_halo
 
+  interface wait_halo
+    module procedure wait_halo_2d
+    module procedure wait_halo_3d
+    module procedure wait_halo_4d
+  end interface wait_halo
+
+  integer status(MPI_STATUS_SIZE,8)
+
 contains
 
-  subroutine fill_halo_2d(field, west_halo, east_halo, south_halo, north_halo)
+  subroutine fill_halo_2d(field, west_halo, east_halo, south_halo, north_halo, async)
 
     type(latlon_field2d_type), intent(inout) :: field
     logical, intent(in), optional :: west_halo
     logical, intent(in), optional :: east_halo
     logical, intent(in), optional :: south_halo
     logical, intent(in), optional :: north_halo
+    logical, intent(in), optional :: async
 
-    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt
-    integer t1, t2, ierr
+    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt, async_opt
+    integer t1, t2, tag, ierr
 
     call perf_start('fill_halo_2d')
 
@@ -58,93 +68,117 @@ contains
     east_halo_opt  = .true. ; if (present(east_halo )) east_halo_opt  = east_halo
     south_halo_opt = .true. ; if (present(south_halo)) south_halo_opt = south_halo
     north_halo_opt = .true. ; if (present(north_halo)) north_halo_opt = north_halo
+    async_opt      = .false.; if (present(async     )) async_opt      = async
 
     t1 = merge(1, 2, field%full_lon)
     t2 = merge(1, 2, field%full_lat)
-
-    if (west_halo_opt) then
-      call MPI_ISEND(field%d, 1, field%halo(east)%send_type_2d(t1,t2), field%halo(east)%proc_id, 21, &
-                     proc%comm_model, field%send_req(east), ierr)
-      call MPI_IRECV(field%d, 1, field%halo(west)%recv_type_2d(t1,t2), field%halo(west)%proc_id, 21, &
-                     proc%comm_model, field%recv_req(west), ierr)
-    end if
-
-    if (east_halo_opt) then
-      call MPI_ISEND(field%d, 1, field%halo(west)%send_type_2d(t1,t2), field%halo(west)%proc_id, 22, &
-                     proc%comm_model, field%send_req(west), ierr)
-      call MPI_IRECV(field%d, 1, field%halo(east)%recv_type_2d(t1,t2), field%halo(east)%proc_id, 22, &
-                     proc%comm_model, field%recv_req(east), ierr)
-    end if
+    tag = field%id * 100
 
     if (south_halo_opt) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, 23, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, tag+21, &
                        proc%comm_model, field%send_req(north), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, 23, &
+      if (field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, tag+21, &
                        proc%comm_model, field%send_req(south), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_2d(t1,t2), field%halo(south)%proc_id, 23, &
+      call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_2d(t1,t2), field%halo(south)%proc_id, tag+21, &
                      proc%comm_model, field%recv_req(south), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     if (north_halo_opt) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, 24, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_2d(t1,t2), field%halo(south)%proc_id, tag+22, &
                        proc%comm_model, field%send_req(south), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, 24, &
+      if (field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_2d(t1,t2), field%halo(north)%proc_id, tag+22, &
                        proc%comm_model, field%send_req(north), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_2d(t1,t2), field%halo(north)%proc_id, 24, &
+      call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_2d(t1,t2), field%halo(north)%proc_id, tag+22, &
                      proc%comm_model, field%recv_req(north), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
-    if (field%halo_diagonal .and. field%halo(south_west)%initialized) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north_east)%send_type_2d(t1,t2), field%halo(north_east)%proc_id, 25, &
+    if (field%halo_diagonal .and. field%halo(south_west)%initialized .and. south_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north_east)%send_type_2d(t1,t2), field%halo(north_east)%proc_id, tag+23, &
                        proc%comm_model, field%send_req(north_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(south_west)%recv_type_2d(t1,t2), field%halo(south_west)%proc_id, 25, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(south_west)%recv_type_2d(t1,t2), field%halo(south_west)%proc_id, tag+23, &
                        proc%comm_model, field%recv_req(south_west), ierr)
-      end if
-
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north_west)%send_type_2d(t1,t2), field%halo(north_west)%proc_id, 26, &
-                       proc%comm_model, field%send_req(north_west), ierr)
-      end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(south_east)%recv_type_2d(t1,t2), field%halo(south_east)%proc_id, 26, &
-                       proc%comm_model, field%recv_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
     end if
 
-    if (field%halo_diagonal .and. field%halo(north_west)%initialized) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south_east)%send_type_2d(t1,t2), field%halo(south_east)%proc_id, 27, &
-                       proc%comm_model, field%send_req(south_east), ierr)
+    if (field%halo_diagonal .and. field%halo(south_east)%initialized .and. south_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north_west)%send_type_2d(t1,t2), field%halo(north_west)%proc_id, tag+24, &
+                       proc%comm_model, field%send_req(north_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(north_west)%recv_type_2d(t1,t2), field%halo(north_west)%proc_id, 27, &
-                       proc%comm_model, field%recv_req(north_west), ierr)
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(south_east)%recv_type_2d(t1,t2), field%halo(south_east)%proc_id, tag+24, &
+                       proc%comm_model, field%recv_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
 
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south_west)%send_type_2d(t1,t2), field%halo(south_west)%proc_id, 28, &
+    if (field%halo_diagonal .and. field%halo(north_west)%initialized .and. north_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south_east)%send_type_2d(t1,t2), field%halo(south_east)%proc_id, tag+25, &
+                       proc%comm_model, field%send_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(north_west)%recv_type_2d(t1,t2), field%halo(north_west)%proc_id, tag+25, &
+                       proc%comm_model, field%recv_req(north_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+    end if
+
+    if (field%halo_diagonal .and. field%halo(north_east)%initialized .and. north_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south_west)%send_type_2d(t1,t2), field%halo(south_west)%proc_id, tag+26, &
                        proc%comm_model, field%send_req(south_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(north_east)%recv_type_2d(t1,t2), field%halo(north_east)%proc_id, 28, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(north_east)%recv_type_2d(t1,t2), field%halo(north_east)%proc_id, tag+26, &
                        proc%comm_model, field%recv_req(north_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
+
+    if (west_halo_opt) then
+      call MPI_ISEND(field%d, 1, field%halo(east)%send_type_2d(t1,t2), field%halo(east)%proc_id, tag+27, &
+                     proc%comm_model, field%send_req(east), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d, 1, field%halo(west)%recv_type_2d(t1,t2), field%halo(west)%proc_id, tag+27, &
+                     proc%comm_model, field%recv_req(west), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+    end if
+
+    if (east_halo_opt) then
+      call MPI_ISEND(field%d, 1, field%halo(west)%send_type_2d(t1,t2), field%halo(west)%proc_id, tag+28, &
+                     proc%comm_model, field%send_req(west), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d, 1, field%halo(east)%recv_type_2d(t1,t2), field%halo(east)%proc_id, tag+28, &
+                     proc%comm_model, field%recv_req(east), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     call perf_stop('fill_halo_2d')
 
-    call wait_halo_2d(field)
+    if (.not. async_opt) call wait_halo_2d(field)
 
   end subroutine fill_halo_2d
 
@@ -175,8 +209,9 @@ contains
     end if
 
     if (field%recv_req(south) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(south), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_south_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(south), MPI_STATUS_IGNORE, ierr); field%recv_req(south) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_south_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,js:js+hy-1)
         if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -190,12 +225,12 @@ contains
           end do
         end if
       end if
-      field%recv_req(south) = MPI_REQUEST_NULL
     end if
 
     if (field%recv_req(north) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(north), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_north_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(north), MPI_STATUS_IGNORE, ierr); field%recv_req(north) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_north_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,je-hy+1:je)
         if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -209,28 +244,28 @@ contains
           end do
         end if
       end if
-      field%recv_req(north) = MPI_REQUEST_NULL
     end if
 
-    do j = 1, size(field%send_req)
-      call MPI_WAIT(field%send_req(j), MPI_STATUS_IGNORE, ierr); field%send_req(j) = MPI_REQUEST_NULL
-      call MPI_WAIT(field%recv_req(j), MPI_STATUS_IGNORE, ierr); field%recv_req(j) = MPI_REQUEST_NULL
-    end do
+    call MPI_WAITALL(8, field%send_req, status, ierr); field%send_req = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
+    call MPI_WAITALL(8, field%recv_req, status, ierr); field%recv_req = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
 
     call perf_stop('wait_halo_2d')
 
   end subroutine wait_halo_2d
 
-  subroutine fill_halo_3d(field, west_halo, east_halo, south_halo, north_halo)
+  subroutine fill_halo_3d(field, west_halo, east_halo, south_halo, north_halo, async)
 
     type(latlon_field3d_type), intent(inout) :: field
     logical, intent(in), optional :: west_halo
     logical, intent(in), optional :: east_halo
     logical, intent(in), optional :: south_halo
     logical, intent(in), optional :: north_halo
+    logical, intent(in), optional :: async
 
-    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt
-    integer t1, t2, t3, ierr
+    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt, async_opt
+    integer t1, t2, t3, tag, ierr
 
     call perf_start('fill_halo_3d')
 
@@ -238,94 +273,118 @@ contains
     east_halo_opt  = .true. ; if (present(east_halo )) east_halo_opt  = east_halo
     south_halo_opt = .true. ; if (present(south_halo)) south_halo_opt = south_halo
     north_halo_opt = .true. ; if (present(north_halo)) north_halo_opt = north_halo
+    async_opt      = .false.; if (present(async     )) async_opt      = async
 
     t1 = merge(1, 2, field%full_lon)
     t2 = merge(1, 2, field%full_lat)
     t3 = merge(1, 2, field%full_lev)
-
-    if (west_halo_opt) then
-      call MPI_ISEND(field%d, 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, 31, &
-                     proc%comm_model, field%send_req(east), ierr)
-      call MPI_IRECV(field%d, 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, 31, &
-                     proc%comm_model, field%recv_req(west), ierr)
-    end if
-
-    if (east_halo_opt) then
-      call MPI_ISEND(field%d, 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, 32, &
-                     proc%comm_model, field%send_req(west), ierr)
-      call MPI_IRECV(field%d, 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, 32, &
-                     proc%comm_model, field%recv_req(east), ierr)
-    end if
+    tag = field%id * 100
 
     if (south_halo_opt) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 33, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+31, &
                        proc%comm_model, field%send_req(north), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 33, &
+      if (field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+31, &
                        proc%comm_model, field%send_req(south), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 33, &
+      call MPI_IRECV(field%d, 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+31, &
                      proc%comm_model, field%recv_req(south), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     if (north_halo_opt) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 34, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+32, &
                        proc%comm_model, field%send_req(south), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 34, &
+      if (field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+32, &
                        proc%comm_model, field%send_req(north), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 34, &
+      call MPI_IRECV(field%d, 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+32, &
                      proc%comm_model, field%recv_req(north), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
-    if (field%halo_diagonal .and. field%halo(south_west)%initialized) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north_east)%send_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, 37, &
+    if (field%halo_diagonal .and. field%halo(south_west)%initialized .and. south_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north_east)%send_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, tag+33, &
                        proc%comm_model, field%send_req(north_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(south_west)%recv_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, 37, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(south_west)%recv_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, tag+33, &
                        proc%comm_model, field%recv_req(south_west), ierr)
-      end if
-
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(north_west)%send_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, 38, &
-                       proc%comm_model, field%send_req(north_west), ierr)
-      end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(south_east)%recv_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, 38, &
-                       proc%comm_model, field%recv_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
     end if
 
-    if (field%halo_diagonal .and. field%halo(north_west)%initialized) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south_east)%send_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, 39, &
-                       proc%comm_model, field%send_req(south_east), ierr)
+    if (field%halo_diagonal .and. field%halo(south_east)%initialized .and. south_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(north_west)%send_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, tag+34, &
+                       proc%comm_model, field%send_req(north_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(north_west)%recv_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, 39, &
-                       proc%comm_model, field%recv_req(north_west), ierr)
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(south_east)%recv_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, tag+34, &
+                       proc%comm_model, field%recv_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
 
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d, 1, field%halo(south_west)%send_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, 40, &
+    if (field%halo_diagonal .and. field%halo(north_west)%initialized .and. north_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south_east)%send_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, tag+35, &
+                       proc%comm_model, field%send_req(south_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(north_west)%recv_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, tag+35, &
+                       proc%comm_model, field%recv_req(north_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+    end if
+
+    if (field%halo_diagonal .and. field%halo(north_east)%initialized .and. north_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d, 1, field%halo(south_west)%send_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, tag+36, &
                        proc%comm_model, field%send_req(south_west), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d, 1, field%halo(north_east)%recv_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, 40, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d, 1, field%halo(north_east)%recv_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, tag+36, &
                        proc%comm_model, field%recv_req(north_east), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
+
+    if (west_halo_opt) then
+      call MPI_ISEND(field%d, 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, tag+37, &
+                     proc%comm_model, field%send_req(east), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d, 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, tag+37, &
+                     proc%comm_model, field%recv_req(west), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+    end if
+
+    if (east_halo_opt) then
+      call MPI_ISEND(field%d, 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, tag+38, &
+                     proc%comm_model, field%send_req(west), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d, 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, tag+38, &
+                     proc%comm_model, field%recv_req(east), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     call perf_stop('fill_halo_3d')
 
-    call wait_halo_3d(field)
+    if (.not. async_opt) call wait_halo_3d(field)
 
   end subroutine fill_halo_3d
 
@@ -356,8 +415,9 @@ contains
     end if
 
     if (field%recv_req(south) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(south), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_south_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(south), MPI_STATUS_IGNORE, ierr); field%recv_req(south) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_south_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,js:js+hy-1,:)
         if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -371,12 +431,12 @@ contains
           end do
         end if
       end if
-      field%recv_req(south) = MPI_REQUEST_NULL
     end if
 
     if (field%recv_req(north) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(north), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_north_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(north), MPI_STATUS_IGNORE, ierr); field%recv_req(north) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_north_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,je-hy+1:je,:)
         if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -390,19 +450,18 @@ contains
           end do
         end if
       end if
-      field%recv_req(north) = MPI_REQUEST_NULL
     end if
 
-    do j = 1, size(field%send_req)
-      call MPI_WAIT(field%send_req(j), MPI_STATUS_IGNORE, ierr); field%send_req(j) = MPI_REQUEST_NULL
-      call MPI_WAIT(field%recv_req(j), MPI_STATUS_IGNORE, ierr); field%recv_req(j) = MPI_REQUEST_NULL
-    end do
+    call MPI_WAITALL(8, field%send_req, status, ierr); field%send_req = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
+    call MPI_WAITALL(8, field%recv_req, status, ierr); field%recv_req = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
 
     call perf_stop('wait_halo_3d')
 
   end subroutine wait_halo_3d
 
-  subroutine fill_halo_4d(field, i4, west_halo, east_halo, south_halo, north_halo)
+  subroutine fill_halo_4d(field, i4, west_halo, east_halo, south_halo, north_halo, async)
 
     type(latlon_field4d_type), intent(inout) :: field
     integer, intent(in) :: i4
@@ -410,9 +469,10 @@ contains
     logical, intent(in), optional :: east_halo
     logical, intent(in), optional :: south_halo
     logical, intent(in), optional :: north_halo
+    logical, intent(in), optional :: async
 
-    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt
-    integer t1, t2, t3, ierr
+    logical west_halo_opt, east_halo_opt, south_halo_opt, north_halo_opt, async_opt
+    integer t1, t2, t3, tag, ierr
 
     call perf_start('fill_halo_4d')
 
@@ -420,94 +480,118 @@ contains
     east_halo_opt  = .true. ; if (present(east_halo )) east_halo_opt  = east_halo
     south_halo_opt = .true. ; if (present(south_halo)) south_halo_opt = south_halo
     north_halo_opt = .true. ; if (present(north_halo)) north_halo_opt = north_halo
+    async_opt      = .false.; if (present(async     )) async_opt      = async
 
     t1 = merge(1, 2, field%full_lon)
     t2 = merge(1, 2, field%full_lat)
     t3 = merge(1, 2, field%full_lev)
-
-    if (west_halo_opt) then
-      call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, 41, &
-                     proc%comm_model, field%send_req(east,i4), ierr)
-      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, 41, &
-                     proc%comm_model, field%recv_req(west,i4), ierr)
-    end if
-
-    if (east_halo_opt) then
-      call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, 42, &
-                     proc%comm_model, field%send_req(west,i4), ierr)
-      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, 42, &
-                     proc%comm_model, field%recv_req(east,i4), ierr)
-    end if
+    tag = field%id * 100
 
     if (south_halo_opt) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 43, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+41, &
                        proc%comm_model, field%send_req(north,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_south_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 43, &
+      if (field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+41, &
                        proc%comm_model, field%send_req(south,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, 43, &
+      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south)%recv_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+41, &
                      proc%comm_model, field%recv_req(south,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     if (north_halo_opt) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, 44, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south)%send_type_3d(t1,t2,t3), field%halo(south)%proc_id, tag+42, &
                        proc%comm_model, field%send_req(south,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (proc%at_north_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, 44, &
+      if (field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north)%send_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+42, &
                        proc%comm_model, field%send_req(north,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, 44, &
+      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north)%recv_type_3d(t1,t2,t3), field%halo(north)%proc_id, tag+42, &
                      proc%comm_model, field%recv_req(north,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
-    if (field%halo_diagonal .and. field%halo(south_west)%initialized) then
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north_east)%send_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, 37, &
+    if (field%halo_diagonal .and. field%halo(south_west)%initialized .and. south_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north_east)%send_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, tag+43, &
                        proc%comm_model, field%send_req(north_east,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south_west)%recv_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, 37, &
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south_west)%recv_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, tag+43, &
                        proc%comm_model, field%recv_req(south_west,i4), ierr)
-      end if
-
-      if (.not. proc%at_north_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north_west)%send_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, 38, &
-                       proc%comm_model, field%send_req(north_west,i4), ierr)
-      end if
-      if (.not. proc%at_south_pole) then
-        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south_east)%recv_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, 38, &
-                       proc%comm_model, field%recv_req(south_east,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
     end if
 
-    if (field%halo_diagonal .and. field%halo(north_west)%initialized) then
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south_east)%send_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, 39, &
-                       proc%comm_model, field%send_req(south_east,i4), ierr)
+    if (field%halo_diagonal .and. field%halo(south_east)%initialized .and. south_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(north_west)%send_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, tag+44, &
+                       proc%comm_model, field%send_req(north_west,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north_west)%recv_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, 39, &
-                       proc%comm_model, field%recv_req(north_west,i4), ierr)
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(south_east)%recv_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, tag+44, &
+                       proc%comm_model, field%recv_req(south_east,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
 
-      if (.not. proc%at_south_pole) then
-        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south_west)%send_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, 40, &
+    if (field%halo_diagonal .and. field%halo(north_west)%initialized .and. north_halo_opt .and. west_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south_east)%send_type_3d(t1,t2,t3), field%halo(south_east)%proc_id, tag+45, &
+                       proc%comm_model, field%send_req(south_east,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north_west)%recv_type_3d(t1,t2,t3), field%halo(north_west)%proc_id, tag+45, &
+                       proc%comm_model, field%recv_req(north_west,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
+      end if
+    end if
+
+    if (field%halo_diagonal .and. field%halo(north_east)%initialized .and. north_halo_opt .and. east_halo_opt) then
+      if (.not. field%mesh%has_south_pole()) then
+        call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(south_west)%send_type_3d(t1,t2,t3), field%halo(south_west)%proc_id, tag+46, &
                        proc%comm_model, field%send_req(south_west,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
-      if (.not. proc%at_north_pole) then
-        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north_east)%recv_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, 40, &
+      if (.not. field%mesh%has_north_pole()) then
+        call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(north_east)%recv_type_3d(t1,t2,t3), field%halo(north_east)%proc_id, tag+46, &
                        proc%comm_model, field%recv_req(north_east,i4), ierr)
+        call handle_mpi_error(ierr, __LINE__)
       end if
+    end if
+
+    if (west_halo_opt) then
+      call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(east)%send_type_3d(t1,t2,t3), field%halo(east)%proc_id, tag+47, &
+                     proc%comm_model, field%send_req(east,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(west)%recv_type_3d(t1,t2,t3), field%halo(west)%proc_id, tag+47, &
+                     proc%comm_model, field%recv_req(west,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+    end if
+
+    if (east_halo_opt) then
+      call MPI_ISEND(field%d(:,:,:,i4), 1, field%halo(west)%send_type_3d(t1,t2,t3), field%halo(west)%proc_id, tag+48, &
+                     proc%comm_model, field%send_req(west,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
+      call MPI_IRECV(field%d(:,:,:,i4), 1, field%halo(east)%recv_type_3d(t1,t2,t3), field%halo(east)%proc_id, tag+48, &
+                     proc%comm_model, field%recv_req(east,i4), ierr)
+      call handle_mpi_error(ierr, __LINE__)
     end if
 
     call perf_stop('fill_halo_4d')
 
-    call wait_halo_4d(field, i4)
+    if (.not. async_opt) call wait_halo_4d(field, i4)
 
   end subroutine fill_halo_4d
 
@@ -539,8 +623,9 @@ contains
     end if
 
     if (field%recv_req(south,i4) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(south,i4), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_south_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(south,i4), MPI_STATUS_IGNORE, ierr); field%recv_req(south,i4) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_south_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,js:js+hy-1,:,i4)
         if (field%halo(south)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -554,12 +639,12 @@ contains
           end do
         end if
       end if
-      field%recv_req(south,i4) = MPI_REQUEST_NULL
     end if
 
     if (field%recv_req(north,i4) /= MPI_REQUEST_NULL) then
-      call MPI_WAIT(field%recv_req(north,i4), MPI_STATUS_IGNORE, ierr)
-      if (proc%at_north_pole .and. field%halo_cross_pole) then
+      call MPI_WAIT(field%recv_req(north,i4), MPI_STATUS_IGNORE, ierr); field%recv_req(north,i4) = MPI_REQUEST_NULL
+      call handle_mpi_error(ierr, __LINE__)
+      if (field%mesh%has_north_pole() .and. field%halo_cross_pole) then
         ! Reverse array order.
         tmp = field%d(:,je-hy+1:je,:,i4)
         if (field%halo(north)%proc_id == proc%id_model) then ! 1D decompostion, also reverse in lon
@@ -573,11 +658,26 @@ contains
           end do
         end if
       end if
-      field%recv_req(north,i4) = MPI_REQUEST_NULL
     end if
+
+    call MPI_WAITALL(8, field%send_req(:,i4), status, ierr); field%send_req(:,i4) = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
+    call MPI_WAITALL(8, field%recv_req(:,i4), status, ierr); field%recv_req(:,i4) = MPI_REQUEST_NULL
+    call handle_mpi_error(ierr, __LINE__)
 
     call perf_stop('wait_halo_4d')
 
   end subroutine wait_halo_4d
+
+  subroutine handle_mpi_error(ierr, line)
+
+    integer, intent(in) :: ierr
+    integer, intent(in) :: line
+
+    if (ierr /= MPI_SUCCESS) then
+      call log_error('MPI error!', __FILE__, line)
+    end if
+
+  end subroutine handle_mpi_error
 
 end module latlon_parallel_mod

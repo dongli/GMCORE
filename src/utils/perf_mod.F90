@@ -6,6 +6,7 @@ module perf_mod
   use gptl
 #endif
   use mpi
+  use latlon_parallel_types_mod
 
   implicit none
 
@@ -40,7 +41,7 @@ contains
     ierr = gptlsetoption(gptloverhead, 0)
     ierr = gptlsetoption(gptlpercent, 0)
     ierr = gptlsetoption(gptlabort_on_error, 1)
-    ierr = gptlsetoption(gptlsync_mpi, 1)
+    ! ierr = gptlsetoption(gptlsync_mpi, 1)
     if (gptlinitialize() < 0) then
       stop 'Failed to initialize GPTL!'
     end if
@@ -81,7 +82,8 @@ contains
 
 #ifdef HAS_GPTL
     ierr = gptlstop('total')
-    ierr = gptlpr(0)
+    ierr = gptlpr(proc%id_model)
+    ierr = gptlpr_summary(MPI_COMM_WORLD)
     if (gptlfinalize() /= 0) then
       stop 'Failed to call finalize GPTL!'
     end if

@@ -291,8 +291,8 @@ contains
         end do
       end do
     end do
-    call fill_halo(sx, west_halo =.false., east_halo =.false.)
-    call fill_halo(sy, south_halo=.false., north_halo=.false.)
+    call fill_halo(sx, west_halo =.false., east_halo =.false., async=.true.)
+    call fill_halo(sy, south_halo=.false., north_halo=.false., async=.true.)
     ! NOTE: Swap sy and sx.
     call batch%calc_cflxy_tracer(sy, sx, u, v, cflx, cfly, u_frac, dt_opt)
     ! Calculate intermediate tracer density due to advective operators.
@@ -373,8 +373,8 @@ contains
         end do
       end do
     end do
-    call fill_halo(mx, west_halo =.false., east_halo =.false.)
-    call fill_halo(my, south_halo=.false., north_halo=.false.)
+    call fill_halo(mx, west_halo =.false., east_halo =.false., async=.true.)
+    call fill_halo(my, south_halo=.false., north_halo=.false., async=.true.)
     ! Update cflx, cfly and mfx_frac for tracer advection.
     ! NOTE: Swap mx and my.
     call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
@@ -431,15 +431,15 @@ contains
                dqmydt      => batch%qy         )   ! borrowed array
     ! Run inner advective operators.
     call hflx_tracer(batch, m, m, cflx, cfly, mfx, mfx_frac, mfy, q, q, qmfx0, qmfy0, dt_opt)
-    call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false.)
-    call fill_halo(qmfy0, west_halo =.false., east_halo =.false., north_halo=.false.)
+    call fill_halo(qmfx0, south_halo=.false., north_halo=.false., east_halo =.false., async=.true.)
+    call fill_halo(qmfy0, west_halo =.false., east_halo =.false., north_halo=.false., async=.true.)
     select case (batch%loc)
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
       ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
       ! Calculate intermediate tracer density due to advective operators.
-      call divx_operator(qmfx0, dqmxdt)
-      call divy_operator(qmfy0, dqmydt)
+      call wait_halo(qmfx0); call divx_operator(qmfx0, dqmxdt)
+      call wait_halo(qmfy0); call divy_operator(qmfy0, dqmydt)
       do k = ks, ke
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide

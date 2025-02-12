@@ -86,7 +86,7 @@ contains
     integer recv_subarray_size(3,2,2)
     integer send_subarray_start(3,2,2)
     integer recv_subarray_start(3,2,2)
-    integer nlev(2)
+    integer nlev(2), nlev_no_halo(2), ks(2)
     integer i, j, k, ierr
 
     if (present(ngb_id)) then
@@ -196,107 +196,109 @@ contains
     this%orient = orient
     this%type = cross_proc_halo
     nlev = [mesh%full_kme-mesh%full_kms+1,mesh%half_kme-mesh%half_kms+1]
+    nlev_no_halo = [mesh%full_kde-mesh%full_kds+1,mesh%half_kde-mesh%half_kds+1]
+    ks = [mesh%full_kds-mesh%full_kms,mesh%half_kds-mesh%half_kms]
 
     do k = 1, 2 ! From full level to half level
       array_size(:,1,1) = [mesh%full_nlon+2*mesh%lon_hw,mesh%full_nlat+2*mesh%lat_hw,nlev(k)]
       array_size(:,2,1) = [mesh%half_nlon+2*mesh%lon_hw,mesh%full_nlat+2*mesh%lat_hw,nlev(k)]
       array_size(:,1,2) = [mesh%full_nlon+2*mesh%lon_hw,mesh%half_nlat+2*mesh%lat_hw,nlev(k)]
       array_size(:,2,2) = [mesh%half_nlon+2*mesh%lon_hw,mesh%half_nlat+2*mesh%lat_hw,nlev(k)]
-      send_subarray_size(:,1,1) = [full_ihe-full_ihs+1,full_jhe-full_jhs+1,nlev(k)]
+      send_subarray_size(:,1,1) = [full_ihe-full_ihs+1,full_jhe-full_jhs+1,nlev_no_halo(k)]
       recv_subarray_size(:,1,1) = send_subarray_size(:,1,1)
-      send_subarray_size(:,2,1) = [half_ihe-half_ihs+1,full_jhe-full_jhs+1,nlev(k)]
+      send_subarray_size(:,2,1) = [half_ihe-half_ihs+1,full_jhe-full_jhs+1,nlev_no_halo(k)]
       recv_subarray_size(:,2,1) = send_subarray_size(:,2,1)
-      send_subarray_size(:,1,2) = [full_ihe-full_ihs+1,half_jhe-half_jhs+1,nlev(k)]
+      send_subarray_size(:,1,2) = [full_ihe-full_ihs+1,half_jhe-half_jhs+1,nlev_no_halo(k)]
       recv_subarray_size(:,1,2) = send_subarray_size(:,1,2)
-      send_subarray_size(:,2,2) = [half_ihe-half_ihs+1,half_jhe-half_jhs+1,nlev(k)]
+      send_subarray_size(:,2,2) = [half_ihe-half_ihs+1,half_jhe-half_jhs+1,nlev_no_halo(k)]
       recv_subarray_size(:,2,2) = send_subarray_size(:,2,2)
 
-      recv_subarray_start(:,1,1) = [full_ihs,full_jhs,0]
-      recv_subarray_start(:,2,1) = [half_ihs,full_jhs,0]
-      recv_subarray_start(:,1,2) = [full_ihs,half_jhs,0]
-      recv_subarray_start(:,2,2) = [half_ihs,half_jhs,0]
+      recv_subarray_start(:,1,1) = [full_ihs,full_jhs,ks(k)]
+      recv_subarray_start(:,2,1) = [half_ihs,full_jhs,ks(k)]
+      recv_subarray_start(:,1,2) = [full_ihs,half_jhs,ks(k)]
+      recv_subarray_start(:,2,2) = [half_ihs,half_jhs,ks(k)]
       select case (orient)
       case (west)
-          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs              ,0]
-          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs              ,0]
-          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs              ,0]
-          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs              ,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs              ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs              ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs              ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs              ,ks(k)]
       case (east)
-          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs              ,0]
-          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs              ,0]
-          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs              ,0]
-          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs              ,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs              ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs              ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs              ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs              ,ks(k)]
       case (south)
         if (mesh%has_south_pole()) then
-          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+1            ,0]
-          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+1            ,0]
-          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhe+1            ,ks(k)]
         end if
       case (north)
         if (mesh%has_north_pole()) then
-          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihs            ,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihs            ,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihs            ,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs            ,half_jhs-this%lat_hw  ,ks(k)]
         end if
       case (south_west)
         if (mesh%has_south_pole()) then
-          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+1            ,0]
-          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+1            ,0]
-          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhe+1            ,ks(k)]
         end if
       case (south_east)
         if (mesh%has_south_pole()) then
-          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+2            ,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+2            ,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+1            ,0]
-          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+1            ,0]
-          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,0]
-          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhe+1            ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhe+1            ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhe+1            ,ks(k)]
         end if
       case (north_west)
         if (mesh%has_north_pole()) then
-          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihe+1          ,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihe+1          ,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihe+1          ,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihe+1          ,half_jhs-this%lat_hw  ,ks(k)]
         end if
       case (north_east)
         if (mesh%has_north_pole()) then
-          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw-1,0] ! Skip pole grid.
-          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw-1,ks(k)] ! Skip pole grid.
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,ks(k)]
         else
-          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
-          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,0]
+          send_subarray_start(:,1,1) = [full_ihs-this%lon_hw,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,1) = [half_ihs-this%lon_hw,full_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,1,2) = [full_ihs-this%lon_hw,half_jhs-this%lat_hw  ,ks(k)]
+          send_subarray_start(:,2,2) = [half_ihs-this%lon_hw,half_jhs-this%lat_hw  ,ks(k)]
         end if
       end select
       do j = 1, 2

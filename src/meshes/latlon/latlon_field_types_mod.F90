@@ -45,12 +45,15 @@ module latlon_field_types_mod
   integer, public, parameter :: field_units_len     = 32
   integer, public, parameter :: field_loc_len       = 10
 
+  integer :: field_unique_id = 0
+
   type latlon_field_meta_type
     character(field_name_len     ) :: name      = 'N/A'
     character(field_long_name_len) :: long_name = 'N/A'
     character(field_units_len    ) :: units     = 'N/A'
     character(field_loc_len      ) :: loc       = 'N/A'
     character(5)                   :: output    = 'N/A'
+    integer :: id               = 0
     integer :: nlon             = 0
     integer :: nlat             = 0
     integer :: nlev             = 0
@@ -161,6 +164,10 @@ contains
     if (present(halo_diagonal  )) this%halo_diagonal   = halo_diagonal
     if (present(output         )) this%output          = output
     if (present(restart        )) this%restart         = restart
+
+    ! This id is used to avoid MPI message tag conflict.
+    field_unique_id = field_unique_id + 1
+    this%id         = field_unique_id
 
   end subroutine latlon_field_meta_init
 

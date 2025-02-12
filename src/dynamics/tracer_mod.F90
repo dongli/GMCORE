@@ -220,6 +220,7 @@ contains
     qm%d = 0
     do m = 1, ntracers
       if (is_water_tracer(m)) then
+        call wait_halo(q, m)
         do k = mesh%full_kds, mesh%full_kde
           do j = js, je
             do i = is, ie

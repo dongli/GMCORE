@@ -22,7 +22,6 @@ module filter_mod
 
   public filter_type
   public filter_run
-  public filter_run_vector
 
   interface filter_run
     module procedure filter_run_2d
@@ -204,111 +203,5 @@ contains
     call perf_stop('filter_run_4d')
 
   end subroutine filter_run_4d
-
-  subroutine filter_run_vector(filter, x_lon, y_lat, x_lon_save, y_lat_save)
-
-    type(filter_type        ), intent(in   ) :: filter
-    type(latlon_field3d_type), intent(inout) :: x_lon
-    type(latlon_field3d_type), intent(inout) :: y_lat
-    type(latlon_field3d_type), intent(inout) :: x_lon_save
-    type(latlon_field3d_type), intent(inout) :: y_lat_save
-
-    real(r8) xs  (filter%mesh%full_ims:filter%mesh%full_ime)
-    real(r8) ys  (filter%mesh%full_ims:filter%mesh%full_ime)
-    real(r8) tmp1(filter%mesh%full_ids:filter%mesh%full_ide)
-    real(r8) tmp2(filter%mesh%full_ids:filter%mesh%full_ide)
-    real(r8) s, y_lon, x_lat, c
-    integer i, j, k, n, hn
-
-    real(r8), parameter :: lat1 = 85
-    real(r8), parameter :: lat2 = 75
-
-    if (.not. associated(x_lon%mesh, filter%mesh)) then
-      call log_error('x_lon%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
-    end if
-    if (.not. associated(y_lat%mesh, filter%mesh)) then
-      call log_error('y_lat%mesh is not associated with filter%mesh', __FILE__, __LINE__, pid=proc%id_model)
-    end if
-
-    call fill_halo(x_lon, south_halo=.false.)
-    call fill_halo(y_lat, north_halo=.false.)
-
-    x_lon_save%d = x_lon%d
-    y_lat_save%d = y_lat%d
-
-    associate (mesh => filter%mesh)
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        if (filter%ngrid_lon(j) >= 3) then
-          c = exp_two_values(1.0_r8, 0.0_r8, lat1, lat2, abs(mesh%full_lat_deg(j)))
-          n  = filter%ngrid_lon(j)
-          hn = (n - 1) / 2
-          do i = mesh%half_ids, mesh%half_ide
-            tmp1(i) = sum(filter%wgt_lon(:n,j) * x_lon%d(i-hn:i+hn,j,k))
-          end do
-          s = sign(1.0_r8, mesh%full_lat(j))
-          ! Transform onto polar plane.
-          do i = mesh%half_ids - hn, mesh%half_ide + hn
-            y_lon = mesh%tg_wgt_lon(1,j) * (y_lat_save%d(i,j-1,k) + y_lat_save%d(i+1,j-1,k)) + &
-                    mesh%tg_wgt_lon(2,j) * (y_lat_save%d(i,j  ,k) + y_lat_save%d(i+1,j  ,k))
-            xs(i) = s * (-x_lon_save%d(i,j,k) * mesh%half_sin_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_cos_lon(i) / mesh%full_sin_lat(j)**2)
-            ys(i) = s * ( x_lon_save%d(i,j,k) * mesh%half_cos_lon(i) / mesh%full_sin_lat(j) - y_lon * mesh%half_sin_lon(i) / mesh%full_sin_lat(j)**2)
-          end do
-          do i = mesh%half_ids, mesh%half_ide
-            tmp2(i) = sum(filter%wgt_lon(:n,j) * xs(i-hn:i+hn))
-          end do
-          xs(mesh%half_ids:mesh%half_ide) = tmp2
-          do i = mesh%half_ids, mesh%half_ide
-            tmp2(i) = sum(filter%wgt_lon(:n,j) * ys(i-hn:i+hn))
-          end do
-          ys(mesh%half_ids:mesh%half_ide) = tmp2
-          ! Transform back.
-          do i = mesh%half_ids, mesh%half_ide
-            tmp2(i) = -s * mesh%full_sin_lat(j) * (mesh%half_sin_lon(i) * xs(i) - mesh%half_cos_lon(i) * ys(i))
-          end do
-          ! Mix tmp1 and tmp2.
-          do i = mesh%half_ids, mesh%half_ide
-            x_lon%d(i,j,k) = (1 - c) * tmp1(i) + c * tmp2(i)
-          end do
-        end if
-      end do
-      do j = mesh%half_jds, mesh%half_jde
-        if (filter%ngrid_lat(j) >= 3) then
-          c = exp_two_values(1.0_r8, 0.0_r8, lat1, lat2, abs(mesh%half_lat_deg(j)))
-          n  = filter%ngrid_lat(j)
-          hn = (n - 1) / 2
-          do i = mesh%full_ids, mesh%full_ide
-            tmp1(i) = sum(filter%wgt_lat(:n,j) * y_lat%d(i-hn:i+hn,j,k))
-          end do
-          s = sign(1.0_r8, mesh%half_lat(j))
-          ! Transform onto polar plane.
-          do i = mesh%full_ids - hn, mesh%full_ide + hn
-            x_lat = mesh%tg_wgt_lat(1,j) * (x_lon_save%d(i-1,j  ,k) + x_lon_save%d(i,j  ,k)) + &
-                    mesh%tg_wgt_lat(2,j) * (x_lon_save%d(i-1,j+1,k) + x_lon_save%d(i,j+1,k))
-            xs(i) = s * (-x_lat * mesh%full_sin_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_cos_lon(i) / mesh%half_sin_lat(j)**2)
-            ys(i) = s * ( x_lat * mesh%full_cos_lon(i) / mesh%half_sin_lat(j) - y_lat_save%d(i,j,k) * mesh%full_sin_lon(i) / mesh%half_sin_lat(j)**2)
-          end do
-          do i = mesh%full_ids, mesh%full_ide
-            tmp2(i) = sum(filter%wgt_lat(:n,j) * xs(i-hn:i+hn))
-          end do
-          xs(mesh%full_ids:mesh%full_ide) = tmp2
-          do i = mesh%full_ids, mesh%full_ide
-            tmp2(i) = sum(filter%wgt_lat(:n,j) * ys(i-hn:i+hn))
-          end do
-          ys(mesh%full_ids:mesh%full_ide) = tmp2
-          ! Transform back.
-          do i = mesh%full_ids, mesh%full_ide
-            tmp2(i) = -s * mesh%half_sin_lat(j)**2 * (mesh%full_cos_lon(i) * xs(i) + mesh%full_sin_lon(i) * ys(i))
-          end do
-          ! Mix tmp1 and tmp2.
-          do i = mesh%full_ids, mesh%full_ide
-            y_lat%d(i,j,k) = (1 - c) * tmp1(i) + c * tmp2(i)
-          end do
-        end if
-      end do
-    end do
-    end associate
-
-  end subroutine filter_run_vector
 
 end module filter_mod

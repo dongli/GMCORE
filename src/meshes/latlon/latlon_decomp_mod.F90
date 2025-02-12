@@ -150,7 +150,6 @@ contains
         if (i >= proc%cart_dims(cart_dim_lon)) i = i - proc%cart_dims(cart_dim_lon)
       end if
       proc%ngb(south)%id = i
-      proc%at_south_pole = .true.
     end if
     if (proc%ngb(north)%id == MPI_PROC_NULL) then
       if (cart_dim_lon == 1) then
@@ -161,7 +160,6 @@ contains
         if (i >= proc%np_model) i = i - proc%cart_dims(cart_dim_lon)
       end if
       proc%ngb(north)%id = i
-      proc%at_north_pole = .true.
     end if
 
     ! Set initial values for nlon, nlat, ids, jds.

@@ -245,8 +245,8 @@ contains
           call filter_run(block%big_filter, dudt)
           call filter_run(block%big_filter, dvdt)
         end if
-        call fill_halo(dudt, west_halo=.false., south_halo=.false., north_halo=.false.)
-        call fill_halo(dvdt, west_halo=.false., east_halo=.false., south_halo=.false.)
+        call fill_halo(dudt, west_halo=.false., south_halo=.false., north_halo=.false., async=.true.)
+        call fill_halo(dvdt, west_halo=.false., east_halo=.false., south_halo=.false. , async=.true.)
       end if
       do m = 1, ntracers
         if (ptend%updated_q(m)) then

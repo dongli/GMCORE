@@ -292,6 +292,8 @@ contains
 
     integer i, j, k
 
+    call wait_halo(dstate%pt)
+
     call perf_start('calc_t')
 
     associate (mesh => block%mesh         , &
@@ -362,12 +364,10 @@ contains
 
     call perf_start('calc_mfz')
 
-    associate (mesh        => block%mesh           , &
-               dmf         => block%aux%dmf        , & ! in
-               dmgsdt      => dtend%dmgsdt         , & ! in
-               mfz_lev     => block%aux%mfz_lev    , & ! out
-               mfz_lev_lon => block%aux%mfz_lev_lon, & ! out
-               mfz_lev_lat => block%aux%mfz_lev_lat)   ! out
+    associate (mesh        => block%mesh       , &
+               dmf         => block%aux%dmf    , & ! in
+               dmgsdt      => dtend%dmgsdt     , & ! in
+               mfz_lev     => block%aux%mfz_lev)   ! out
     do k = mesh%half_kds + 1, mesh%half_kde - 1
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
@@ -375,10 +375,7 @@ contains
         end do
       end do
     end do
-    call fill_halo(mfz_lev, west_halo=.false., south_halo=.false.)
-
-    call interp_run(mfz_lev, mfz_lev_lon)
-    call interp_run(mfz_lev, mfz_lev_lat)
+    call fill_halo(mfz_lev, west_halo=.false., south_halo=.false., async=.true.)
     end associate
 
     call perf_stop('calc_mfz')
@@ -520,14 +517,17 @@ contains
 
     integer i, j, k
 
+    call wait_halo(dstate%u_lon)
+    call wait_halo(dstate%v_lat)
+
     call perf_start('calc_div')
 
-    associate (mesh => block%mesh    , &
-               u    => dstate%u_lon  , & ! in
-               v    => dstate%v_lat  , & ! in
-               div  => block%aux%div , & ! out
-               div2 => block%aux%div2)   ! out
-    call div_operator(u, v, div, with_halo=.true.)
+    associate (mesh  => block%mesh    , &
+               u_lon => dstate%u_lon  , & ! in
+               v_lat => dstate%v_lat  , & ! in
+               div   => block%aux%div , & ! out
+               div2  => block%aux%div2)   ! out
+    call div_operator(u_lon, v_lat, div, with_halo=.true.)
     if (div_damp_order == 4) then
       call fill_halo(div)
       do k = mesh%full_kds, mesh%full_kde
@@ -654,8 +654,8 @@ contains
       end do
     end if
 
-    call average_run(dmg, dmg_lon); call fill_halo(dmg_lon)
-    call average_run(dmg, dmg_lat); call fill_halo(dmg_lat)
+    call average_run(dmg, dmg_lon); call fill_halo(dmg_lon, async=.true.)
+    call average_run(dmg, dmg_lat); call fill_halo(dmg_lat, async=.true.)
     call interp_run (dmg, dmg_vtx)
     end associate
 
@@ -670,6 +670,11 @@ contains
     real(r8), intent(in) :: dt
 
     integer i, j, k
+
+    call wait_halo(dstate%u_lon)
+    call wait_halo(dstate%v_lat)
+    call wait_halo(block%aux%dmg_lon)
+    call wait_halo(block%aux%dmg_lat)
 
     call perf_start('calc_mf')
 
@@ -731,6 +736,9 @@ contains
     integer i, j, k
     real(r8) work(block%mesh%half_ids:block%mesh%half_ide,block%mesh%full_nlev)
     real(r8) pole(block%mesh%full_nlev)
+
+    call wait_halo(dstate%u_lon)
+    call wait_halo(dstate%v_lat)
 
     call perf_start('calc_vor')
 
@@ -840,7 +848,7 @@ contains
     call fill_halo(pv_lat, west_halo=.false., north_halo=.false.)
     end associate
 
-    call perf_start('interp_pv_midpoint')
+    call perf_stop('interp_pv_midpoint')
 
   end subroutine interp_pv_midpoint
 
@@ -1159,6 +1167,8 @@ contains
 
     ! Follow SB81 vertical advection discretization.
 
+    call wait_halo(block%aux%mfz_lev)
+
     call perf_start('calc_wedudlev_wedvdlev')
 
     associate (mesh        => block%mesh           , &
@@ -1166,10 +1176,13 @@ contains
                v           => dstate%v_lat         , & ! in
                dmg_lon     => block%aux%dmg_lon    , & ! in
                dmg_lat     => block%aux%dmg_lat    , & ! in
-               mfz_lev_lon => block%aux%mfz_lev_lon, & ! in
-               mfz_lev_lat => block%aux%mfz_lev_lat, & ! in
+               mfz_lev     => block%aux%mfz_lev    , & ! in
+               mfz_lev_lon => block%aux%mfz_lev_lon, & ! out
+               mfz_lev_lat => block%aux%mfz_lev_lat, & ! out
                dudt        => dtend%dudt           , & ! out
                dvdt        => dtend%dvdt           )   ! out
+    call interp_run(mfz_lev, mfz_lev_lon)
+    call interp_run(mfz_lev, mfz_lev_lat)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide

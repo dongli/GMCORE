@@ -246,9 +246,9 @@ contains
         loc             ='lev'                                               , &
         mesh            =filter_mesh                                         , &
         halo            =filter_halo                                         , &
+        halo_cross_pole =.true.                                              , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
-        halo_cross_pole =.true.                                              , &
         field           =this%gz_lev                                         )
     else
       call append_field(this%fields                                          , &
@@ -316,10 +316,10 @@ contains
         loc             ='cell'                                              , &
         mesh            =filter_mesh                                         , &
         halo            =filter_halo                                         , &
+        halo_cross_pole =.true.                                              , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
-        field           =this%pt                                             , &
-        halo_cross_pole =.true.                                              )
+        field           =this%pt                                             )
     end if
     call append_field(this%fields                                            , &
       name              ='mg'                                                , &
@@ -411,10 +411,10 @@ contains
         loc             ='lev'                                               , &
         mesh            =filter_mesh                                         , &
         halo            =filter_halo                                         , &
+        halo_cross_pole =.true.                                              , &
         output          ='h0'                                                , &
         restart         =.true.                                              , &
-        field           =this%w_lev                                          , &
-        halo_cross_pole =.true.                                              )
+        field           =this%w_lev                                          )
     end if
     if (hydrostatic) then
       call append_field(this%fields                                          , &
@@ -1453,10 +1453,10 @@ contains
       loc               ='vtx'                                               , &
       mesh              =mesh                                                , &
       halo              =halo                                                , &
+      halo_cross_pole   =.true.                                              , &
       output            =merge('h0', '  ', .not. baroclinic)                 , &
       restart           =.false.                                             , &
-      field             =this%pv                                             , &
-      halo_cross_pole   =.true.                                              )
+      field             =this%pv                                             )
     if (.not. advection) then
       call append_field(this%fields                                          , &
         name            ='div'                                               , &

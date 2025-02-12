@@ -34,6 +34,7 @@ module adv_batch_mod
   use namelist_mod
   use math_mod
   use time_mod
+  use perf_mod
   use latlon_mesh_mod
   use latlon_field_types_mod
   use latlon_operators_mod
@@ -647,7 +648,7 @@ contains
 
     call this%m%copy(m)
     call adv_fill_vhalo(this%m, no_negvals=.true.)
-    call fill_halo(this%m)
+    call fill_halo(this%m, async=.true.)
 
   end subroutine adv_batch_copy_m_old
 
@@ -663,6 +664,8 @@ contains
     type(latlon_field3d_type), intent(in), optional :: m
     real(r8), intent(in), optional :: dt
 
+    call perf_start('adv_batch_set_wind')
+
     call this%u%link(u)
     call this%v%link(v)
     if (present(w  )) call this%w  %link(w  )
@@ -673,6 +676,8 @@ contains
 
     if (this%scheme_h == 'ffsl') call this%prepare_ffsl_h(dt)
     if (this%scheme_v == 'ffsl') call this%prepare_ffsl_v(dt)
+
+    call perf_stop('adv_batch_set_wind')
 
   end subroutine adv_batch_set_wind
 
@@ -754,8 +759,8 @@ contains
   subroutine adv_batch_calc_cflxy_tracer(this, mx, my, mfx, mfy, cflx, cfly, mfx_frac, dt)
 
     class(adv_batch_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(in) :: mx
-    type(latlon_field3d_type), intent(in) :: my
+    type(latlon_field3d_type), intent(inout) :: mx
+    type(latlon_field3d_type), intent(inout) :: my
     type(latlon_field3d_type), intent(in) :: mfx
     type(latlon_field3d_type), intent(in) :: mfy
     type(latlon_field3d_type), intent(inout) :: cflx
@@ -771,6 +776,7 @@ contains
     case ('cell', 'lev')
       ks = merge(mesh%full_kds, mesh%half_kds, this%loc == 'cell')
       ke = merge(mesh%full_kde, mesh%half_kde, this%loc == 'cell')
+      call wait_halo(mx)
       do k = ks, ke
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids - 1, mesh%half_ide
@@ -793,6 +799,9 @@ contains
             end if
           end do
         end do
+      end do
+      call wait_halo(my)
+      do k = ks, ke
         do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
             dm = mfy%d(i,j,k) * mesh%le_lat(j) * dt

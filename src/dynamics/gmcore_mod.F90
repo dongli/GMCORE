@@ -318,9 +318,9 @@ contains
     call adv_final()
     call damp_final()
     call history_final()
-    call process_final()
     call perf_final()
     call regrid_final()
+    call process_final()
 
   end subroutine gmcore_final
 

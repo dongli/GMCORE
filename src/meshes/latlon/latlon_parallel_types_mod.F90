@@ -79,8 +79,6 @@ module latlon_parallel_types_mod
     integer :: ide            = 1
     integer :: jds            = 1
     integer :: jde            = 1
-    logical :: at_south_pole  = .false.
-    logical :: at_north_pole  = .false.
     type(zonal_circle_type) zonal_circle
     type(process_neighbor_type), allocatable :: ngb(:) ! Neighbor processes
     ! Decomposition information

@@ -186,7 +186,7 @@ contains
 
   subroutine physics_update_uv(block, dstate, dt)
 
-    type(block_type), intent(in) :: block
+    type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
     real(r8), intent(in) :: dt
 
@@ -199,6 +199,7 @@ contains
                dvdt_damp => block%aux%dvdt_damp, & ! in
                u_lon     => dstate%u_lon       , & ! inout
                v_lat     => dstate%v_lat       )   ! inout
+    call wait_halo(dudt_phys)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
@@ -206,7 +207,8 @@ contains
         end do
       end do
     end do
-    call fill_halo(u_lon)
+    call fill_halo(u_lon, async=.true.)
+    call wait_halo(dvdt_phys)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
@@ -214,7 +216,7 @@ contains
         end do
       end do
     end do
-    call fill_halo(v_lat)
+    call fill_halo(v_lat, async=.true.)
     end associate
 
   end subroutine physics_update_uv
@@ -259,7 +261,7 @@ contains
         end do
       end do
     end do
-    call fill_halo(pt)
+    call fill_halo(pt, async=.true.)
     end associate
 
   end subroutine physics_update_pt
@@ -284,7 +286,7 @@ contains
           end do
         end do
       end do
-      call fill_halo(q, m)
+      call fill_halo(q, m, async=.true.)
     end do
     call tracer_calc_qm(block)
     end associate
