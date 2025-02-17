@@ -79,13 +79,13 @@ contains
 
     integer i, j, k
 
-    call calc_vor(block, dstate, with_halo=.true.)
-
     associate (mesh => block%mesh      , &
                vor  => block%aux%vor   , &
                dv   => block%dtend%dvdt, &
                u    => dstate%u_lon    , &
                v    => dstate%v_lat    )
+    call wait_halo(u)
+    call wait_halo(v)
     select case (vor_damp_order)
     case (2)
       do k = mesh%full_kds, mesh%full_kde

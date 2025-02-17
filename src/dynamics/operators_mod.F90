@@ -761,7 +761,7 @@ contains
         call zonal_sum(proc%zonal_circle, work, pole)
         pole = -pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
-          do i = mesh%half_ids, mesh%half_ide
+          do i = mesh%half_ids - 1, mesh%half_ide
             vor%d(i,j,k) = pole(k)
           end do
         end do
@@ -776,7 +776,7 @@ contains
         call zonal_sum(proc%zonal_circle, work, pole)
         pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
-          do i = mesh%half_ids, mesh%half_ide
+          do i = mesh%half_ids - 1, mesh%half_ide
             vor%d(i,j,k) = pole(k)
           end do
         end do
@@ -801,7 +801,7 @@ contains
                dmg_vtx => block%aux%dmg_vtx, & ! in
                vor     => block%aux%vor    , & ! in
                pv      => block%aux%pv     )   ! out
-    call calc_vor(block, dstate)
+    call calc_vor(block, dstate, with_halo=.true.)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%half_ids, mesh%half_ide
