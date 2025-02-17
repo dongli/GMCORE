@@ -82,7 +82,7 @@ contains
 
 #ifdef HAS_GPTL
     ierr = gptlstop('total')
-    ierr = gptlpr(proc%id_model)
+    ! ierr = gptlpr(proc%id_model)
     ierr = gptlpr_summary(MPI_COMM_WORLD)
     if (gptlfinalize() /= 0) then
       stop 'Failed to call finalize GPTL!'

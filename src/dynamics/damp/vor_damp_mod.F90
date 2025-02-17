@@ -79,7 +79,7 @@ contains
 
     integer i, j, k
 
-    call calc_vor(block, dstate)
+    call calc_vor(block, dstate, with_halo=.true.)
 
     associate (mesh => block%mesh      , &
                vor  => block%aux%vor   , &

@@ -728,10 +728,11 @@ contains
 
   end subroutine calc_mf
 
-  subroutine calc_vor(block, dstate)
+  subroutine calc_vor(block, dstate, with_halo)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
+    logical, intent(in), optional :: with_halo
 
     integer i, j, k
     real(r8) work(block%mesh%half_ids:block%mesh%half_ide,block%mesh%full_nlev)
@@ -747,7 +748,7 @@ contains
                v_lat => dstate%v_lat   , & ! in
                u_lat => block%aux%u_lat, & ! in
                vor   => block%aux%vor  )   ! out
-    call curl_operator(u_lon, v_lat, vor, with_halo=.true.)
+    call curl_operator(u_lon, v_lat, vor, with_halo)
     if (pv_pole_stokes) then
       ! Special treatment of vorticity around Poles
       if (mesh%has_south_pole()) then
@@ -761,7 +762,7 @@ contains
         pole = -pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j+1,k) - vor%d(i,j+2,k))
+            vor%d(i,j,k) = pole(k)
           end do
         end do
       end if
@@ -776,7 +777,7 @@ contains
         pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%half_ids, mesh%half_ide
-            vor%d(i,j,k) = pv_pole_wgt * pole(k) + (1 - pv_pole_wgt) * (2 * vor%d(i,j-1,k) - vor%d(i,j-2,k))
+            vor%d(i,j,k) = pole(k)
           end do
         end do
       end if

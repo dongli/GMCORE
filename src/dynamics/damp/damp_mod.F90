@@ -59,19 +59,6 @@ contains
     real(r8), intent(in) :: dt
 
     integer j, m
-    real(r8) c
-    associate (mesh => block%mesh, u_lon => dstate%u_lon, v_lat => dstate%v_lat)
-    ! This nudging of polar v helps to keep the flow neat around the poles.
-    ! NOTE: DO NOT REMOVE IT!
-    c = 0.8_r8
-    do j = mesh%half_jms, mesh%half_jme
-      if (mesh%is_south_pole(j)) then
-        v_lat%d(:,j  ,:) = c * v_lat%d(:,j  ,:) + (1 - c) * v_lat%d(:,j+1,:)
-      else if (mesh%is_north_pole(j+1)) then
-        v_lat%d(:,j  ,:) = c * v_lat%d(:,j  ,:) + (1 - c) * v_lat%d(:,j-1,:)
-      end if
-    end do
-    end associate
 
     if (use_laplace_damp) then
       call laplace_damp_run(block, dstate%u_lon, 2, 500.0_r8, block%aux%dudt_damp)

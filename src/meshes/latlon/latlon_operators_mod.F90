@@ -129,15 +129,18 @@ contains
     type(latlon_field2d_type), intent(inout) :: div
     logical, intent(in), optional :: with_halo
 
+    logical with_halo_opt
     real(r8) work(div%mesh%full_ids:div%mesh%full_ide)
     real(r8) pole
     integer i, j, is, ie, js, je
 
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo 
+
     associate (mesh => div%mesh)
     is = mesh%full_ids
-    ie = mesh%full_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
+    ie = mesh%full_ide + merge(1, 0, with_halo_opt)
     js = mesh%full_jds_no_pole
-    je = mesh%full_jde_no_pole; if (present(with_halo)) je = merge(je + 1, je, with_halo)
+    je = mesh%full_jde_no_pole + merge(1, 0, with_halo_opt .and. .not. mesh%has_north_pole())
     do j = js, je
       do i = is, ie
         div%d(i,j) = ((                    &
@@ -181,17 +184,20 @@ contains
     type(latlon_field3d_type), intent(inout) :: div
     logical, intent(in), optional :: with_halo
 
+    logical with_halo_opt
     real(r8) work(div%mesh%full_ids:div%mesh%full_ide,div%nlev)
     real(r8) pole(div%nlev)
     integer i, j, k, is, ie, js, je, ks, ke
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo 
 
     associate (mesh => div%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, div%loc(1:3) /= 'lev')
     ke = merge(mesh%full_kde, mesh%half_kde, div%loc(1:3) /= 'lev')
     is = mesh%full_ids
-    ie = mesh%full_ide; if (present(with_halo)) ie = merge(ie + 1, ie, with_halo)
+    ie = mesh%full_ide + merge(1, 0, with_halo_opt)
     js = mesh%full_jds_no_pole
-    je = mesh%full_jde_no_pole; if (present(with_halo)) je = merge(je + 1, je, with_halo)
+    je = mesh%full_jde_no_pole + merge(1, 0, with_halo_opt .and. .not. mesh%has_north_pole())
     do k = ks, ke
       do j = js, je
         do i = is, ie
@@ -245,14 +251,17 @@ contains
     type(latlon_field3d_type), intent(inout) :: curl
     logical, intent(in), optional :: with_halo
 
+    logical with_halo_opt
     integer i, j, k, is, ie, js, je, ks, ke
+
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
 
     associate (mesh => curl%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) /= 'lev')
     ke = merge(mesh%full_kde, mesh%half_kde, curl%loc(1:3) /= 'lev')
-    is = mesh%half_ids; if (present(with_halo)) is = merge(is - 1, is, with_halo)
+    is = mesh%half_ids - merge(1, 0, with_halo_opt)
     ie = mesh%half_ide
-    js = mesh%half_jds; if (present(with_halo)) js = merge(js - 1, js, with_halo)
+    js = mesh%half_jds - merge(1, 0, with_halo_opt .and. .not. mesh%has_south_pole())
     je = mesh%half_jde
     do k = ks, ke
       do j = js, je

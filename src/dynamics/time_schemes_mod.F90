@@ -155,6 +155,7 @@ contains
     integer, intent(in) :: substep
 
     integer i, j, k
+    real(r8) c
 
     associate (mesh   => block%mesh  , &
                dmgsdt => dtend%dmgsdt, &
@@ -229,6 +230,27 @@ contains
         end do
       end do
       call fill_halo(new_dstate%u_lon, async=.true.)
+      ! ------------------------------------------------------------------------
+      ! This nudging of polar v helps to keep the flow neat around the poles.
+      ! NOTE: DO NOT REMOVE IT!
+      c = 0.8_r8
+      if (mesh%has_south_pole()) then
+        j = mesh%half_jds
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            new_dstate%v_lat%d(i,j,k) = c * new_dstate%v_lat%d(i,j,k) + (1 - c) * new_dstate%v_lat%d(i,j+1,k)
+          end do
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%half_jde
+        do k = mesh%full_kds, mesh%full_kde
+          do i = mesh%full_ids, mesh%full_ide
+            new_dstate%v_lat%d(i,j,k) = c * new_dstate%v_lat%d(i,j,k) + (1 - c) * new_dstate%v_lat%d(i,j-1,k)
+          end do
+        end do
+      end if
+      ! ------------------------------------------------------------------------
       call fill_halo(new_dstate%v_lat, async=.true.)
     end if
     end associate
