@@ -112,7 +112,6 @@ module namelist_mod
   real(r8)        :: upwind_wgt_pv        = 0.75_r8
 
   character(8)    :: pgf_scheme           = ''       ! lin97, ptb
-  integer         :: coriolis_scheme      = 1
 
   character(30)   :: bg_adv_scheme        = 'ffsl'
   character(30)   :: pt_adv_scheme        = 'upwind'
@@ -258,7 +257,6 @@ module namelist_mod
     upwind_order_pv           , &
     upwind_wgt_pv             , &
     pgf_scheme                , &
-    coriolis_scheme           , &
     bg_adv_scheme             , &
     pt_adv_scheme             , &
     nh_adv_scheme             , &

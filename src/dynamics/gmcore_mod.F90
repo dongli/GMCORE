@@ -509,11 +509,11 @@ contains
         call calc_grad_mf          (block, star_dstate)
         call calc_dmgsdt           (block, star_dstate, dtend, dt)
         call calc_mfz              (block, star_dstate, dtend, dt)
-        call calc_wedudlev_wedvdlev(block, star_dstate, dtend, dt)
         call calc_grad_ptf         (block, star_dstate, dtend, dt)
-        call calc_coriolis         (block, star_dstate, dtend, dt)
         call calc_grad_ke          (block, star_dstate, dtend, dt)
         call pgf_run               (block, star_dstate, dtend)
+        call calc_coriolis         (block, star_dstate, dtend, dt, substep)
+        call calc_wedudlev_wedvdlev(block, star_dstate, dtend, dt)
 
         dtend%update_u   = .true.
         dtend%update_v   = .true.
@@ -521,9 +521,9 @@ contains
         dtend%update_pt  = .true.
       else
         call calc_grad_mf          (block, star_dstate)
-        call calc_coriolis         (block, star_dstate, dtend, dt)
         call calc_grad_ke          (block, star_dstate, dtend, dt)
         call pgf_run               (block, star_dstate, dtend)
+        call calc_coriolis         (block, star_dstate, dtend, dt, substep)
 
         do k = mesh%full_kds, mesh%full_kde
           do j = mesh%full_jds, mesh%full_jde
@@ -564,17 +564,17 @@ contains
       if (nonhydrostatic) call nh_solve(block, old_dstate, star_dstate, new_dstate, dt)
       call operators_prepare(block, new_dstate, dt, pass, substep)
       if (baroclinic) then
-        call calc_wedudlev_wedvdlev(block, star_dstate, dtend, dt)
-        call calc_coriolis         (block, star_dstate, dtend, dt)
         call calc_grad_ke          (block, star_dstate, dtend, dt)
         call pgf_run               (block, new_dstate , dtend)
+        call calc_coriolis         (block, star_dstate, dtend, dt, substep)
+        call calc_wedudlev_wedvdlev(block, star_dstate, dtend, dt)
 
         dtend%update_u   = .true.
         dtend%update_v   = .true.
       else
-        call calc_coriolis         (block, star_dstate, dtend, dt)
         call calc_grad_ke          (block, star_dstate, dtend, dt)
         call pgf_run               (block, new_dstate , dtend)
+        call calc_coriolis         (block, star_dstate, dtend, dt, substep)
 
         dtend%update_u  = .true.
         dtend%update_v  = .true.

@@ -845,8 +845,10 @@ contains
         end do
       end do
     end do
-    call fill_halo(pv_lon, east_halo=.false., south_halo=.false.)
-    call fill_halo(pv_lat, west_halo=.false., north_halo=.false.)
+    if (substep == total_substeps) then
+      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end if
     end associate
 
     call perf_stop('interp_pv_midpoint')
@@ -931,20 +933,23 @@ contains
         end do
       end do
     end select
-    call fill_halo(pv_lon, east_halo=.false., south_halo=.false.)
-    call fill_halo(pv_lat, west_halo=.false., north_halo=.false.)
+    if (substep == total_substeps .or. .not. save_dyn_calc) then
+      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end if
     end associate
 
     call perf_stop('interp_pv_upwind')
 
   end subroutine interp_pv_upwind
 
-  subroutine calc_coriolis(block, dstate, dtend, dt)
+  subroutine calc_coriolis(block, dstate, dtend, dt, substep)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
     type(dtend_type), intent(inout) :: dtend
     real(r8), intent(in) :: dt
+    integer, intent(in) :: substep
 
     real(r8) tmp
     integer i, j, k
@@ -960,8 +965,9 @@ contains
                pv_lat  => block%aux%pv_lat , & ! in
                dudt    => dtend%dudt       , & ! out
                dvdt    => dtend%dvdt       )   ! out
-    select case (coriolis_scheme)
-    case (1)
+    if (substep == total_substeps .or. .not. save_dyn_calc) then
+      call wait_halo(pv_lon)
+      call wait_halo(pv_lat)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -1002,7 +1008,7 @@ contains
           end do
         end do
       end do
-    case (2)
+    else
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -1017,7 +1023,7 @@ contains
           end do
         end do
       end do
-    end select
+    end if
     end associate
 
     call perf_stop('calc_coriolis')
