@@ -80,9 +80,10 @@ elseif (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID 
       -O3
       -align array64byte
       # -qopenmp
-      # -fp-model precise
     )
-    # FIXME: OpenMP causes sigmentation faults when using ifx compiler.
+    if (ENSURE_ORDER)
+      list(APPEND fortran_flags -fp-model precise)
+    endif ()
   endif ()
 endif ()
 
@@ -120,6 +121,9 @@ if (USE_GPTL AND DEFINED ENV{GPTL_ROOT})
   include_directories("$ENV{GPTL_ROOT}/include")
   link_directories("$ENV{GPTL_ROOT}/lib")
   list(APPEND EXTERNAL_LIBS gptlf gptl)
+  if (CMAKE_Fortran_COMPILER_ID STREQUAL "Intel" OR CMAKE_Fortran_COMPILER_ID STREQUAL "IntelLLVM")
+    list(APPEND EXTERNAL_LIBS iomp5)
+  endif ()
 endif ()
 
 if (DEFINED ENV{PAPI} AND (NOT DEFINED ENV{PAPI_ROOT}))
