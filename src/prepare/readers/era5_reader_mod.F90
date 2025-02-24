@@ -40,7 +40,7 @@ contains
     real(r8), intent(in) :: max_lat_in
 
     integer i, j, k, k0
-    character(50) time_units
+    character(50) level_name, time_name, time_units
     real(r8) min_lat, max_lat, time_value
 
     call era5_reader_final()
@@ -53,15 +53,29 @@ contains
     call fiona_open_dataset('era5', file_path=bkg_file, mpi_comm=proc%comm_io, ngroups=input_ngroups)
     call fiona_set_dim('era5', 'longitude', span=[0, 360], cyclic=.true.)
     call fiona_set_dim('era5', 'latitude', span=[90, -90], flip=.true.)
-    call fiona_get_dim('era5', 'level', size=era5_nlev)
+    if (fiona_has_var('era5', 'level')) then
+      level_name = 'level'
+    else if (fiona_has_var('era5', 'pressure_level')) then
+      level_name = 'pressure_level'
+    else
+      call log_error('No level information in ' // trim(bkg_file) // '!', __FILE__, __LINE__, pid=proc%id_model)
+    end if
+    call fiona_get_dim('era5', level_name, size=era5_nlev)
     allocate(era5_lev(era5_nlev))
     call fiona_start_input('era5')
-    call fiona_input('era5', 'time', time_value)
-    call fiona_get_att('era5', 'time', 'units', time_units)
+    if (fiona_has_var('era5', 'time')) then
+      time_name = 'time'
+    else if (fiona_has_var('era5', 'valid_time')) then
+      time_name = 'valid_time'
+    else
+      call log_error('No time information in ' // trim(bkg_file) // '!', __FILE__, __LINE__, pid=proc%id_model)
+    end if
+    call fiona_input('era5', time_name, time_value)
+    call fiona_get_att('era5', time_name, 'units', time_units)
     call time_fast_forward(time_value, time_units, change_end_time=.true.)
     call fiona_input_range('era5', 'longitude', era5_lon, coord_range=[min_lon, max_lon]); era5_nlon = size(era5_lon)
     call fiona_input_range('era5', 'latitude' , era5_lat, coord_range=[min_lat, max_lat]); era5_nlat = size(era5_lat)
-    call fiona_input      ('era5', 'level'    , era5_lev)
+    call fiona_input      ('era5', level_name , era5_lev)
     call fiona_input_range('era5', 'u'        , era5_u  , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
     call fiona_input_range('era5', 'v'        , era5_v  , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
     call fiona_input_range('era5', 't'        , era5_t  , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
@@ -78,6 +92,20 @@ contains
   if (fiona_has_var('era5', 'cswc')) &
     call fiona_input_range('era5', 'cswc'     , era5_qs , coord_range_1=[min_lon, max_lon], coord_range_2=[min_lat, max_lat])
     call fiona_end_input('era5')
+
+    ! Reverse vertical order.
+    if (era5_lev(1) > era5_lev(2)) then
+      era5_lev = era5_lev(era5_nlev:1:-1)
+      era5_u   = era5_u  (:,:,era5_nlev:1:-1)
+      era5_v   = era5_v  (:,:,era5_nlev:1:-1)
+      era5_t   = era5_t  (:,:,era5_nlev:1:-1)
+      era5_z   = era5_z  (:,:,era5_nlev:1:-1)
+      era5_qv  = era5_qv (:,:,era5_nlev:1:-1)
+      if (allocated(era5_qc)) era5_qc = era5_qc(:,:,era5_nlev:1:-1)
+      if (allocated(era5_qi)) era5_qi = era5_qi(:,:,era5_nlev:1:-1)
+      if (allocated(era5_qr)) era5_qr = era5_qr(:,:,era5_nlev:1:-1)
+      if (allocated(era5_qs)) era5_qs = era5_qs(:,:,era5_nlev:1:-1)
+    end if
 
     do j = 1, era5_nlat
       if (abs(abs(era5_lat(j)) - 90) < 1.0e-10) then

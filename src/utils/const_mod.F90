@@ -95,7 +95,7 @@ contains
       cpv        = minor_gas%cp
       cvv        = minor_gas%cv
       lv         = minor_gas%l
-      lapse_rate = 0.006d0
+      lapse_rate = 0.0065d0
       rd_o_rv    = rd / rv
       rv_o_rd    = rv / rd
       p0         = 1.0d5
