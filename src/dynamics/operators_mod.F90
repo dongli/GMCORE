@@ -84,6 +84,7 @@ contains
     do iblk = 1, size(blocks)
       if (baroclinic    ) call calc_mg    (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_dmg                       (blocks(iblk), blocks(iblk)%dstate(itime))
+      call tracer_calc_qm                 (blocks(iblk))
       if (baroclinic    ) call calc_ph    (blocks(iblk), blocks(iblk)%dstate(itime))
       if (nonhydrostatic .and. .not. restart) then
         if (sum(blocks(iblk)%dstate(itime)%p%d) == 0) then
@@ -99,7 +100,6 @@ contains
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
       if (hydrostatic   ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
-      call tracer_calc_qm                 (blocks(iblk))
     end do
 
   end subroutine operators_prepare_1
@@ -1100,6 +1100,8 @@ contains
     real(r8), intent(in) :: dt
 
     integer i, j, k
+
+    call wait_halo(dstate%pt)
 
     call perf_start('calc_grad_ptf')
 

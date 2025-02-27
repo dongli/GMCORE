@@ -1646,7 +1646,7 @@ contains
         name            ='dudt_phys'                                         , &
         long_name       ='Physics tendency of u'                             , &
         units           ='m s-2'                                             , &
-        loc             ='lon'                                               , &
+        loc             ='cell'                                              , &
         mesh            =mesh_ptr                                            , &
         halo            =halo_ptr                                            , &
         output          ='h1'                                                , &
@@ -1656,7 +1656,7 @@ contains
         name            ='dvdt_phys'                                         , &
         long_name       ='Physics tendency of v'                             , &
         units           ='m s-2'                                             , &
-        loc             ='lat'                                               , &
+        loc             ='cell'                                              , &
         mesh            =mesh_ptr                                            , &
         halo            =halo_ptr                                            , &
         output          ='h1'                                                , &

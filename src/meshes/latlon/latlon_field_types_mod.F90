@@ -338,7 +338,7 @@ contains
 
   end function latlon_field2d_sum
 
-  pure real(r8) function latlon_field2d_absmax(this) result(res)
+  real(r8) function latlon_field2d_absmax(this) result(res)
 
     class(latlon_field2d_type), intent(in) :: this
 
@@ -349,7 +349,7 @@ contains
     js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
     je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
 
-    res = maxval(abs(this%d(is:ie,js:je)))
+    res = global_max(proc%comm_model, maxval(abs(this%d(is:ie,js:je))))
 
   end function latlon_field2d_absmax
 

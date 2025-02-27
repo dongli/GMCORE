@@ -108,6 +108,14 @@ contains
     select case (div_damp_order)
     case (2)
       do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            v%d(i,j,k) = v%d(i,j,k) + dt * cy(j,k) * (div%d(i,j+1,k) - div%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      call fill_halo(v, async=.true.)
+      do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
             du%d(i,j,k) = dt * cx(j,k) * (div%d(i+1,j,k) - div%d(i,j,k)) / mesh%de_lon(j)
@@ -122,18 +130,20 @@ contains
           end do
         end do
       end do
+      call fill_halo(u, async=.true.)
+    case (4)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) + dt * cy(j,k) * (div%d(i,j+1,k) - div%d(i,j,k)) / mesh%de_lat(j)
+            v%d(i,j,k) = v%d(i,j,k) - dt * cy(j,k) * (div2%d(i,j+1,k) - div2%d(i,j,k)) / mesh%de_lat(j)
           end do
         end do
       end do
-    case (4)
+      call fill_halo(v, async=.true.)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
-            du%d(i,j,k) = -cx(j,k) * (div2%d(i+1,j,k) - div2%d(i,j,k)) / mesh%de_lon(j)
+            du%d(i,j,k) = -dt * cx(j,k) * (div2%d(i+1,j,k) - div2%d(i,j,k)) / mesh%de_lon(j)
           end do
         end do
       end do
@@ -145,16 +155,8 @@ contains
           end do
         end do
       end do
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%half_jds, mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) - cy(j,k) * (div2%d(i,j+1,k) - div2%d(i,j,k)) / mesh%de_lat(j)
-          end do
-        end do
-      end do
+      call fill_halo(u, async=.true.)
     end select
-    call fill_halo(u, async=.true.)
-    call fill_halo(v, async=.true.)
     end associate
 
   end subroutine div_damp_run

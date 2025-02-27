@@ -222,6 +222,7 @@ contains
           end do
         end do
       end do
+      call fill_halo(new_dstate%u_lon, async=.true.)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -229,7 +230,6 @@ contains
           end do
         end do
       end do
-      call fill_halo(new_dstate%u_lon, async=.true.)
       ! ------------------------------------------------------------------------
       ! This nudging of polar v helps to keep the flow neat around the poles.
       ! NOTE: DO NOT REMOVE IT!

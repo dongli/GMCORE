@@ -195,8 +195,6 @@ contains
     associate (mesh      => block%mesh         , &
                dudt_phys => block%aux%dudt_phys, & ! in
                dvdt_phys => block%aux%dvdt_phys, & ! in
-               dudt_damp => block%aux%dudt_damp, & ! in
-               dvdt_damp => block%aux%dvdt_damp, & ! in
                u_lon     => dstate%u_lon       , & ! inout
                v_lat     => dstate%v_lat       )   ! inout
     call wait_halo(dudt_phys)

@@ -84,10 +84,9 @@ contains
                dv   => block%dtend%dvdt, &
                u    => dstate%u_lon    , &
                v    => dstate%v_lat    )
-    call wait_halo(u)
-    call wait_halo(v)
     select case (vor_damp_order)
     case (2)
+      call wait_halo(u)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
@@ -95,6 +94,7 @@ contains
           end do
         end do
       end do
+      call fill_halo(u, async=.true.)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -103,6 +103,7 @@ contains
         end do
       end do
       call filter_run(block%small_filter, dv)
+      call wait_halo(v)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -110,9 +111,8 @@ contains
           end do
         end do
       end do
+      call fill_halo(v, async=.true.)
     end select
-    call fill_halo(u, async=.true.)
-    call fill_halo(v, async=.true.)
     end associate
 
   end subroutine vor_damp_run
