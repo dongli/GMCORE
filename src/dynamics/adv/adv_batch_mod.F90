@@ -771,6 +771,8 @@ contains
     real(r8) dm
     integer ks, ke, i, j, k, l
 
+    call perf_start('adv_batch_calc_cflxy_tracer')
+
     associate (mesh => this%mesh)
     select case (this%loc)
     case ('cell', 'lev')
@@ -825,6 +827,8 @@ contains
       end do
     end select
     end associate
+
+    call perf_stop('adv_batch_calc_cflxy_tracer')
 
   end subroutine adv_batch_calc_cflxy_tracer
 

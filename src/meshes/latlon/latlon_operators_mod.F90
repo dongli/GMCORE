@@ -25,6 +25,7 @@ module latlon_operators_mod
   use latlon_mesh_mod
   use latlon_field_types_mod
   use latlon_parallel_mod
+  use perf_mod
 
   implicit none
 
@@ -44,10 +45,14 @@ contains
 
   subroutine divx_operator(fx, divx)
 
-    type(latlon_field3d_type), intent(in   ) :: fx
+    type(latlon_field3d_type), intent(inout) :: fx
     type(latlon_field3d_type), intent(inout) :: divx
 
     integer ks, ke, i, j, k
+
+    call wait_halo(fx)
+
+    call perf_start('divx_operator')
 
     associate (mesh => divx%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, divx%loc(1:3) /= 'lev')
@@ -63,16 +68,22 @@ contains
     if (mesh%has_north_pole()) divx%d(:,mesh%full_jde,:) = 0
     end associate
 
+    call perf_stop('divx_operator')
+
   end subroutine divx_operator
 
   subroutine divy_operator(fy, divy)
 
-    type(latlon_field3d_type), intent(in   ) :: fy
+    type(latlon_field3d_type), intent(inout) :: fy
     type(latlon_field3d_type), intent(inout) :: divy
 
     real(r8) work(divy%mesh%full_ids:divy%mesh%full_ide,divy%nlev)
     real(r8) pole(divy%nlev)
     integer ks, ke, i, j, k
+
+    call wait_halo(fy)
+
+    call perf_start('divy_operator')
 
     associate (mesh => divy%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, divy%loc(1:3) /= 'lev')
@@ -119,13 +130,14 @@ contains
     end if
     end associate
 
-  end subroutine divy_operator
+    call perf_stop('divy_operator')
 
+  end subroutine divy_operator
 
   subroutine div_operator_2d(fx, fy, div, with_halo)
 
-    type(latlon_field2d_type), intent(in   ) :: fx
-    type(latlon_field2d_type), intent(in   ) :: fy
+    type(latlon_field2d_type), intent(inout) :: fx
+    type(latlon_field2d_type), intent(inout) :: fy
     type(latlon_field2d_type), intent(inout) :: div
     logical, intent(in), optional :: with_halo
 
@@ -134,7 +146,12 @@ contains
     real(r8) pole
     integer i, j, is, ie, js, je
 
-    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo 
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    call wait_halo(fx)
+    call wait_halo(fy)
+
+    call perf_start('div_operator_2d')
 
     associate (mesh => div%mesh)
     is = mesh%full_ids
@@ -175,12 +192,14 @@ contains
     end if
     end associate
 
+    call perf_stop('div_operator_2d')
+
   end subroutine div_operator_2d
 
   subroutine div_operator_3d(fx, fy, div, with_halo)
 
-    type(latlon_field3d_type), intent(in   ) :: fx
-    type(latlon_field3d_type), intent(in   ) :: fy
+    type(latlon_field3d_type), intent(inout) :: fx
+    type(latlon_field3d_type), intent(inout) :: fy
     type(latlon_field3d_type), intent(inout) :: div
     logical, intent(in), optional :: with_halo
 
@@ -189,7 +208,12 @@ contains
     real(r8) pole(div%nlev)
     integer i, j, k, is, ie, js, je, ks, ke
 
-    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo 
+    with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    call wait_halo(fx)
+    call wait_halo(fy)
+
+    call perf_start('div_operator_3d')
 
     associate (mesh => div%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, div%loc(1:3) /= 'lev')
@@ -242,12 +266,14 @@ contains
     end if
     end associate
 
+    call perf_stop('div_operator_3d')
+
   end subroutine div_operator_3d
 
   subroutine curl_operator(fx, fy, curl, with_halo)
 
-    type(latlon_field3d_type), intent(in   ) :: fx
-    type(latlon_field3d_type), intent(in   ) :: fy
+    type(latlon_field3d_type), intent(inout) :: fx
+    type(latlon_field3d_type), intent(inout) :: fy
     type(latlon_field3d_type), intent(inout) :: curl
     logical, intent(in), optional :: with_halo
 
@@ -255,6 +281,11 @@ contains
     integer i, j, k, is, ie, js, je, ks, ke
 
     with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
+
+    call wait_halo(fx)
+    call wait_halo(fy)
+
+    call perf_start('curl_operator')
 
     associate (mesh => curl%mesh)
     ks = merge(mesh%full_kds, mesh%half_kds, curl%loc(1:3) /= 'lev')
@@ -274,6 +305,8 @@ contains
       end do
     end do
     end associate
+
+    call perf_stop('curl_operator')
 
   end subroutine curl_operator
 

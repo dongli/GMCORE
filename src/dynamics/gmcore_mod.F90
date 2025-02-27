@@ -273,7 +273,6 @@ contains
           call time_integrator(operators, blocks(iblk), old, new, dt_dyn)
           call damp_run(blocks(iblk), blocks(iblk)%dstate(new), dt_dyn)
           call physics_update_after_dynamics(blocks(iblk), new, dt_dyn)
-          call blocks(iblk)%dstate(new)%c2a(blocks(iblk)%aux%u, blocks(iblk)%aux%v)
         end do
         ! ----------------------------------------------------------------------
         ! Advance to n+1 time level.
@@ -592,6 +591,7 @@ contains
     call calc_grad_mf(block, block%dstate(itime))
     call calc_div    (block, block%dstate(itime))
     call calc_omg    (block, block%dstate(itime))
+    call block%dstate(itime)%c2a(block%aux%u, block%aux%v)
 
   end subroutine prepare_physics
 

@@ -54,8 +54,8 @@ contains
     real(r8), intent(in) :: dt
 
     call interp_wind(block, star_dstate, dt)
-    call calc_adv_lev(block, star_dstate%w_lev , block%aux%adv_w_lev , star_dstate%dmg_lev, dt)
-    call calc_adv_lev(block, star_dstate%gz_lev, block%aux%adv_gz_lev, star_dstate%dmg_lev, dt)
+    call calc_adv_lev(block, star_dstate%w_lev , block%aux%adv_w_lev , dt)
+    call calc_adv_lev(block, star_dstate%gz_lev, block%aux%adv_gz_lev, dt)
     call implicit_w_solver(block, old_dstate, star_dstate, new_dstate, dt)
     call calc_p(block, old_dstate, new_dstate, dt)
     call average_run(new_dstate%gz_lev, new_dstate%gz)
@@ -80,16 +80,16 @@ contains
                mfy_lev_lat => block%aux%mfy_lev_lat, & ! out
                dmf_lev     => block%aux%dmf_lev    )   ! out
     call interp_run(u_lon, u_lev_lon)
+    call fill_halo(u_lev_lon, async=.true.)
     call interp_run(v_lat, v_lev_lat)
+    call fill_halo(v_lev_lat, async=.true.)
     call interp_run(dmg_lev, mfx_lev_lon)
     mfx_lev_lon%d = mfx_lev_lon%d * u_lev_lon%d
+    call fill_halo(mfx_lev_lon, async=.true.)
     call interp_run(dmg_lev, mfy_lev_lat)
     mfy_lev_lat%d = mfy_lev_lat%d * v_lev_lat%d
+    call fill_halo(mfy_lev_lat, async=.true.)
     call interp_run(mfz_lev, mfz)
-    call fill_halo(u_lev_lon)
-    call fill_halo(v_lev_lat)
-    call fill_halo(mfx_lev_lon)
-    call fill_halo(mfy_lev_lat)
     call block%adv_batch_nh%set_wind( &
       u                 =u_lev_lon  , &
       v                 =v_lev_lat  , &
@@ -104,18 +104,18 @@ contains
 
   end subroutine interp_wind
 
-  subroutine calc_adv_lev(block, q_lev, dqdt_lev, dmg_lev, dt)
+  subroutine calc_adv_lev(block, q_lev, dqdt_lev, dt)
 
     type(block_type         ), intent(inout) :: block
     type(latlon_field3d_type), intent(inout) :: q_lev
     type(latlon_field3d_type), intent(inout) :: dqdt_lev
-    type(latlon_field3d_type), intent(in   ) :: dmg_lev
     real(r8), intent(in) :: dt
 
     integer i, j, k
 
     associate (mesh     => block%mesh             , &
                dmf_lev  => block%aux%dmf_lev      , & ! in
+               m        => block%adv_batch_nh%m   , & ! in
                mfz      => block%adv_batch_nh%mfz , & ! in
                qmfx     => block%adv_batch_nh%qmfx, &
                qmfy     => block%adv_batch_nh%qmfy, &
@@ -145,7 +145,7 @@ contains
     do k = mesh%half_kds, mesh%half_kde
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          dqdt_lev%d(i,j,k) = dqdt_lev%d(i,j,k) / dmg_lev%d(i,j,k)
+          dqdt_lev%d(i,j,k) = dqdt_lev%d(i,j,k) / m%d(i,j,k)
         end do
       end do
     end do
