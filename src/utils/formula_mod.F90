@@ -94,7 +94,7 @@ contains
     real(r8), intent(in) :: qv  ! Dry mixing ratio of water vapor (kg kg-1)
     real(r8), intent(in) :: qm  ! Total dry mixing ratio of water vapor and its condensate (kg kg-1)
 
-    res = t * (1 + rv_o_rd * qv) / (1 + qm)
+    res = t * (1 + rv_o_rd * qv) / (1 + qm) ! See (16) in Lauritzen et al. (2018) for details.
 
     ! If qv is wet mixing ratio, the formula is:
     !
