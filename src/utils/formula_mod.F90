@@ -20,8 +20,13 @@ module formula_mod
   public dry_potential_temperature
   public modified_potential_temperature
   public temperature
+  public temperature_from_virtual_temperature_and_wet_mixing_ratio
+  public temperature_from_density_and_wet_mixing_ratio
   public virtual_temperature
+  public virtual_temperature_from_wet_mixing_ratio
+  public virtual_temperature_from_density
   public virtual_temperature_from_modified_potential_temperature
+  public virtual_temperature_from_geopotential
   public virtual_potential_temperature
   public dry_air_density
   public moist_air_density
@@ -88,6 +93,25 @@ contains
 
   end function temperature
 
+  pure elemental real(r8) function temperature_from_virtual_temperature_and_wet_mixing_ratio(tv, qv) result(res)
+
+    real(r8), intent(in) :: tv  ! Virtual temperature (K)
+    real(r8), intent(in) :: qv  ! Wet mixing ratio of water vapor (kg kg-1)
+
+    res = tv / (1 + (rv_o_rd - 1) * qv)
+
+  end function temperature_from_virtual_temperature_and_wet_mixing_ratio
+
+  pure elemental real(r8) function temperature_from_density_and_wet_mixing_ratio(rho, p, qv) result(res)
+
+    real(r8), intent(in) :: rho ! Air density (kg m-3)
+    real(r8), intent(in) :: p   ! Full pressure (Pa)
+    real(r8), intent(in) :: qv  ! Wet mixing ratio of water vapor (kg kg-1)
+
+    res = p / rd / rho / (1 + (rv_o_rd - 1) * qv)
+
+  end function temperature_from_density_and_wet_mixing_ratio
+
   pure elemental real(r8) function virtual_temperature(t, qv, qm) result(res)
 
     real(r8), intent(in) :: t   ! Temperature (K)
@@ -96,13 +120,25 @@ contains
 
     res = t * (1 + rv_o_rd * qv) / (1 + qm) ! See (16) in Lauritzen et al. (2018) for details.
 
-    ! If qv is wet mixing ratio, the formula is:
-    !
-    !   t * (1 + (rv_o_rd - 1) * qv)
-    !
-    ! where rv_o_rd - 1 approximates to 0.608.
-
   end function virtual_temperature
+
+  pure elemental real(r8) function virtual_temperature_from_wet_mixing_ratio(t, qv) result(res)
+
+    real(r8), intent(in) :: t  ! Temperature (K)
+    real(r8), intent(in) :: qv ! Wet mixing ratio of water vapor (kg kg-1)
+
+    res = t * (1 + (rv_o_rd - 1) * qv)
+
+  end function virtual_temperature_from_wet_mixing_ratio
+
+  pure elemental real(r8) function virtual_temperature_from_density(p, rho) result(res)
+
+    real(r8), intent(in) :: p   ! Full pressure (Pa)
+    real(r8), intent(in) :: rho ! Air density (kg m-3)
+
+    res = p / rd / rho
+
+  end function virtual_temperature_from_density
 
   pure elemental real(r8) function virtual_temperature_from_modified_potential_temperature(pt, pk, qm) result(res)
 
@@ -113,6 +149,17 @@ contains
     res = pt * pk / pk0 / (1 + qm)
 
   end function virtual_temperature_from_modified_potential_temperature
+
+  pure elemental real(r8) function virtual_temperature_from_geopotential(p1, p2, gz1, gz2) result(res)
+
+    real(r8), intent(in) :: p1  ! Full pressure at level 1 (Pa)
+    real(r8), intent(in) :: p2  ! Full pressure at level 2 (Pa)
+    real(r8), intent(in) :: gz1 ! Geopotential at level 1 (m2 s-2)
+    real(r8), intent(in) :: gz2 ! Geopotential at level 2 (m2 s-2)
+
+    res = - (gz2 - gz1) / (rd_o_cpd * log(p2 / p1))
+
+  end function virtual_temperature_from_geopotential
 
   pure elemental real(r8) function virtual_potential_temperature(tv, p) result(res)
 
