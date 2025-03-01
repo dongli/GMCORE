@@ -11,9 +11,14 @@ module vert_interp_mod
   public vert_interp_linear
   public vert_interp_log_linear
 
+  interface vert_interp_linear
+    module procedure vert_interp_linear_1
+    module procedure vert_interp_linear_2
+  end interface vert_interp_linear
+
 contains
 
-  subroutine vert_interp_linear(x1, data1, x2, data2, allow_extrap, ierr)
+  subroutine vert_interp_linear_1(x1, data1, x2, data2, allow_extrap, ierr)
 
     real(r8), intent(in) :: x1(:), data1(:), x2(:)
     real(r8), intent(out) :: data2(:)
@@ -75,7 +80,60 @@ contains
 
     deallocate(i1, i2, wgt1, wgt2)
 
-  end subroutine vert_interp_linear
+  end subroutine vert_interp_linear_1
+
+  subroutine vert_interp_linear_2(x1, data1, x2, data2, allow_extrap, ierr)
+
+    real(r8), intent(in) :: x1(:), data1(:), x2
+    real(r8), intent(out) :: data2
+    logical, intent(in) :: allow_extrap
+    integer, intent(out), optional :: ierr
+
+    integer nx1, nx2
+    integer ii, i1, i2
+    real(r8) wgt1, wgt2
+    real(r8) tmp1, tmp2
+
+    nx1 = size(x1)
+
+    do ii = 1, nx1 - 1
+      if ((x2 >= x1(ii) .and. x2 < x1(ii+1))) then
+        i1 = ii
+        i2 = ii + 1
+        exit
+      else if (x2 < x1(1)) then
+        if (allow_extrap) then
+          i1 = 1
+          i2 = 2
+        else
+          i1 = 1
+          i2 = 1
+        end if
+        exit
+      else if (x2 >= x1(nx1)) then
+        if (allow_extrap) then
+          i1 = nx1 - 1
+          i2 = nx1
+        else
+          i1 = nx1
+          i2 = nx1
+        end if
+        exit
+      end if
+    end do
+    if (i1 == i2) then
+      wgt1 = 0.5d0
+      wgt2 = 0.5d0
+    else
+      tmp1 = x1(i1)
+      tmp2 = x1(i2)
+      wgt1 = (tmp2 - x2) / (tmp2 - tmp1)
+      wgt2 = (x2 - tmp1) / (tmp2 - tmp1)
+    end if
+
+    data2 = data1(i1) * wgt1 + data1(i2) * wgt2
+
+  end subroutine vert_interp_linear_2
 
   subroutine vert_interp_log_linear(x1, data1, x2, data2, allow_extrap, ierr)
 

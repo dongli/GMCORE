@@ -100,7 +100,7 @@ contains
       era5_v   = era5_v  (:,:,era5_nlev:1:-1)
       era5_t   = era5_t  (:,:,era5_nlev:1:-1)
       era5_z   = era5_z  (:,:,era5_nlev:1:-1)
-      era5_qv  = era5_qv (:,:,era5_nlev:1:-1)
+      if (allocated(era5_qv)) era5_qv = era5_qv(:,:,era5_nlev:1:-1)
       if (allocated(era5_qc)) era5_qc = era5_qc(:,:,era5_nlev:1:-1)
       if (allocated(era5_qi)) era5_qi = era5_qi(:,:,era5_nlev:1:-1)
       if (allocated(era5_qr)) era5_qr = era5_qr(:,:,era5_nlev:1:-1)
@@ -119,6 +119,10 @@ contains
     era5_z   = era5_z  / g
     era5_zs  = era5_zs / g
 
+    if (.not. allocated(era5_qv)) then
+      allocate(era5_qv(era5_nlon,era5_nlat,era5_nlev))
+      era5_qv = 0
+    end if
     if (.not. allocated(era5_qc)) then
       allocate(era5_qc(era5_nlon,era5_nlat,era5_nlev))
       era5_qc = 0
