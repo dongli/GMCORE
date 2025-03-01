@@ -94,13 +94,12 @@ contains
       call latlon_bkg_calc_dry_qs()
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
+        call calc_ph(blocks(iblk), blocks(iblk)%dstate(1))
       end do
       call latlon_bkg_calc_tv()
       call latlon_bkg_calc_pt()
       ! Set geopotential by using hydrostatic balance.
       do iblk = 1, size(blocks)
-        call calc_dmg   (blocks(iblk), blocks(iblk)%dstate(1))
-        call calc_ph    (blocks(iblk), blocks(iblk)%dstate(1))
         do itime = lbound(blocks(iblk)%dstate, 1), ubound(blocks(iblk)%dstate, 1)
           call blocks(iblk)%dstate(itime)%gz_lev%copy(blocks(iblk)%static%gzs, k=blocks(iblk)%mesh%half_kde, with_halo=.true.)
         end do

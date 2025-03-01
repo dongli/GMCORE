@@ -84,9 +84,10 @@ contains
 
   subroutine latlon_bkg_regrid_phs()
 
-    real(r8), allocatable, dimension(:,:) :: p0, t0, z0, t0_p
+    real(r8), allocatable, dimension(:,:) :: ps0, zs0
+    real(r8), allocatable, dimension(:,:,:) :: t0, p0
     real(r8) lapse_kappa
-    integer iblk, i, j
+    integer iblk, i, j, k, k0
 
     logical do_hydrostatic_correct
 
@@ -97,17 +98,19 @@ contains
       associate (mesh => blocks(iblk)%mesh         , &
                  gzs  => blocks(iblk)%static%gzs   , &
                  phs  => blocks(iblk)%dstate(1)%phs)
-      allocate(p0  (mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-      allocate(t0  (mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-      allocate(z0  (mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-      allocate(t0_p(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
+      allocate(ps0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
+      allocate(zs0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
 
       select case (bkg_type)
       case ('era5')
-        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_ps, mesh, p0)
-        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_zs, mesh, z0)
-        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_t(:,:,era5_nlev), mesh, t0)
-        t0_p = era5_lev(era5_nlev)
+        allocate(t0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_ps, mesh, ps0)
+        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_zs, mesh, zs0)
+        do k = 1, era5_nlev
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_tv(:,:,k), mesh, t0(:,:,k))
+          p0(:,:,k) = era5_lev(k)
+        end do
         do_hydrostatic_correct = .true.
       case ('cam')
         call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_ps, mesh, phs%d)
@@ -120,13 +123,17 @@ contains
       if (do_hydrostatic_correct) then
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            t0(i,j) = t0(i,j) * (p0(i,j) / t0_p(i,j))**lapse_kappa
-            phs%d(i,j) = p0(i,j) * (1.0_r8 - lapse_rate * (gzs%d(i,j) / g - z0(i,j)) / t0(i,j))**(1.0_r8 / lapse_kappa)
+            do k0 = era5_nlev, 1, -1
+              if (p0(i,j,k0) <= ps0(i,j)) exit
+            end do
+            phs%d(i,j) = ps0(i,j) * (1.0_r8 + lapse_rate * (gzs%d(i,j) / g - zs0(i,j)) / t0(i,j,k0))**(-1.0_r8 / lapse_kappa)
           end do
         end do
       end if
       call fill_halo(phs)
-      deallocate(p0, t0, z0, t0_p)
+      if (allocated(t0)) deallocate(t0)
+      if (allocated(p0)) deallocate(p0)
+      deallocate(ps0, zs0)
       end associate
     end do
 
@@ -629,7 +636,8 @@ contains
     if (proc%is_root()) call log_notice('Calculate dry-air pressure.')
 
     do iblk = 1, size(blocks)
-      call calc_mg(blocks(iblk), blocks(iblk)%dstate(1))
+      call calc_mg (blocks(iblk), blocks(iblk)%dstate(1))
+      call calc_dmg(blocks(iblk), blocks(iblk)%dstate(1))
     end do
 
   end subroutine latlon_bkg_calc_mg

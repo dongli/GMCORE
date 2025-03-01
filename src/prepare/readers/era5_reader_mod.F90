@@ -20,6 +20,7 @@ module era5_reader_mod
   real(r8), allocatable, dimension(:,:,:) :: era5_u
   real(r8), allocatable, dimension(:,:,:) :: era5_v
   real(r8), allocatable, dimension(:,:,:) :: era5_t
+  real(r8), allocatable, dimension(:,:,:) :: era5_tv
   real(r8), allocatable, dimension(:,:,:) :: era5_z
   real(r8), allocatable, dimension(:,:,:) :: era5_qv
   real(r8), allocatable, dimension(:,:,:) :: era5_qc
@@ -140,6 +141,16 @@ contains
       era5_qs = 0
     end if
 
+    if (proc%is_root()) call log_notice('Calculate ERA5 virtual temperature.')
+    allocate(era5_tv(era5_nlon,era5_nlat,era5_nlev))
+    do k = 1, era5_nlev
+      do j = 1, era5_nlat
+        do i = 1, era5_nlon
+          era5_tv(i,j,k) = virtual_temperature_from_wet_mixing_ratio(era5_t(i,j,k), era5_qv(i,j,k))
+        end do
+      end do
+    end do
+
   end subroutine era5_reader_run
 
   subroutine era5_reader_final()
@@ -150,6 +161,7 @@ contains
     if (allocated(era5_u  )) deallocate(era5_u  )
     if (allocated(era5_v  )) deallocate(era5_v  )
     if (allocated(era5_t  )) deallocate(era5_t  )
+    if (allocated(era5_tv )) deallocate(era5_tv )
     if (allocated(era5_z  )) deallocate(era5_z  )
     if (allocated(era5_qv )) deallocate(era5_qv )
     if (allocated(era5_qc )) deallocate(era5_qc )
