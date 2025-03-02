@@ -574,16 +574,20 @@ contains
 
   end subroutine latlon_interp_bilinear_column
 
-  subroutine latlon_interp_plev_3d(pi, xi, po, xo)
+  subroutine latlon_interp_plev_3d(pi, xi, po, xo, logp)
 
     type(latlon_field3d_type), intent(in) :: pi
     type(latlon_field3d_type), intent(in) :: xi
     real(r8), intent(in) :: po(:)
     type(latlon_field3d_type), intent(inout) :: xo
+    logical, intent(in), optional :: logp
 
+    logical logp_opt
     integer is, ie, js, je, ks, ke
     integer i, j, k, ko
     real(r8) dp1, dp2
+
+    logp_opt = .false.; if (present(logp)) logp_opt = logp
 
     is = merge(xi%mesh%half_ids, xi%mesh%full_ids, xi%loc == 'lon' .or. xi%loc == 'lev_lon')
     ie = merge(xi%mesh%half_ide, xi%mesh%full_ide, xi%loc == 'lon' .or. xi%loc == 'lev_lon')
@@ -598,8 +602,13 @@ contains
         do ko = 1, size(po)
           do k = ks + 1, ke
             if (pi%d(i,j,k-1) <= po(ko) .and. po(ko) <= pi%d(i,j,k)) then
-              dp1 = po(ko) - pi%d(i,j,k-1)
-              dp2 = pi%d(i,j,k) - po(ko)
+              if (logp_opt) then
+                dp1 = log(po(ko)) - log(pi%d(i,j,k-1))
+                dp2 = log(pi%d(i,j,k)) - log(po(ko))
+              else
+                dp1 = po(ko) - pi%d(i,j,k-1)
+                dp2 = pi%d(i,j,k) - po(ko)
+              end if
               xo%d(i,j,xo%mesh%full_kds+ko-1) = (dp2 * xi%d(i,j,k-1) + dp1 * xi%d(i,j,k)) / (dp1 + dp2)
               exit
             end if

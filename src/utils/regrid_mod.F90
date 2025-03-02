@@ -102,8 +102,8 @@ contains
       j = 0
       j = j + 1; call latlon_interp_plev(dstate%ph, aux%u, regrid_plev, regrids(i)%fields(j))
       j = j + 1; call latlon_interp_plev(dstate%ph, aux%v, regrid_plev, regrids(i)%fields(j))
-      j = j + 1; call latlon_interp_plev(dstate%ph, aux%t, regrid_plev, regrids(i)%fields(j))
-      j = j + 1; call latlon_interp_plev(dstate%ph, dstate%gz, regrid_plev, regrids(i)%fields(j))
+      j = j + 1; call latlon_interp_plev(dstate%ph, aux%t, regrid_plev, regrids(i)%fields(j), logp=.true. )
+      j = j + 1; call latlon_interp_plev(dstate%ph_lev, dstate%gz_lev, regrid_plev, regrids(i)%fields(j), logp=.true.)
       if (idx_qv > 0) then
         j = j + 1
         call latlon_interp_plev(dstate%ph, q, idx_qv, regrid_plev, regrids(i)%fields(j))
