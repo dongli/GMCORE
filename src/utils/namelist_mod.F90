@@ -61,6 +61,8 @@ module namelist_mod
   logical         :: advection            = .false.
   logical         :: restart              = .false.
 
+  logical         :: prepare_regrid_gz    = .true.
+
   character(30)   :: physics_suite        = 'N/A'
   character(30)   :: mp_scheme            = 'N/A'
   character(30)   :: pbl_scheme           = 'N/A'
@@ -146,7 +148,7 @@ module namelist_mod
   integer         :: div_damp_order       = 2
   real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 6
-  real(r8)        :: div_damp_pole        = 10
+  real(r8)        :: div_damp_pole        = 100
   real(r8)        :: div_damp_lat0        = 80
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.001_r8
@@ -156,7 +158,7 @@ module namelist_mod
   real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 10
+  real(r8)        :: vor_damp_pole        = 100
   real(r8)        :: vor_damp_lat0        = 80
   logical         :: use_rayleigh_damp_w  = .false.
   real(r8)        :: rayleigh_damp_w_coef = 0.2
@@ -228,6 +230,7 @@ module namelist_mod
     output_i0_dtype           , &
     restart_file              , &
     restart                   , &
+    prepare_regrid_gz         , &
     topo_file                 , &
     topo_type                 , &
     bkg_file                  , &

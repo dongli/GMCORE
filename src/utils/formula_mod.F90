@@ -21,8 +21,9 @@ module formula_mod
   public modified_potential_temperature
   public temperature
   public temperature_from_virtual_temperature_and_wet_mixing_ratio
+  public temperature_from_virtual_temperature_and_dry_mixing_ratio
   public temperature_from_density_and_wet_mixing_ratio
-  public virtual_temperature
+  public virtual_temperature_from_dry_mixing_ratio
   public virtual_temperature_from_wet_mixing_ratio
   public virtual_temperature_from_density
   public virtual_temperature_from_modified_potential_temperature
@@ -102,6 +103,16 @@ contains
 
   end function temperature_from_virtual_temperature_and_wet_mixing_ratio
 
+  pure elemental real(r8) function temperature_from_virtual_temperature_and_dry_mixing_ratio(tv, qv, qm) result(res)
+
+    real(r8), intent(in) :: tv  ! Virtual temperature (K)
+    real(r8), intent(in) :: qv  ! Dry mixing ratio of water vapor (kg kg-1)
+    real(r8), intent(in) :: qm  ! Total dry mixing ratio of water vapor and its condensate (kg kg-1)
+
+    res = tv / (1 + rv_o_rd * qv) * (1 + qm) ! See (16) in Lauritzen et al. (2018) for details.
+
+  end function temperature_from_virtual_temperature_and_dry_mixing_ratio
+
   pure elemental real(r8) function temperature_from_density_and_wet_mixing_ratio(rho, p, qv) result(res)
 
     real(r8), intent(in) :: rho ! Air density (kg m-3)
@@ -112,7 +123,7 @@ contains
 
   end function temperature_from_density_and_wet_mixing_ratio
 
-  pure elemental real(r8) function virtual_temperature(t, qv, qm) result(res)
+  pure elemental real(r8) function virtual_temperature_from_dry_mixing_ratio(t, qv, qm) result(res)
 
     real(r8), intent(in) :: t   ! Temperature (K)
     real(r8), intent(in) :: qv  ! Dry mixing ratio of water vapor (kg kg-1)
@@ -120,7 +131,7 @@ contains
 
     res = t * (1 + rv_o_rd * qv) / (1 + qm) ! See (16) in Lauritzen et al. (2018) for details.
 
-  end function virtual_temperature
+  end function virtual_temperature_from_dry_mixing_ratio
 
   pure elemental real(r8) function virtual_temperature_from_wet_mixing_ratio(t, qv) result(res)
 
@@ -186,7 +197,7 @@ contains
     real(r8), intent(in) :: qv  ! Dry mixing ratio of water vapor (kg kg-1)
     real(r8), intent(in) :: qm  ! Total dry mixing ratio of water vapor and its condensate (kg kg-1)
 
-    res = p / rd / virtual_temperature(t, qv, qm)
+    res = p / rd / virtual_temperature_from_dry_mixing_ratio(t, qv, qm)
 
   end function moist_air_density
 

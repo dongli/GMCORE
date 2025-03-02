@@ -71,6 +71,7 @@ contains
 
     call latlon_bkg_read(min_lon, max_lon, min_lat, max_lat)
     if (proc%is_model()) then
+      ! Stage 1:
       call latlon_bkg_regrid_phs()
       call latlon_bkg_calc_ph()
       call latlon_bkg_regrid_wet_qv()
@@ -81,12 +82,9 @@ contains
       do iblk = 1, size(blocks)
         call tracer_calc_qm(blocks(iblk))
       end do
+      ! Stage 2:
       call latlon_bkg_calc_mgs()
       call latlon_bkg_calc_mg()
-      call latlon_bkg_regrid_u()
-      call latlon_bkg_regrid_v()
-      call latlon_bkg_regrid_t()
-      ! Change wet mixing ratio to dry mixing ratio.
       call latlon_bkg_calc_dry_qv()
       call latlon_bkg_calc_dry_qc()
       call latlon_bkg_calc_dry_qi()
@@ -96,16 +94,26 @@ contains
         call tracer_calc_qm(blocks(iblk))
         call calc_ph(blocks(iblk), blocks(iblk)%dstate(1))
       end do
+      ! Stage 3:
+      call latlon_bkg_regrid_u()
+      call latlon_bkg_regrid_v()
+      if (prepare_regrid_gz) then
+        call latlon_bkg_regrid_gz()
+        call latlon_bkg_calc_t()
+      else
+        call latlon_bkg_regrid_t()
+      end if
       call latlon_bkg_calc_tv()
       call latlon_bkg_calc_pt()
-      ! Set geopotential by using hydrostatic balance.
-      do iblk = 1, size(blocks)
-        do itime = lbound(blocks(iblk)%dstate, 1), ubound(blocks(iblk)%dstate, 1)
-          call blocks(iblk)%dstate(itime)%gz_lev%copy(blocks(iblk)%static%gzs, k=blocks(iblk)%mesh%half_kde, with_halo=.true.)
+      if (.not. prepare_regrid_gz) then
+        do iblk = 1, size(blocks)
+          do itime = lbound(blocks(iblk)%dstate, 1), ubound(blocks(iblk)%dstate, 1)
+            call blocks(iblk)%dstate(itime)%gz_lev%copy(blocks(iblk)%static%gzs, k=blocks(iblk)%mesh%half_kde, with_halo=.true.)
+          end do
+          call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
+          call fill_halo(blocks(iblk)%dstate(1)%gz_lev)
         end do
-        call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
-        call fill_halo(blocks(iblk)%dstate(1)%gz_lev)
-      end do
+      end if
     end if
 
   end subroutine prepare_bkg

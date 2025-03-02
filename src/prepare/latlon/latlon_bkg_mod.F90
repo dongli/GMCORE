@@ -47,6 +47,8 @@ module latlon_bkg_mod
   public latlon_bkg_calc_dry_ni
   public latlon_bkg_calc_dry_qr
   public latlon_bkg_calc_dry_qs
+  public latlon_bkg_regrid_gz
+  public latlon_bkg_calc_t
   public latlon_bkg_regrid_t
   public latlon_bkg_regrid_u
   public latlon_bkg_regrid_v
@@ -86,14 +88,12 @@ contains
 
     real(r8), allocatable, dimension(:,:) :: ps0, zs0
     real(r8), allocatable, dimension(:,:,:) :: t0, p0
-    real(r8) lapse_kappa
     integer iblk, i, j, k, k0
 
     logical do_hydrostatic_correct
 
     if (proc%is_root()) call log_notice('Regrid surface hydrostatic pressure.')
 
-    lapse_kappa = lapse_rate * rd_o_g
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh         , &
                  gzs  => blocks(iblk)%static%gzs   , &
@@ -126,7 +126,7 @@ contains
             do k0 = era5_nlev, 1, -1
               if (p0(i,j,k0) <= ps0(i,j)) exit
             end do
-            phs%d(i,j) = ps0(i,j) * (1.0_r8 + lapse_rate * (gzs%d(i,j) / g - zs0(i,j)) / t0(i,j,k0))**(-1.0_r8 / lapse_kappa)
+            phs%d(i,j) = ps0(i,j) * (1.0_r8 + lapse_rate * (gzs%d(i,j) / g - zs0(i,j)) / t0(i,j,k0))**(-1.0_r8 / lapse_rate / rd_o_g)
           end do
         end do
       end if
@@ -146,13 +146,21 @@ contains
     if (proc%is_root()) call log_notice('Calculate hydrostatic pressure on each level.')
 
     do iblk = 1, size(blocks)
-      associate (mesh => blocks(iblk)%mesh         , &
-                 phs  => blocks(iblk)%dstate(1)%phs, & ! in
-                 ph   => blocks(iblk)%dstate(1)%ph )   ! out
+      associate (mesh   => blocks(iblk)%mesh            , &
+                 phs    => blocks(iblk)%dstate(1)%phs   , & ! in
+                 ph     => blocks(iblk)%dstate(1)%ph    , & ! out
+                 ph_lev => blocks(iblk)%dstate(1)%ph_lev)   ! out
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             ph%d(i,j,k) = vert_coord_calc_mg(k, phs%d(i,j))
+          end do
+        end do
+      end do
+      do k = mesh%half_kds, mesh%half_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ph_lev%d(i,j,k) = vert_coord_calc_mg_lev(k, phs%d(i,j))
           end do
         end do
       end do
@@ -161,12 +169,89 @@ contains
 
   end subroutine latlon_bkg_calc_ph
 
-  subroutine latlon_bkg_regrid_t()
+  subroutine latlon_bkg_regrid_gz()
 
-    real(r8), allocatable, dimension(:,:,:) :: t1, p1
+    real(r8), allocatable, dimension(:,:,:) :: z0, p0
     integer iblk, i, j, k
 
-    if (proc%is_root()) call log_notice('Regrid temperature and calculate modified potential temperature.')
+    if (proc%is_root()) call log_notice('Regrid geopotential height.')
+
+    do iblk = 1, size(blocks)
+      associate (mesh   => blocks(iblk)%mesh            , &
+                 gzs    => blocks(iblk)%static%gzs      , & ! in
+                 ph_lev => blocks(iblk)%dstate(1)%ph_lev, & ! in
+                 gz_lev => blocks(iblk)%dstate(1)%gz_lev, & ! out
+                 gz     => blocks(iblk)%dstate(1)%gz    )   ! out
+      select case (bkg_type)
+      case ('era5')
+        allocate(z0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        do k = 1, era5_nlev
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_z(:,:,k), mesh, z0(:,:,k))
+          p0(:,:,k) = era5_lev(k)
+        end do
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            call vert_interp_log_linear(p0(i,j,:), z0(i,j,:), ph_lev%d(i,j,1:mesh%full_nlev), gz_lev%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            gz_lev%d(i,j,1:mesh%full_nlev) = gz_lev%d(i,j,1:mesh%full_nlev) * g
+            gz_lev%d(i,j,mesh%half_kde) = gzs%d(i,j)
+          end do
+        end do
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              gz%d(i,j,k) = 0.5_r8 * (gz_lev%d(i,j,k) + gz_lev%d(i,j,k+1))
+            end do
+          end do
+        end do
+        deallocate(z0, p0)
+      case default
+        if (proc%is_root()) call log_error('Unsupported bkg_type ' // trim(bkg_type) // '!', __FILE__, __LINE__)
+      end select
+      call fill_halo(gz_lev)
+      call fill_halo(gz)
+      end associate
+    end do
+
+  end subroutine latlon_bkg_regrid_gz
+
+  subroutine latlon_bkg_calc_t()
+
+    real(r8) tv
+    integer iblk, i, j, k
+
+    if (proc%is_root()) call log_notice('Calculate temperature.')
+
+    do iblk = 1, size(blocks)
+      associate (mesh   => blocks(iblk)%mesh            , &
+                 ph_lev => blocks(iblk)%dstate(1)%ph_lev, & ! in
+                 gz_lev => blocks(iblk)%dstate(1)%gz_lev, & ! in
+                 q      => tracers(iblk)%q              , & ! in
+                 qm     => tracers(iblk)%qm             , & ! in
+                 t      => blocks(iblk)%aux%t           )   ! out
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            tv = (gz_lev%d(i,j,k) - gz_lev%d(i,j,k+1)) / rd / log(ph_lev%d(i,j,k+1) / ph_lev%d(i,j,k))
+            if (idx_qv == 0) then
+              t%d(i,j,k) = tv
+            else
+              t%d(i,j,k) = temperature_from_virtual_temperature_and_dry_mixing_ratio(tv, q%d(i,j,k,idx_qv), qm%d(i,j,k))
+            end if
+          end do
+        end do
+      end do
+      end associate
+    end do
+
+  end subroutine latlon_bkg_calc_t
+
+  subroutine latlon_bkg_regrid_t()
+
+    real(r8), allocatable, dimension(:,:,:) :: t0, p0
+    integer iblk, i, j, k
+
+    if (proc%is_root()) call log_notice('Regrid temperature.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh        , &
@@ -174,42 +259,42 @@ contains
                  t    => blocks(iblk)%aux%t       )   ! out
         select case (bkg_type)
         case ('era5')
-          allocate(t1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+          allocate(t0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
           do k = 1, era5_nlev
-            call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_t(:,:,k), mesh, t1(:,:,k))
+            call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_t(:,:,k), mesh, t0(:,:,k))
           end do
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              call vert_interp_log_linear(era5_lev(:), t1(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+              call vert_interp_log_linear(era5_lev(:), t0(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
             end do
           end do
-          deallocate(t1)
+          deallocate(t0)
         case ('cam')
-          allocate(t1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-          allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+          allocate(t0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+          allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
           do k = 1, cam_nlev
-            call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_t(:,:,k), mesh, t1(:,:,k))
-            call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+            call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_t(:,:,k), mesh, t0(:,:,k))
+            call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
           end do
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              call vert_interp_log_linear(p1(i,j,:), t1(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+              call vert_interp_log_linear(p0(i,j,:), t0(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
             end do
           end do
-          deallocate(t1, p1)
+          deallocate(t0, p0)
         case ('openmars')
-          allocate(t1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
-          allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
+          allocate(t0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
+          allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
           do k = 1, openmars_nlev
-            call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_t(:,:,k), mesh, t1(:,:,k))
-            call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p1(:,:,k))
+            call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_t(:,:,k), mesh, t0(:,:,k))
+            call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p0(:,:,k))
           end do
           do j = mesh%full_jds, mesh%full_jde
             do i = mesh%full_ids, mesh%full_ide
-              call vert_interp_log_linear(p1(i,j,:), t1(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+              call vert_interp_log_linear(p0(i,j,:), t0(i,j,:), ph%d(i,j,1:mesh%full_nlev), t%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
             end do
           end do
-          deallocate(t1, p1)
+          deallocate(t0, p0)
         end select
         call fill_halo(t)
       end associate
@@ -219,7 +304,7 @@ contains
 
   subroutine latlon_bkg_regrid_u()
 
-    real(r8), allocatable, dimension(:,:,:) :: u1, p1
+    real(r8), allocatable, dimension(:,:,:) :: u0, p0
     integer iblk, i, j, k
 
     if (proc%is_root()) call log_notice('Regrid u wind component.')
@@ -230,42 +315,42 @@ contains
                  u    => blocks(iblk)%dstate(1)%u_lon)
       select case (bkg_type)
       case ('era5')
-        allocate(u1(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(u0(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_lon_edge(era5_lon, era5_lat, era5_u(:,:,k), mesh, u1(:,:,k), extrap=.true., zero_pole=.true.)
+          call latlon_interp_bilinear_lon_edge(era5_lon, era5_lat, era5_u(:,:,k), mesh, u0(:,:,k), extrap=.true., zero_pole=.true.)
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%half_ids, mesh%half_ide
-            call vert_interp_linear(era5_lev, u1(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, u0(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(u1)
+        deallocate(u0)
       case ('cam')
-        allocate(u1(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(u0(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_lon_edge(cam_lon, cam_slat, cam_us(:,:,k), mesh, u1(:,:,k), zero_pole=.true.)
-          call latlon_interp_bilinear_lon_edge(cam_lon, cam_lat , cam_p (:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_lon_edge(cam_lon, cam_slat, cam_us(:,:,k), mesh, u0(:,:,k), zero_pole=.true.)
+          call latlon_interp_bilinear_lon_edge(cam_lon, cam_lat , cam_p (:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%half_ids, mesh%half_ide
-            call vert_interp_linear(p1(i,j,:), u1(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), u0(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(u1, p1)
+        deallocate(u0, p0)
       case ('openmars')
-        allocate(u1(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
-        allocate(p1(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
+        allocate(u0(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
+        allocate(p0(mesh%half_ims:mesh%half_ime,mesh%full_jms:mesh%full_jme,openmars_nlev))
         do k = 1, openmars_nlev
-          call latlon_interp_bilinear_lon_edge(openmars_lon, openmars_lat, openmars_u(:,:,k), mesh, u1(:,:,k), zero_pole=.true.)
-          call latlon_interp_bilinear_lon_edge(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_lon_edge(openmars_lon, openmars_lat, openmars_u(:,:,k), mesh, u0(:,:,k), zero_pole=.true.)
+          call latlon_interp_bilinear_lon_edge(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%half_ids, mesh%half_ide
-            call vert_interp_linear(p1(i,j,:), u1(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), u0(i,j,:), ph%d(i,j,1:mesh%full_nlev), u%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(u1, p1)
+        deallocate(u0, p0)
       end select
       call fill_halo(u)
       end associate
@@ -275,7 +360,7 @@ contains
 
   subroutine latlon_bkg_regrid_v()
 
-    real(r8), allocatable, dimension(:,:,:) :: v1, p1
+    real(r8), allocatable, dimension(:,:,:) :: v0, p0
     integer iblk, i, j, k
 
     if (proc%is_root()) call log_notice('Regrid v wind component.')
@@ -286,42 +371,42 @@ contains
                  v    => blocks(iblk)%dstate(1)%v_lat)
       select case (bkg_type)
       case ('era5')
-        allocate(v1(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,era5_nlev))
+        allocate(v0(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_lat_edge(era5_lon, era5_lat, era5_v(:,:,k), mesh, v1(:,:,k), extrap=.true.)
+          call latlon_interp_bilinear_lat_edge(era5_lon, era5_lat, era5_v(:,:,k), mesh, v0(:,:,k), extrap=.true.)
         end do
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, v1(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, v0(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(v1)
+        deallocate(v0)
       case ('cam')
-        allocate(v1(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,cam_nlev))
+        allocate(v0(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_lat_edge(cam_slon, cam_lat, cam_vs(:,:,k), mesh, v1(:,:,k))
-          call latlon_interp_bilinear_lat_edge(cam_lon , cam_lat, cam_p (:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_lat_edge(cam_slon, cam_lat, cam_vs(:,:,k), mesh, v0(:,:,k))
+          call latlon_interp_bilinear_lat_edge(cam_lon , cam_lat, cam_p (:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), v1(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), v0(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(v1, p1)
+        deallocate(v0, p0)
       case ('openmars')
-        allocate(v1(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,openmars_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,openmars_nlev))
+        allocate(v0(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,openmars_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%half_jms:mesh%half_jme,openmars_nlev))
         do k = 1, openmars_nlev
-          call latlon_interp_bilinear_lat_edge(openmars_lon, openmars_lat, openmars_v(:,:,k), mesh, v1(:,:,k))
-          call latlon_interp_bilinear_lat_edge(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_lat_edge(openmars_lon, openmars_lat, openmars_v(:,:,k), mesh, v0(:,:,k))
+          call latlon_interp_bilinear_lat_edge(openmars_lon, openmars_lat, openmars_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), v1(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), v0(i,j,:), ph%d(i,j,1:mesh%full_nlev), v%d(i,j,1:mesh%full_nlev), allow_extrap=.true.)
           end do
         end do
-        deallocate(v1, p1)
+        deallocate(v0, p0)
       end select
       call fill_halo(v)
       end associate
@@ -331,7 +416,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qv()
 
-    real(r8), allocatable, dimension(:,:,:) :: q1, p1
+    real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qv == 0) return
@@ -344,29 +429,29 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('era5')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qv(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qv(:,:,k), mesh, q0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qv), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qv), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1)
+        deallocate(q0)
       case ('cam')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_q(:,:,k), mesh, q1(:,:,k))
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_q(:,:,k), mesh, q0(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qv), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qv), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1, p1)
+        deallocate(q0, p0)
       end select
       where (q%d(:,:,:,idx_qv) < 0) q%d(:,:,:,idx_qv) = 0
       call fill_halo(q, idx_qv)
@@ -377,7 +462,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qc()
 
-    real(r8), allocatable, dimension(:,:,:) :: q1, p1
+    real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qc == 0) return
@@ -390,29 +475,29 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('era5')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qc(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qc(:,:,k), mesh, q0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qc), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qc), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1)
+        deallocate(q0)
       case ('cam')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_cldliq(:,:,k), mesh, q1(:,:,k))
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_cldliq(:,:,k), mesh, q0(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qc), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qc), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1, p1)
+        deallocate(q0, p0)
       end select
       where (q%d(:,:,:,idx_qc) < 0) q%d(:,:,:,idx_qc) = 0
       call fill_halo(q, idx_qc)
@@ -423,7 +508,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qi()
 
-    real(r8), allocatable, dimension(:,:,:) :: q1, p1
+    real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qi == 0) return
@@ -436,29 +521,29 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('era5')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qi(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qi(:,:,k), mesh, q0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qi), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qi), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1)
+        deallocate(q0)
       case ('cam')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_cldice(:,:,k), mesh, q1(:,:,k))
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_cldice(:,:,k), mesh, q0(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qi), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qi), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1, p1)
+        deallocate(q0, p0)
       end select
       where (q%d(:,:,:,idx_qi) < 0) q%d(:,:,:,idx_qi) = 0
       call fill_halo(q, idx_qi)
@@ -469,7 +554,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_nc()
 
-    real(r8), allocatable, dimension(:,:,:) :: n1, p1
+    real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_nc == 0) return
@@ -482,18 +567,18 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('cam')
-        allocate(n1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(n0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_numliq(:,:,k), mesh, n1(:,:,k))
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_numliq(:,:,k), mesh, n0(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), n1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_nc), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), n0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_nc), allow_extrap=.true.)
           end do
         end do
-        deallocate(n1, p1)
+        deallocate(n0, p0)
       end select
       where (q%d(:,:,:,idx_nc) < 0) q%d(:,:,:,idx_nc) = 0
       call fill_halo(q, idx_nc)
@@ -504,7 +589,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_ni()
 
-    real(r8), allocatable, dimension(:,:,:) :: n1, p1
+    real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_ni == 0) return
@@ -517,18 +602,18 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('cam')
-        allocate(n1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
-        allocate(p1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(n0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
+        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,cam_nlev))
         do k = 1, cam_nlev
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_numice(:,:,k), mesh, n1(:,:,k))
-          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p1(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_numice(:,:,k), mesh, n0(:,:,k))
+          call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_p(:,:,k), mesh, p0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(p1(i,j,:), n1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_ni), allow_extrap=.true.)
+            call vert_interp_linear(p0(i,j,:), n0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_ni), allow_extrap=.true.)
           end do
         end do
-        deallocate(n1, p1)
+        deallocate(n0, p0)
       end select
       where (q%d(:,:,:,idx_ni) < 0) q%d(:,:,:,idx_ni) = 0
       call fill_halo(q, idx_ni)
@@ -539,7 +624,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qr()
 
-    real(r8), allocatable, dimension(:,:,:) :: q1, p1
+    real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qr == 0) return
@@ -552,16 +637,16 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('era5')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qr(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qr(:,:,k), mesh, q0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qr), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qr), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1)
+        deallocate(q0)
       end select
       where (q%d(:,:,:,idx_qr) < 0) q%d(:,:,:,idx_qr) = 0
       call fill_halo(q, idx_qr)
@@ -572,7 +657,7 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qs()
 
-    real(r8), allocatable, dimension(:,:,:) :: q1, p1
+    real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qs == 0) return
@@ -585,16 +670,16 @@ contains
                  q    => tracers(iblk)%q          )   ! out
       select case (bkg_type)
       case ('era5')
-        allocate(q1(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(q0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qs(:,:,k), mesh, q1(:,:,k))
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_qs(:,:,k), mesh, q0(:,:,k))
         end do
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            call vert_interp_linear(era5_lev, q1(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qs), allow_extrap=.true.)
+            call vert_interp_linear(era5_lev, q0(i,j,:), ph%d(i,j,1:mesh%full_nlev), q%d(i,j,1:mesh%full_nlev,idx_qs), allow_extrap=.true.)
           end do
         end do
-        deallocate(q1)
+        deallocate(q0)
       end select
       where (q%d(:,:,:,idx_qs) < 0) q%d(:,:,:,idx_qs) = 0
       call fill_halo(q, idx_qs)
@@ -658,9 +743,9 @@ contains
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
             if (idx_qv == 0) then
-              tv%d(i,j,k) = 0
+              tv%d(i,j,k) = t%d(i,j,k)
             else
-              tv%d(i,j,k) = virtual_temperature(t%d(i,j,k), q%d(i,j,k,idx_qv), qm%d(i,j,k))
+              tv%d(i,j,k) = virtual_temperature_from_dry_mixing_ratio(t%d(i,j,k), q%d(i,j,k,idx_qv), qm%d(i,j,k))
             end if
           end do
         end do
