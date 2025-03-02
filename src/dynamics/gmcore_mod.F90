@@ -46,6 +46,7 @@ module gmcore_mod
   use test_forcing_mod
   use perf_mod
   use regrid_mod
+  use latlon_operators_mod
 
   implicit none
 
@@ -247,7 +248,7 @@ contains
             call fill_halo(block%dstate(itime)%gz_lev)
           end do
         end if
-        call dstate%c2a(block%aux%u, block%aux%v)
+        call wind_c2a_operator(block%dstate(old)%u_lon, block%dstate(old)%v_lat, block%aux%u, block%aux%v)
         call calc_div(block, dstate)
         if (baroclinic .and. .not. restart) call block%static%ref_ps%copy(dstate%mgs, with_halo=.true.)
         end associate
@@ -591,7 +592,7 @@ contains
     call calc_grad_mf(block, block%dstate(itime))
     call calc_div    (block, block%dstate(itime))
     call calc_omg    (block, block%dstate(itime))
-    call block%dstate(itime)%c2a(block%aux%u, block%aux%v)
+    call wind_c2a_operator(block%dstate(itime)%u_lon, block%dstate(itime)%v_lat, block%aux%u, block%aux%v)
 
   end subroutine prepare_physics
 

@@ -130,6 +130,7 @@ CONTAINS
     use operators_mod
     use formula_mod
     use latlon_parallel_mod
+    use latlon_operators_mod
 
     type(block_type), intent(inout), target :: block
 
@@ -219,7 +220,7 @@ CONTAINS
     ! Convert A-grid wind to C-grid wind.
     call fill_halo(u)
     call fill_halo(v)
-    call block%dstate(1)%a2c(u, v)
+    call wind_a2c_operator(u, v, u_lon, v_lat)
     call fill_halo(u_lon)
     call fill_halo(v_lat)
     end associate

@@ -20,6 +20,7 @@ module initial_mod
   use block_mod
   use tracer_mod
   use latlon_parallel_mod
+  use latlon_operators_mod
   use operators_mod
   use prepare_mod
   use process_mod, only: proc
@@ -358,7 +359,7 @@ contains
 
       ! Calculate horizontal wind components on the edges.
       if (input_u .and. input_v .and. .not. (input_u_lon .and. input_v_lat)) then
-        call dstate%a2c(u, v)
+        call wind_a2c_operator(u, v, u_lon, v_lat)
         call fill_halo(u_lon)
         call fill_halo(v_lat)
       end if

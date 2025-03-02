@@ -55,8 +55,6 @@ module dynamics_types_mod
   contains
     procedure :: init  => dstate_init
     procedure :: clear => dstate_clear
-    procedure :: c2a   => dstate_c2a
-    procedure :: a2c   => dstate_a2c
     final dstate_final
   end type dstate_type
 
@@ -521,56 +519,6 @@ contains
     call this%clear()
 
   end subroutine dstate_final
-
-  subroutine dstate_a2c(this, u, v)
-
-    class(dstate_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(in) :: u
-    type(latlon_field3d_type), intent(in) :: v
-
-    integer i, j, k
-
-    associate (mesh  => this%u_lon%mesh, &
-               u_lon => this%u_lon     , & ! out
-               v_lat => this%v_lat     )   ! out
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%half_ids, mesh%half_ide
-          u_lon%d(i,j,k) = 0.5_r8 * (u%d(i,j,k) + u%d(i+1,j,k))
-        end do
-      end do
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%full_ids, mesh%full_ide
-          v_lat%d(i,j,k) = 0.5_r8 * (v%d(i,j,k) + v%d(i,j+1,k))
-        end do
-      end do
-    end do
-    end associate
-
-  end subroutine dstate_a2c
-
-  subroutine dstate_c2a(this, u, v)
-
-    class(dstate_type), intent(inout) :: this
-    type(latlon_field3d_type), intent(inout) :: u
-    type(latlon_field3d_type), intent(inout) :: v
-
-    integer i, j, k
-
-    associate (mesh  => this%u_lon%mesh, &
-               u_lon => this%u_lon     , & ! in
-               v_lat => this%v_lat     )   ! in
-    do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%full_ids, mesh%full_ide
-          u%d(i,j,k) = 0.5_r8 * (u_lon%d(i,j,k) + u_lon%d(i-1,j,k))
-          v%d(i,j,k) = 0.5_r8 * (v_lat%d(i,j,k) + v_lat%d(i,j-1,k))
-        end do
-      end do
-    end do
-    end associate
-
-  end subroutine dstate_c2a
 
   subroutine dtend_init(this, filter_mesh, filter_halo, mesh, halo)
 

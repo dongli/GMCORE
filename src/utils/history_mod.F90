@@ -18,6 +18,7 @@ module history_mod
   use namelist_mod
   use time_mod
   use latlon_parallel_mod
+  use latlon_operators_mod
   use block_mod
   use tracer_mod
   use operators_mod
@@ -240,6 +241,7 @@ contains
       if (.not. use_div_damp .and. .not. advection) then
         call calc_div(blocks(iblk), dstate)
       end if
+      call wind_c2a_operator(dstate%u_lon, dstate%v_lat, aux%u, aux%v)
       call write_fields('h0', mesh, dstate                   %fields)
       call write_fields('h0', mesh, dtend                    %fields)
       call write_fields('h0', mesh, aux                      %fields)

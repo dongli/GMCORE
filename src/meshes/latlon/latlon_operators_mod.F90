@@ -35,6 +35,8 @@ module latlon_operators_mod
   public divy_operator
   public div_operator
   public curl_operator
+  public wind_c2a_operator
+  public wind_a2c_operator
 
   interface div_operator
     module procedure div_operator_2d
@@ -309,5 +311,53 @@ contains
     call perf_stop('curl_operator')
 
   end subroutine curl_operator
+
+  subroutine wind_c2a_operator(u_lon, v_lat, u, v)
+
+    type(latlon_field3d_type), intent(in   ) :: u_lon
+    type(latlon_field3d_type), intent(in   ) :: v_lat
+    type(latlon_field3d_type), intent(inout) :: u
+    type(latlon_field3d_type), intent(inout) :: v
+
+    integer i, j, k
+
+    associate (mesh => u_lon%mesh)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          u%d(i,j,k) = 0.5_r8 * (u_lon%d(i,j,k) + u_lon%d(i-1,j,k))
+          v%d(i,j,k) = 0.5_r8 * (v_lat%d(i,j,k) + v_lat%d(i,j-1,k))
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine wind_c2a_operator
+
+  subroutine wind_a2c_operator(u, v, u_lon, v_lat)
+
+    type(latlon_field3d_type), intent(in   ) :: u
+    type(latlon_field3d_type), intent(in   ) :: v
+    type(latlon_field3d_type), intent(inout) :: u_lon
+    type(latlon_field3d_type), intent(inout) :: v_lat
+
+    integer i, j, k
+
+    associate (mesh => u%mesh)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids, mesh%half_ide
+          u_lon%d(i,j,k) = 0.5_r8 * (u%d(i,j,k) + u%d(i+1,j,k))
+        end do
+      end do
+      do j = mesh%half_jds, mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          v_lat%d(i,j,k) = 0.5_r8 * (v%d(i,j,k) + v%d(i,j+1,k))
+        end do
+      end do
+    end do
+    end associate
+
+  end subroutine wind_a2c_operator
 
 end module latlon_operators_mod
