@@ -11,10 +11,10 @@ parser.add_argument('--lon1', type=float, default=0, help='Minimum longitude')
 parser.add_argument('--lon2', type=float, default=360, help='Maximum longitude')
 args = parser.parse_args()
 
-f = xr.open_dataset(args.file, decode_times=False)
+f = xr.open_dataset(args.file, decode_times=False).isel(time=0)
 
 lon = f.lon.sel(lon=slice(args.lon1, args.lon2))
-z = f.gz.sel(time=0, lat=args.lat, lon=lon, method='nearest') / 9.80616
+z = f.gz.sel(lon=lon).sel(lat=args.lat, method='nearest') / 9.80616
 
 ax = plt.subplot(111)
 ax.set_title(f'Vertical levels at latitude {args.lat}')
@@ -25,9 +25,9 @@ ax.set_ylim(0, z.max())
 
 if 'lev' in f.gz.dims:
 	for k in range(f.lev.size):
-		ax.plot(lon, z.sel(lev=f['lev'][k], method='nearest'), linewidth=0.5, color='k')
+		ax.plot(lon, z.isel(lev=k), linewidth=0.5, color='k')
 else:
 	for k in range(f['ilev'].size):
-		ax.plot(lon, z.sel(ilev=f['ilev'][k], method='nearest'), linewidth=0.5, color='k')
+		ax.plot(lon, z.isel(ilev=k), linewidth=0.5, color='k')
 
 plt.show()
