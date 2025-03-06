@@ -241,7 +241,7 @@ contains
       if (.not. use_div_damp .and. .not. advection) then
         call calc_div(blocks(iblk), dstate)
       end if
-      call wind_c2a_operator(dstate%u_lon, dstate%v_lat, aux%u, aux%v)
+      if (.not. advection) call wind_c2a_operator(dstate%u_lon, dstate%v_lat, aux%u, aux%v)
       call write_fields('h0', mesh, dstate                   %fields)
       call write_fields('h0', mesh, dtend                    %fields)
       call write_fields('h0', mesh, aux                      %fields)

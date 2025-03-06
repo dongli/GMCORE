@@ -248,7 +248,7 @@ contains
             call fill_halo(block%dstate(itime)%gz_lev)
           end do
         end if
-        call wind_c2a_operator(block%dstate(old)%u_lon, block%dstate(old)%v_lat, block%aux%u, block%aux%v)
+        if (.not. advection) call wind_c2a_operator(block%dstate(old)%u_lon, block%dstate(old)%v_lat, block%aux%u, block%aux%v)
         call calc_div(block, dstate)
         if (baroclinic .and. .not. restart) call block%static%ref_ps%copy(dstate%mgs, with_halo=.true.)
         end associate

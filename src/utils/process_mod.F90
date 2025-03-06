@@ -188,25 +188,16 @@ contains
       do i = 1, size(proc%ngb)
         proc%ngb(i)%orient = i
         select case (proc%ngb(i)%orient)
-        case (west, east)
+        case (west, east, south, north)
           call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype, &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id)
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype, &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id)
-        case (south, north)
-          lon_hw = 1 ! NOTE: We only exchange 1 grid in diagonal directions on the filter_mesh.
-          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype,   &
-                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
-          lon_hw = min(blocks(1)%mesh%lon_hw, proc%ngb(i)%lon_hw)
-          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
-                                      host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
-        case (south_west, south_east)
+        case (south_west, south_east, north_west, north_east)
           lon_hw = 2
-          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
+          call blocks(1)%filter_halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,        &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
-        case (north_west, north_east)
-          lon_hw = 2
-          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,                 &
+          call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,               &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
         end select
       end do
