@@ -86,11 +86,8 @@ contains
 
   subroutine latlon_bkg_regrid_phs()
 
-    real(r8), allocatable, dimension(:,:) :: ps0, zs0
-    real(r8), allocatable, dimension(:,:,:) :: t0, p0
+    real(r8), allocatable, dimension(:,:,:) :: z0, logp0
     integer iblk, i, j, k, k0
-
-    logical do_hydrostatic_correct
 
     if (proc%is_root()) call log_notice('Regrid surface hydrostatic pressure.')
 
@@ -98,42 +95,27 @@ contains
       associate (mesh => blocks(iblk)%mesh         , &
                  gzs  => blocks(iblk)%static%gzs   , &
                  phs  => blocks(iblk)%dstate(1)%phs)
-      allocate(ps0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-      allocate(zs0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme))
-
       select case (bkg_type)
       case ('era5')
-        allocate(t0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
-        allocate(p0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
-        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_ps, mesh, ps0)
-        call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_zs, mesh, zs0)
+        allocate(z0   (mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
+        allocate(logp0(mesh%full_ims:mesh%full_ime,mesh%full_jms:mesh%full_jme,era5_nlev))
         do k = 1, era5_nlev
-          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_tv(:,:,k), mesh, t0(:,:,k))
-          p0(:,:,k) = era5_lev(k)
+          call latlon_interp_bilinear_cell(era5_lon, era5_lat, era5_z(:,:,k), mesh, z0(:,:,k))
+          logp0(:,:,k) = log(era5_lev(k))
         end do
-        do_hydrostatic_correct = .true.
-      case ('cam')
-        call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_ps, mesh, phs%d)
-        do_hydrostatic_correct = .false.
-      case ('openmars')
-        call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_ps, mesh, phs%d)
-        do_hydrostatic_correct = .false.
-      end select
-      ! According to pressure-height formula based on hydrostatic assumption.
-      if (do_hydrostatic_correct) then
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            do k0 = era5_nlev, 1, -1
-              if (p0(i,j,k0) <= ps0(i,j)) exit
-            end do
-            phs%d(i,j) = ps0(i,j) * (1.0_r8 + lapse_rate * (gzs%d(i,j) / g - zs0(i,j)) / t0(i,j,k0))**(-1.0_r8 / lapse_rate / rd_o_g)
+            call vert_interp_linear(z0(i,j,era5_nlev:1:-1), logp0(i,j,era5_nlev:1:-1), gzs%d(i,j) / g, phs%d(i,j), allow_extrap=.true.)
+            phs%d(i,j) = exp(phs%d(i,j))
           end do
         end do
-      end if
+        deallocate(z0, logp0)
+      case ('cam')
+        call latlon_interp_bilinear_cell(cam_lon, cam_lat, cam_ps, mesh, phs%d)
+      case ('openmars')
+        call latlon_interp_bilinear_cell(openmars_lon, openmars_lat, openmars_ps, mesh, phs%d)
+      end select
       call fill_halo(phs)
-      if (allocated(t0)) deallocate(t0)
-      if (allocated(p0)) deallocate(p0)
-      deallocate(ps0, zs0)
       end associate
     end do
 
@@ -414,14 +396,16 @@ contains
 
   end subroutine latlon_bkg_regrid_v
 
-  subroutine latlon_bkg_regrid_wet_qv()
+  subroutine latlon_bkg_regrid_wet_qv(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qv == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid water vapor wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid water vapor wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -460,14 +444,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_qv
 
-  subroutine latlon_bkg_regrid_wet_qc()
+  subroutine latlon_bkg_regrid_wet_qc(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qc == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid cloud liquid wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud liquid wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -506,14 +492,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_qc
 
-  subroutine latlon_bkg_regrid_wet_qi()
+  subroutine latlon_bkg_regrid_wet_qi(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qi == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid cloud ice wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud ice wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -552,14 +540,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_qi
 
-  subroutine latlon_bkg_regrid_wet_nc()
+  subroutine latlon_bkg_regrid_wet_nc(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_nc == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid cloud liquid number wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud liquid number wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -587,14 +577,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_nc
 
-  subroutine latlon_bkg_regrid_wet_ni()
+  subroutine latlon_bkg_regrid_wet_ni(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_ni == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid cloud ice number wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud ice number wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -622,14 +614,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_ni
 
-  subroutine latlon_bkg_regrid_wet_qr()
+  subroutine latlon_bkg_regrid_wet_qr(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qr == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid rain water wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid rain water wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -655,14 +649,16 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_qr
 
-  subroutine latlon_bkg_regrid_wet_qs()
+  subroutine latlon_bkg_regrid_wet_qs(mute)
+
+    logical, intent(in) :: mute
 
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qs == 0) return
 
-    if (proc%is_root()) call log_notice('Regrid snow water wet mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Regrid snow water wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -688,11 +684,13 @@ contains
 
   end subroutine latlon_bkg_regrid_wet_qs
 
-  subroutine latlon_bkg_calc_mgs()
+  subroutine latlon_bkg_calc_mgs(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
-    if (proc%is_root()) call log_notice('Calculate surface dry-air pressure.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate surface dry-air pressure.')
 
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh            , &
@@ -714,11 +712,13 @@ contains
 
   end subroutine latlon_bkg_calc_mgs
 
-  subroutine latlon_bkg_calc_mg()
+  subroutine latlon_bkg_calc_mg(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk
 
-    if (proc%is_root()) call log_notice('Calculate dry-air pressure.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate dry-air pressure.')
 
     do iblk = 1, size(blocks)
       call calc_mg (blocks(iblk), blocks(iblk)%dstate(1))
@@ -784,13 +784,15 @@ contains
 
   end subroutine latlon_bkg_calc_pt
 
-  subroutine latlon_bkg_calc_dry_qv()
+  subroutine latlon_bkg_calc_dry_qv(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_qv == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate water vapor dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate water vapor dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -809,13 +811,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_qv
 
-  subroutine latlon_bkg_calc_dry_qc()
+  subroutine latlon_bkg_calc_dry_qc(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_qc == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate cloud liquid dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud liquid dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -834,13 +838,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_qc
 
-  subroutine latlon_bkg_calc_dry_qi()
+  subroutine latlon_bkg_calc_dry_qi(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_qi == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate cloud ice dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud ice dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -859,13 +865,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_qi
 
-  subroutine latlon_bkg_calc_dry_nc()
+  subroutine latlon_bkg_calc_dry_nc(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_nc == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate cloud liquid number dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud liquid number dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -884,13 +892,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_nc
 
-  subroutine latlon_bkg_calc_dry_ni()
+  subroutine latlon_bkg_calc_dry_ni(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_ni == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate cloud ice number dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud ice number dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -909,13 +919,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_ni
 
-  subroutine latlon_bkg_calc_dry_qr()
+  subroutine latlon_bkg_calc_dry_qr(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_qr == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate rain water dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate rain water dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -934,13 +946,15 @@ contains
 
   end subroutine latlon_bkg_calc_dry_qr
 
-  subroutine latlon_bkg_calc_dry_qs()
+  subroutine latlon_bkg_calc_dry_qs(mute)
+
+    logical, intent(in) :: mute
 
     integer iblk, i, j, k
 
     if (idx_qs == 0) return
 
-    if (proc%is_root()) call log_notice('Calculate snow water dry mixing ratio.')
+    if (.not. mute .and. proc%is_root()) call log_notice('Calculate snow water dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &

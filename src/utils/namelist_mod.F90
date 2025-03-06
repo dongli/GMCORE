@@ -125,7 +125,9 @@ module namelist_mod
   character(8)    :: zonal_tridiag_solver = 'spk' ! mkl, spk
 
   integer         :: weno_order           = -1 ! -1, 3
-  integer         :: upwind_order         = 5  ! -1, 1, 3, 5
+  integer         :: upwind_order         = 5  ! 0, 1, 3, 5
+  integer         :: upwind_order_h       = -1 ! 0, 1, 3, 5
+  integer         :: upwind_order_v       = -1 ! 0, 1, 3, 5
   real(r8)        :: upwind_wgt           = 0.75_r8
 
   character(30)   :: time_scheme          = 'wrfrk3'
@@ -269,6 +271,8 @@ module namelist_mod
     zonal_tridiag_solver      , &
     weno_order                , &
     upwind_order              , &
+    upwind_order_h            , &
+    upwind_order_v            , &
     upwind_wgt                , &
     time_scheme               , &
     save_dyn_calc             , &
@@ -370,6 +374,9 @@ contains
       end if
     end if
 
+    if (upwind_order_h == -1) upwind_order_h = upwind_order
+    if (upwind_order_v == -1) upwind_order_v = upwind_order
+
     if (dt_dyn  == 0) dt_dyn  = dt_adv
     if (dt_adv  == 0) dt_adv  = dt_dyn
     if (dt_phys == 0) dt_phys = dt_adv
@@ -445,7 +452,8 @@ contains
       write(*, *) 'upwind_wgt_pv       = ', to_str(upwind_wgt_pv, 2)
     end if
     if (pt_adv_scheme == 'upwind' .or. nh_adv_scheme == 'upwind') then
-      write(*, *) 'upwind_order        = ', to_str(upwind_order)
+      write(*, *) 'upwind_order_h      = ', to_str(upwind_order_h)
+      write(*, *) 'upwind_order_v      = ', to_str(upwind_order_v)
       write(*, *) 'upwind_wgt          = ', to_str(upwind_wgt, 4)
     end if
       write(*, *) 'use_topo_smooth     = ', to_str(use_topo_smooth)

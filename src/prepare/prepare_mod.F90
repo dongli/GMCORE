@@ -67,32 +67,34 @@ contains
 
   subroutine prepare_bkg()
 
-    integer iblk, itime
+    integer iblk, itime, cyc
 
     call latlon_bkg_read(min_lon, max_lon, min_lat, max_lat)
     if (proc%is_model()) then
       ! Stage 1:
       call latlon_bkg_regrid_phs()
       call latlon_bkg_calc_ph()
-      call latlon_bkg_regrid_wet_qv()
-      call latlon_bkg_regrid_wet_qc()
-      call latlon_bkg_regrid_wet_qi()
-      call latlon_bkg_regrid_wet_qr()
-      call latlon_bkg_regrid_wet_qs()
-      do iblk = 1, size(blocks)
-        call tracer_calc_qm(blocks(iblk))
-      end do
-      ! Stage 2:
-      call latlon_bkg_calc_mgs()
-      call latlon_bkg_calc_mg()
-      call latlon_bkg_calc_dry_qv()
-      call latlon_bkg_calc_dry_qc()
-      call latlon_bkg_calc_dry_qi()
-      call latlon_bkg_calc_dry_qr()
-      call latlon_bkg_calc_dry_qs()
-      do iblk = 1, size(blocks)
-        call tracer_calc_qm(blocks(iblk))
-        call calc_ph(blocks(iblk), blocks(iblk)%dstate(1))
+      do cyc = 1, 3
+        call latlon_bkg_regrid_wet_qv(mute=cyc /= 1)
+        call latlon_bkg_regrid_wet_qc(mute=cyc /= 1)
+        call latlon_bkg_regrid_wet_qi(mute=cyc /= 1)
+        call latlon_bkg_regrid_wet_qr(mute=cyc /= 1)
+        call latlon_bkg_regrid_wet_qs(mute=cyc /= 1)
+        do iblk = 1, size(blocks)
+          call tracer_calc_qm(blocks(iblk))
+        end do
+        ! Stage 2:
+        call latlon_bkg_calc_mgs(mute=cyc /= 1)
+        call latlon_bkg_calc_mg(mute=cyc /= 1)
+        call latlon_bkg_calc_dry_qv(mute=cyc /= 1)
+        call latlon_bkg_calc_dry_qc(mute=cyc /= 1)
+        call latlon_bkg_calc_dry_qi(mute=cyc /= 1)
+        call latlon_bkg_calc_dry_qr(mute=cyc /= 1)
+        call latlon_bkg_calc_dry_qs(mute=cyc /= 1)
+        do iblk = 1, size(blocks)
+          call tracer_calc_qm(blocks(iblk))
+          call calc_ph(blocks(iblk), blocks(iblk)%dstate(1))
+        end do
       end do
       ! Stage 3:
       call latlon_bkg_regrid_u()
