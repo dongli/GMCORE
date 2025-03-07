@@ -20,9 +20,9 @@ contains
 
     do iblk = 1, size(blocks)
       select case (test_case)
-      case ('vortex_erosion')
+      case ('swm_vr')
         call vortex_erosion_test_apply_forcing(blocks(iblk), blocks(iblk)%static)
-      case ('held_suarez')
+      case ('hs')
         call held_suarez_test_apply_forcing(blocks(iblk), dt, blocks(iblk)%dstate(time_idx))
       end select
     end do
