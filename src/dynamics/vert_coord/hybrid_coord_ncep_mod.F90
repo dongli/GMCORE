@@ -378,7 +378,7 @@ contains
     real(r8) c1sig2      ! d(c1)/d(sig2)
     real(r8) p(2)        ! rhs in N-R iteration
     real(r8) fjac(2,2)   ! lhs in N-R iteration
-    integer indx(2)  ! permutations in N-R iteration
+    integer indx(2)      ! permutations in N-R iteration
     real(r8) ppred       ! pressure at T1-T2 boundary
     real(r8) spre        ! sig at P-T1 boundary
     real(r8) spred       ! sig at T1-T2 boundary
@@ -398,12 +398,12 @@ contains
     real(r8) p2pred      ! pressure at T1-T2 boundary for pmin surface pressure
     real(r8) x2(9)       ! rhs in linear solver
     real(r8) a2(9,9)     ! lhs in linear solver
-    integer indx2(9) ! permutations in linear solver
+    integer indx2(9)     ! permutations in linear solver
     real(r8) pkupp       ! dp/dk at U-P boundary
     real(r8) pkkupp      ! d2p/dk2 at U-P boundary
     real(r8) x3(3)       ! rhs in linear solver
     real(r8) a3(3,3)     ! lhs in linear solver
-    integer indx3(3) ! permutations in linear solver
+    integer indx3(3)     ! permutations in linear solver
     real(r8) p1          ! pressure variable for pbot surface pressure
     real(r8) p2          ! pressure variable for pmin surface pressure
     real(r8) d           ! determinant permutation

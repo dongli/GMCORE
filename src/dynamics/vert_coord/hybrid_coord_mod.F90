@@ -13,6 +13,7 @@ module hybrid_coord_mod
   use const_mod, only: r8
   use namelist_mod, p0 => hybrid_coord_p0
   use hybrid_coord_ncep_mod
+  use hybrid_coord_wrf_mod
   use hybrid_coord_test_mod
   use hybrid_coord_ecmwf_mod
   use mars_vert_coord_mod
@@ -107,6 +108,9 @@ contains
         call hybrid_coord_cam_l30(p0, ptop, hyai, hybi)
       case ('ncep')
         call hybrid_coord_ncep(p0, ptop, hyai, hybi)
+      case ('wrf')
+        call hybrid_coord_wrf(p0, ptop, hyai, hybi)
+        local_ptop = ptop
       case default
         if (baroclinic .and. proc%is_root()) then
           call log_error('Hybrid vertical coordinate template "' // trim(template) // '" is invalid!')

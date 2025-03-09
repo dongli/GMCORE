@@ -179,20 +179,21 @@ contains
 
   end subroutine laplace_damp_run_2d
 
-  subroutine laplace_damp_run_3d(block, f, order, coef, dfdt)
+  subroutine laplace_damp_run_3d(block, f, order, coef, df)
 
     type(block_type), intent(inout) :: block
-    type(latlon_field3d_type), intent(in) :: f
+    type(latlon_field3d_type), intent(inout) :: f
     integer, intent(in) :: order
-    real(r8), intent(in), optional :: coef
-    type(latlon_field3d_type), intent(inout) :: dfdt
+    real(r8), intent(in) :: coef
+    type(latlon_field3d_type), intent(inout) :: df
 
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
     real(r8) c0
     integer i, j, k, l
 
-    c0 = 1.0_r8; if (present(coef)) c0 = coef
-    c0 = (-1)**(order / 2) * c0
+    call wait_halo(f)
+
+    c0 = (-1)**(order / 2) * coef
 
     select case (f%loc)
     case ('cell')
@@ -286,7 +287,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -c0 * (                            &
+            df%d(i,j,k) = -c0 * (                              &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -294,7 +295,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfdt)
+      call filter_run(block%big_filter, df)
       if (mesh%has_south_pole()) then
         j = mesh%full_jds
         do k = mesh%full_kds, mesh%full_kde
@@ -306,7 +307,7 @@ contains
         pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -pole(k)
+            df%d(i,j,k) = -pole(k)
           end do
         end do
       end if
@@ -321,10 +322,17 @@ contains
         pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do k = mesh%full_kds, mesh%full_kde
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -pole(k)
+            df%d(i,j,k) = -pole(k)
           end do
         end do
       end if
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) + df%d(i,j,k)
+          end do
+        end do
+      end do
       end associate
     case ('lon')
       associate (mesh => block%mesh         , &
@@ -388,7 +396,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
-            dfdt%d(i,j,k) = -c0 * (                            &
+            df%d(i,j,k) = -c0 * (                              &
               (fx%d(i+1,j,k) - fx%d(i,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -396,7 +404,14 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfdt)
+      call filter_run(block%big_filter, df)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            f%d(i,j,k) = f%d(i,j,k) + df%d(i,j,k)
+          end do
+        end do
+      end do
       end associate
     case ('lat')
       associate (mesh => block%mesh         , &
@@ -460,7 +475,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -c0 * (                            &
+            df%d(i,j,k) = -c0 * (                              &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%de_lat(j) + &
               fy%d(i,j+1,k) * mesh%de_lon(j+1) -               &
               fy%d(i,j  ,k) * mesh%de_lon(j  )                 &
@@ -468,7 +483,14 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfdt)
+      call filter_run(block%big_filter, df)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) + df%d(i,j,k)
+          end do
+        end do
+      end do
       end associate
     case ('lev')
       associate (mesh => block%mesh         , &
@@ -560,7 +582,7 @@ contains
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -c0 * (                            &
+            df%d(i,j,k) = -c0 * (                              &
               (fx%d(i,j,k) - fx%d(i-1,j,k)) * mesh%le_lon(j) + &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -               &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)                 &
@@ -568,7 +590,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfdt)
+      call filter_run(block%big_filter, df)
       if (mesh%has_south_pole()) then
         j = mesh%full_jds
         do k = mesh%half_kds + 1, mesh%half_kde - 1
@@ -580,7 +602,7 @@ contains
         pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -pole(k)
+            df%d(i,j,k) = -pole(k)
           end do
         end do
       end if
@@ -595,10 +617,17 @@ contains
         pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
         do k = mesh%half_kds + 1, mesh%half_kde - 1
           do i = mesh%full_ids, mesh%full_ide
-            dfdt%d(i,j,k) = -pole(k)
+            df%d(i,j,k) = -pole(k)
           end do
         end do
       end if
+      do k = mesh%half_kds + 1, mesh%half_kde - 1
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%full_ids, mesh%full_ide
+            f%d(i,j,k) = f%d(i,j,k) + df%d(i,j,k)
+          end do
+        end do
+      end do
       end associate
     end select
 

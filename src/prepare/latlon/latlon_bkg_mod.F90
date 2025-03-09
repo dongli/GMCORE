@@ -398,14 +398,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qv(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qv == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid water vapor wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid water vapor wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -446,14 +449,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qc(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qc == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud liquid wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid cloud liquid wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -494,14 +500,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qi(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qi == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud ice wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid cloud ice wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -542,14 +551,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_nc(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_nc == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud liquid number wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid cloud liquid number wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -579,14 +591,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_ni(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: n0, p0
     integer iblk, i, j, k
 
     if (idx_ni == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid cloud ice number wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid cloud ice number wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -616,14 +631,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qr(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qr == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid rain water wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid rain water wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -651,14 +669,17 @@ contains
 
   subroutine latlon_bkg_regrid_wet_qs(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     real(r8), allocatable, dimension(:,:,:) :: q0, p0
     integer iblk, i, j, k
 
     if (idx_qs == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Regrid snow water wet mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Regrid snow water wet mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%filter_mesh , &
@@ -686,11 +707,14 @@ contains
 
   subroutine latlon_bkg_calc_mgs(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate surface dry-air pressure.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate surface dry-air pressure.')
 
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh            , &
@@ -714,11 +738,14 @@ contains
 
   subroutine latlon_bkg_calc_mg(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate dry-air pressure.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate dry-air pressure.')
 
     do iblk = 1, size(blocks)
       call calc_mg (blocks(iblk), blocks(iblk)%dstate(1))
@@ -786,13 +813,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_qv(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_qv == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate water vapor dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate water vapor dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -813,13 +843,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_qc(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_qc == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud liquid dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate cloud liquid dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -840,13 +873,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_qi(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_qi == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud ice dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate cloud ice dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -867,13 +903,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_nc(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_nc == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud liquid number dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate cloud liquid number dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -894,13 +933,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_ni(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_ni == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate cloud ice number dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate cloud ice number dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -921,13 +963,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_qr(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_qr == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate rain water dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate rain water dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &
@@ -948,13 +993,16 @@ contains
 
   subroutine latlon_bkg_calc_dry_qs(mute)
 
-    logical, intent(in) :: mute
+    logical, intent(in), optional :: mute
 
+    logical mute_opt
     integer iblk, i, j, k
 
     if (idx_qs == 0) return
 
-    if (.not. mute .and. proc%is_root()) call log_notice('Calculate snow water dry mixing ratio.')
+    mute_opt = .false.; if (present(mute)) mute_opt = mute
+
+    if (.not. mute_opt .and. proc%is_root()) call log_notice('Calculate snow water dry mixing ratio.')
 
     do iblk = 1, size(blocks)
       associate (mesh => blocks(iblk)%mesh, &

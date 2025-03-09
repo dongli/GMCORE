@@ -135,16 +135,21 @@ contains
 
     type(block_type), intent(inout) :: block
 
+    real(r8) tmp
+
     if (.not. use_topo_smooth) return
     if (proc%is_root()) call log_notice('Filter topography.')
 
-    associate (filter => block%big_filter     , &
-               lnd    => block%static%landmask, &
+    associate (lnd    => block%static%landmask, &
                gzs    => block%static%gzs     , &
                dzsdx  => block%static%dzsdx   , &
                dzsdy  => block%static%dzsdy   )
-    call zs_polar_filter(filter, gzs, dzsdx, dzsdy)
-    ! call zs_grad_filter(filter, lnd, gzs, dzsdx, dzsdy)
+    call zs_polar_filter(block, gzs, dzsdx, dzsdy)
+    call zs_grad_filter(block, lnd, gzs, dzsdx, dzsdy)
+    tmp = global_max(proc%comm_model, maxval(gzs%d / g))
+    if (proc%is_root()) call log_notice('Maximum zs is ' // to_str(tmp, 'F8.1') // ' m.')
+    tmp = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))
+    if (proc%is_root()) call log_notice('Maximum topography slope angle after filter is ' // to_str(atan(tmp) * deg, 'F7.2') // ' deg.')
     end associate
 
   end subroutine latlon_topo_smooth
@@ -174,9 +179,9 @@ contains
 
   end subroutine calc_zs_slope
 
-  subroutine zs_polar_filter(filter, gzs, dzsdx, dzsdy)
+  subroutine zs_polar_filter(block, gzs, dzsdx, dzsdy)
 
-    type(filter_type), intent(in) :: filter
+    type(block_type), intent(in) :: block
     type(latlon_field2d_type), intent(inout) :: gzs
     type(latlon_field2d_type), intent(inout) :: dzsdx
     type(latlon_field2d_type), intent(inout) :: dzsdy
@@ -185,28 +190,26 @@ contains
     real(r8) lat0, wgt
     integer j, cyc
 
-    associate (mesh => gzs%mesh, halo => gzs%halo)
+    associate (mesh => block%filter_mesh, halo => block%filter_halo)
     call gzs_f%init('', '', '', 'cell', mesh, halo)
     lat0 = abs(global_mesh%full_lat_deg(2))
     do cyc = 1, topo_smooth_cycles
-      call filter_run(filter, gzs, gzs_f)
+      call filter_run(block%big_filter, gzs, gzs_f)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        wgt = exp_two_values(1.0_r8, 0.0_r8, lat0, 45.0_r8, abs(mesh%full_lat_deg(j)))
+        wgt = exp_two_values(1.0_r8, 0.0_r8, lat0, 60.0_r8, abs(mesh%full_lat_deg(j)))
         gzs%d(:,j) = wgt * gzs_f%d(:,j) + (1 - wgt) * gzs%d(:,j)
       end do
       call fill_halo(gzs)
     end do
-    wgt = global_max(proc%comm_model, maxval(gzs%d / g))
-    if (proc%is_root()) call log_notice('Maximum zs is ' // to_str(wgt, 10) // '.')
     call calc_zs_slope(gzs, dzsdx, dzsdy)
     call gzs_f%clear()
     end associate
 
   end subroutine zs_polar_filter
 
-  subroutine zs_grad_filter(filter, lnd, gzs, dzsdx, dzsdy)
+  subroutine zs_grad_filter(block, lnd, gzs, dzsdx, dzsdy)
 
-    type(filter_type), intent(in) :: filter
+    type(block_type), intent(inout) :: block
     type(latlon_field2d_type), intent(in) :: lnd
     type(latlon_field2d_type), intent(inout) :: gzs
     type(latlon_field2d_type), intent(inout) :: dzsdx
@@ -217,25 +220,30 @@ contains
     integer topo_smooth_order
 
     type(latlon_field2d_type) g1, g2, fx, fy
-    real(r8) c0, s, max_slope
+    real(r8) c0, max_slope
+    real(r8) work(gzs%mesh%full_ids:gzs%mesh%full_ide), pole
     integer i, j, k, cyc
 
-    associate (mesh => gzs%mesh, halo => gzs%halo)
     ! Do Laplacian damping on target grid with terrain slope larger than a threshold.
-    max_slope = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))
-    if (proc%is_root()) call log_notice('Maximum topography slope is ' // to_str(max_slope, 'F10.8') // '.')
-    topo_smooth_coef = 1.0e6_r8
+    max_slope = max(dzsdx%absmax(), dzsdy%absmax())
+    if (proc%is_root()) call log_notice('Maximum topography slope angle before filter is ' // to_str(atan(max_slope) * deg, 'F7.2') // ' deg.')
+
+    topo_smooth_coef = 1.0e7_r8
     topo_smooth_order = 2
-    c0 = topo_smooth_coef
-    s = (-1)**(topo_smooth_order / 2)
+
+    associate (mesh  => gzs%mesh          , &
+               halo  => gzs%halo          , &
+               order => topo_smooth_order , &
+               dfx   => block%dtend%dmgsdt, &
+               f     => gzs               )
+    c0 = (-1)**(order / 2) * topo_smooth_coef
     call g1%init('g1', '', '', 'cell', mesh, halo)
     call g2%init('g2', '', '', 'cell', mesh, halo)
     call fx%init('fx', '', '', 'lon' , mesh, halo)
     call fy%init('fy', '', '', 'lat' , mesh, halo)
-    do cyc = 1, topo_smooth_cycles
-      call g1%copy(gzs)
-      call fill_halo(g1)
-      do k = 1, (topo_smooth_order - 2) / 2
+    do cyc = 1, 500
+      call g1%copy(f, with_halo=.true.)
+      do k = 1, (order - 2) / 2
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids - 1, mesh%half_ide
             fx%d(i,j) = (g1%d(i+1,j) - g1%d(i,j)) / mesh%de_lon(j)
@@ -255,8 +263,30 @@ contains
             ) / mesh%area_cell(j)
           end do
         end do
-        call g1%copy(g2)
-        call fill_halo(g1)
+        if (mesh%has_south_pole()) then
+          j = mesh%full_jds
+          do i = mesh%full_ids, mesh%full_ide
+            work(i) = fy%d(i,j)
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+          do i = mesh%full_ids, mesh%full_ide
+            g2%d(i,j) = pole
+          end do
+        end if
+        if (mesh%has_north_pole()) then
+          j = mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            work(i) = fy%d(i,j-1)
+          end do
+          call zonal_sum(proc%zonal_circle, work, pole)
+          pole = -pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+          do i = mesh%full_ids, mesh%full_ide
+            g2%d(i,j) = pole
+          end do
+        end if
+        call fill_halo(g2)
+        g1%d = g2%d
       end do
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids - 1, mesh%half_ide
@@ -272,41 +302,63 @@ contains
           fy%d(i,j) = max(0.0_r8, min(lnd%d(i,j), lnd%d(i,j+1))) * fy%d(i,j)
         end do
       end do
-      if (topo_smooth_order > 2) then
+      if (order > 2) then
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids - 1, mesh%half_ide
-            fx%d(i,j) = fx%d(i,j) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j) * (gzs%d(i+1,j) - gzs%d(i,j))))
+            fx%d(i,j) = fx%d(i,j) * max(0.0_r8, sign(1.0_r8, -fx%d(i,j) * (f%d(i+1,j) - f%d(i,j))))
           end do
         end do
         do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            fy%d(i,j) = fy%d(i,j) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j) * (gzs%d(i,j+1) - gzs%d(i,j))))
+            fy%d(i,j) = fy%d(i,j) * max(0.0_r8, sign(1.0_r8, -fy%d(i,j) * (f%d(i,j+1) - f%d(i,j))))
           end do
         end do
       end if
-      call filter_run(filter, fx)
+      ! Filter the zonal tendency.
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          dfx%d(i,j) = (fx%d(i,j) - fx%d(i-1,j)) * mesh%le_lon(j) / mesh%area_cell(j)
+        end do
+      end do
+      call filter_run(block%big_filter, dfx)
       call fill_halo(fx, east_halo=.false., south_halo=.false., north_halo=.false.)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          gzs%d(i,j) = gzs%d(i,j) - s * c0 * ( &
-            (                                  &
-              fx%d(i,j) - fx%d(i-1,j)          &
-            ) * mesh%le_lon(j) +               &
-            (                                  &
+          gzs%d(i,j) = gzs%d(i,j) - c0 * (dfx%d(i,j) + ( &
               fy%d(i,j  ) * mesh%le_lat(j  ) - &
               fy%d(i,j-1) * mesh%le_lat(j-1)   &
-            )) / mesh%area_cell(j)
+            ) / mesh%area_cell(j))
         end do
       end do
-      call fill_halo(gzs)
-      call calc_zs_slope(gzs, dzsdx, dzsdy)
+      if (mesh%has_south_pole()) then
+        j = mesh%full_jds
+        do i = mesh%full_ids, mesh%full_ide
+          work(i) = fy%d(i,j)
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = c0 * pole * mesh%le_lat(j) / global_mesh%area_pole_cap
+        do i = mesh%full_ids, mesh%full_ide
+          f%d(i,j) = f%d(i,j) - pole
+        end do
+      end if
+      if (mesh%has_north_pole()) then
+        j = mesh%full_jde
+        do i = mesh%full_ids, mesh%full_ide
+          work(i) = fy%d(i,j-1)
+        end do
+        call zonal_sum(proc%zonal_circle, work, pole)
+        pole = -c0 * pole * mesh%le_lat(j-1) / global_mesh%area_pole_cap
+        do i = mesh%full_ids, mesh%full_ide
+          f%d(i,j) = f%d(i,j) - pole
+        end do
+      end if
+      call fill_halo(f)
+      call calc_zs_slope(f, dzsdx, dzsdy)
     end do
     call g1%clear()
     call g2%clear()
     call fx%clear()
     call fy%clear()
-    max_slope = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))
-    if (proc%is_root()) call log_notice('Maximum topography slope is ' // to_str(max_slope, 'F10.8') // '.')
     end associate
 
   end subroutine zs_grad_filter

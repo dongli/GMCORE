@@ -17,6 +17,8 @@ module smag_damp_mod
   use latlon_parallel_mod
   use block_mod
   use tracer_mod
+  use filter_mod
+  use perf_mod
 
   implicit none
 
@@ -61,7 +63,12 @@ contains
 
     integer i, j, k, m
     real(r8) ls2
-    real(r8), pointer :: q(:,:,:,:)
+
+    call wait_halo(dstate%u_lon)
+    call wait_halo(dstate%v_lat)
+    call wait_halo(dstate%pt   )
+
+    call perf_start('smag_damp_run')
 
     associate (mesh      => block%mesh          , &
                smag_t    => block%aux%smag_t    , & ! working array
@@ -81,8 +88,8 @@ contains
     ! -- - --
     ! ∂x   ∂y
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
-        do i = mesh%full_ids, mesh%full_ide
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
+        do i = mesh%full_ids, mesh%full_ide + 1
           smag_t%d(i,j,k) = (                       &
             u%d(i,j,k) - u%d(i-1,j,k)               &
           ) / mesh%de_lon(j) - (                    &
@@ -92,15 +99,14 @@ contains
         end do
       end do
     end do
-    call fill_halo(smag_t, west_halo=.false., south_halo=.false.)
 
     ! Horizontal shearing strain on vertices
     ! ∂u   ∂v
     ! -- + --
     ! ∂y   ∂x
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%half_ids, mesh%half_ide
+      do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+        do i = mesh%half_ids - 1, mesh%half_ide
           smag_s%d(i,j,k) = (                       &
             v%d(i+1,j,k) - v%d(i,j,k)               &
           ) / mesh%le_lat(j) + (                    &
@@ -110,7 +116,6 @@ contains
         end do
       end do
     end do
-    call fill_halo(smag_s, east_halo=.false., north_halo=.false.)
 
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
@@ -153,43 +158,59 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          u%d(i,j,k) = u%d(i,j,k) + kmh_lon%d(i,j,k) * (                                 &
+          dudt%d(i,j,k) = kmh_lon%d(i,j,k) * (                                           &
             (u%d(i-1,j,k) - 2 * u%d(i,j,k) + u%d(i+1,j,k)) / mesh%de_lon(j)**2 +         &
             ((u%d(i,j+1,k) - u%d(i,j  ,k)) / mesh%de_lat(j  ) * mesh%half_cos_lat(j  ) - &
              (u%d(i,j  ,k) - u%d(i,j-1,k)) / mesh%de_lat(j-1) * mesh%half_cos_lat(j-1)   &
             ) / mesh%le_lon(j) / mesh%full_cos_lat(j)                                    &
-          ) * dt
+          )
         end do
       end do
     end do
-    call fill_halo(u)
+    call filter_run(block%small_filter, dudt)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%half_ids, mesh%half_ide
+          u%d(i,j,k) = u%d(i,j,k) + dt * dudt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(u, async=.true.)
 
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         if (j == global_mesh%half_jds .or. j == global_mesh%half_jde) then
           do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) + kmh_lat%d(i,j,k) * (                       &
+            dvdt%d(i,j,k) = kmh_lat%d(i,j,k) * (                                 &
               (v%d(i-1,j,k) - 2 * v%d(i,j,k) + v%d(i+1,j,k)) / mesh%le_lat(j)**2 &
-            ) * dt
+            )
           end do
         else
           do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) + kmh_lat%d(i,j,k) * (                                 &
+            dvdt%d(i,j,k) = kmh_lat%d(i,j,k) * (                                           &
               (v%d(i-1,j,k) - 2 * v%d(i,j,k) + v%d(i+1,j,k)) / mesh%le_lat(j)**2 +         &
               ((v%d(i,j+1,k) - v%d(i,j  ,k)) / mesh%le_lon(j+1) * mesh%full_cos_lat(j+1) - &
                (v%d(i,j  ,k) - v%d(i,j-1,k)) / mesh%le_lon(j  ) * mesh%full_cos_lat(j  )   &
               ) / mesh%de_lat(j) / mesh%half_cos_lat(j)                                    &
-            ) * dt
+            )
           end do
         end if
       end do
     end do
-    call fill_halo(v)
+    call filter_run(block%small_filter, dvdt)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%half_jds, mesh%half_jde
+        do i = mesh%full_ids, mesh%full_ide
+          v%d(i,j,k) = v%d(i,j,k) + dt * dvdt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(v, async=.true.)
 
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          pt%d(i,j,k) = pt%d(i,j,k) + kmh%d(i,j,k) * (                    &
+          dptdt%d(i,j,k) = kmh%d(i,j,k) * (                               &
             (dmg%d(i-1,j,k) * pt%d(i-1,j,k) - 2 *                         &
              dmg%d(i  ,j,k) * pt%d(i  ,j,k) +                             &
              dmg%d(i+1,j,k) * pt%d(i+1,j,k)) / mesh%de_lon(j)**2 +        &
@@ -198,12 +219,22 @@ contains
              (dmg%d(i,j,k) * pt%d(i,j,k) - dmg%d(i,j-1,k) * pt%d(i,j-1,k) &
              ) / mesh%de_lat(j-1) * mesh%half_cos_lat(j-1)                &
             ) / mesh%le_lon(j) / mesh%full_cos_lat(j)                     &
-          ) / dmg%d(i,j,k) * dt
+          ) / dmg%d(i,j,k)
         end do
       end do
     end do
-    call fill_halo(pt)
+    call filter_run(block%small_filter, dptdt)
+    do k = mesh%full_kds, mesh%full_kde
+      do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+        do i = mesh%full_ids, mesh%full_ide
+          pt%d(i,j,k) = pt%d(i,j,k) + dt * dptdt%d(i,j,k)
+        end do
+      end do
+    end do
+    call fill_halo(pt, async=.true.)
     end associate
+
+    call perf_stop('smag_damp_run')
 
   end subroutine smag_damp_run
 

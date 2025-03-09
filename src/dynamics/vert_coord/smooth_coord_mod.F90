@@ -2,7 +2,7 @@ module smooth_coord_mod
 
   use const_mod
   use namelist_mod
-  use wrf_vert_coord_mod
+  use hybrid_coord_wrf_mod
   use latlon_mesh_mod, only: global_mesh
 
   implicit none
@@ -18,7 +18,6 @@ module smooth_coord_mod
   public smooth_coord_calc_ddmgdt
   public nlevp
 
-  real(r8), parameter :: eta_b = 0.2_r8
   real(r8), parameter :: eta_c = 0.8_r8
   real(r8), allocatable :: bi(:), ci(:)
   real(r8), allocatable :: bm(:), cm(:)
@@ -43,7 +42,7 @@ contains
     allocate(bm(nlev  )); bm = 0
     allocate(cm(nlev  )); cm = 0
 
-    call wrf_compute_eta(nlev, global_mesh%half_lev)
+    call wrf_compute_eta(nlev, ptop, global_mesh%half_lev(1:nlev+1))
 
     b0 = 2 * eta_b**2 / (1 - eta_b)**3
     b1 = -eta_b * (4 + eta_b + eta_b**2) / (1 - eta_b)**3

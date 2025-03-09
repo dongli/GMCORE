@@ -292,12 +292,12 @@ target_sources(gmcore PRIVATE
   src/dynamics/vert_coord/hybrid_coord_ecmwf_mod.F90
   src/dynamics/vert_coord/hybrid_coord_mod.F90
   src/dynamics/vert_coord/hybrid_coord_ncep_mod.F90
+  src/dynamics/vert_coord/hybrid_coord_wrf_mod.F90
   src/dynamics/vert_coord/hybrid_coord_test_mod.F90
   src/dynamics/vert_coord/mars_vert_coord_mod.F90
   src/dynamics/vert_coord/sigma_coord_mod.F90
   src/dynamics/vert_coord/smooth_coord_mod.F90
   src/dynamics/vert_coord/vert_coord_mod.F90
-  src/dynamics/vert_coord/wrf_vert_coord_mod.F90
   src/meshes/latlon/latlon_mesh_mod.F90
   src/meshes/latlon/latlon_halo_mod.F90
   src/meshes/latlon/latlon_field_types_mod.F90
