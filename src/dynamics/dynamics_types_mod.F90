@@ -166,7 +166,6 @@ module dynamics_types_mod
     type(latlon_field3d_type) dvdt_damp
     type(latlon_field3d_type) dwdt_damp
     type(latlon_field3d_type) dptdt_damp
-    type(latlon_field4d_type) dqdt_damp
     ! Perturbed quantities for calculating HPGF
     type(latlon_field3d_type) p_ptb
     type(latlon_field3d_type) gz_ptb
@@ -1686,19 +1685,6 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dptdt_damp                                     )
-      call append_field(this%fields                                          , &
-        name            ='dqdt_damp'                                         , &
-        long_name       ='Tendency of tracer dry mixing ratio due to damping', &
-        units           ='kg kg-1 s-1'                                       , &
-        loc             ='cell'                                              , &
-        mesh            =filter_mesh                                         , &
-        dim4_name       ='tracers'                                           , &
-        dim4_size       =ntracers                                            , &
-        var4_names      =tracer_names                                        , &
-        halo            =filter_halo                                         , &
-        output          ='h1'                                                , &
-        restart         =.false.                                             , &
-        field           =this%dqdt_damp                                      )
     end if
 
   end subroutine aux_array_init_phys

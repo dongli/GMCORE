@@ -56,9 +56,7 @@ contains
     integer j, m
 
     if (use_laplace_damp) then
-      call laplace_damp_run(block, dstate%u_lon, laplace_damp_order, laplace_damp_coef, block%aux%dudt_damp)
-      call laplace_damp_run(block, dstate%v_lat, laplace_damp_order, laplace_damp_coef, block%aux%dvdt_damp)
-      if (nonhydrostatic) call laplace_damp_run(block, dstate%w_lev, laplace_damp_order, laplace_damp_coef, block%aux%dwdt_damp)
+      call laplace_damp_run(block, dstate)
     end if
     if (use_vor_damp) then
       do j = 1, vor_damp_cycles

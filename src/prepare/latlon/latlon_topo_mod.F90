@@ -320,13 +320,12 @@ contains
           dfx%d(i,j) = (fx%d(i,j) - fx%d(i-1,j)) * mesh%le_lon(j) / mesh%area_cell(j)
         end do
       end do
-      call filter_run(block%big_filter, dfx)
-      call fill_halo(fx, east_halo=.false., south_halo=.false., north_halo=.false.)
+      call filter_run(block%small_filter, dfx)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          gzs%d(i,j) = gzs%d(i,j) - c0 * (dfx%d(i,j) + ( &
-              fy%d(i,j  ) * mesh%le_lat(j  ) - &
-              fy%d(i,j-1) * mesh%le_lat(j-1)   &
+          f%d(i,j) = f%d(i,j) - c0 * (dfx%d(i,j) + ( &
+              fy%d(i,j  ) * mesh%le_lat(j  ) -       &
+              fy%d(i,j-1) * mesh%le_lat(j-1)         &
             ) / mesh%area_cell(j))
         end do
       end do
