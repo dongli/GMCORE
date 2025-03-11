@@ -15,6 +15,7 @@ module vor_damp_mod
   use latlon_parallel_mod
   use block_mod
   use operators_mod
+  use filter_mod
 
   implicit none
 
@@ -98,7 +99,16 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) + dt * cy(j,k) * (vor%d(i,j,k) - vor%d(i-1,j,k)) / mesh%le_lat(j)
+            dv%d(i,j,k) = dt * cy(j,k) * (vor%d(i,j,k) - vor%d(i-1,j,k)) / mesh%le_lat(j)
+          end do
+        end do
+      end do
+      call filter_run(block%small_filter, dv)
+      call wait_halo(v)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            v%d(i,j,k) = v%d(i,j,k) + dv%d(i,j,k)
           end do
         end do
       end do
