@@ -78,9 +78,7 @@ contains
 
   subroutine tracer_init_stage2()
 
-    integer iblk, i
-
-    if (ntracers == 0) return
+    integer iblk
 
     ! Allocate tracer arrays for each block.
     do iblk = 1, size(blocks)

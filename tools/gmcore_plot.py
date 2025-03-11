@@ -23,6 +23,9 @@ rd = 287.0 * units.J / units.kg / units.K
 rv = 461.5 * units.J / units.kg / units.K
 cp = 1004.5 * units.J / units.kg / units.K
 
+def addfile(path, **kwargs):
+	return xr.open_dataset(path, **kwargs)
+
 def parse_datetime(x):
 	res = datetime.fromtimestamp(x.values.tolist() / 1e9, timezone.utc)
 	return res
@@ -30,6 +33,8 @@ def parse_datetime(x):
 def vinterp_z(zi, var, zo, axis=0):
 	res = interpolate_1d(zo, zi, var, axis=axis)
 	if isinstance(var, xr.DataArray):
+		if isinstance(zo, pint.Quantity):
+			zo = np.array([zo.magnitude]) * zo.units
 		res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 		res.attrs = var.attrs
 		if 'lev' in var.dims:
@@ -48,7 +53,76 @@ def vinterp_p(pi, var, po):
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	return res
 
-def plot_contour_zonal_height(ax, var,
+def plot_contour_lon_p(ax, var,
+	cmap=None,
+	norm=None,
+	levels=None,
+	ticks=None,
+	left_string=None,
+	right_string=None,
+	with_grid=True,
+	font_size=8,
+	use_scientific=False,
+	with_contour=False,
+	linewidth=0.5,
+	cbar_orient='vertical'):
+	if left_string is not None:
+		ax.set_title(left_string)
+		# How to set title font size?
+		ax.title.set_fontsize(font_size)
+	elif 'long_name' in var.attrs:
+		ax.set_title(var.long_name)
+	else:
+		ax.set_title('')
+	if 'lon' in var.dims:
+		lon = var.lon.copy()
+	elif 'ilon' in var.dims:
+		lon = var.ilon.copy()
+	else:
+		print(f'[Error]: Variable {var.name} has no lon or ilon dimension!')
+		exit(1)
+	if 'lev' in var.dims:
+		lev = var.lev.copy()
+	else:
+		print(f'[Error]: Variable {var.name} has no lev dimension!')
+		exit(1)
+	if levels is not None and norm is None:
+		im = ax.contourf(lon, lev, var, cmap=cmap, levels=levels, extend='both')
+		if with_contour: ax.contour(lat, lev, var, levels=levels, linewidths=linewidth, colors='k')
+	elif levels is None and norm is not None:
+		im = ax.contourf(lon, lev, var, cmap=cmap, norm=norm, levels=norm.boundaries, extend='both')
+		if with_contour: ax.contour(lon, lev, var, norm=norm, levels=norm.boundaries, linewidths=linewidth, colors='k')
+	else:
+		im = ax.contourf(lon, lev, var, cmap=cmap, extend='both')
+		if with_contour: ax.contour(lon, lev, var, levels=levels, linewidths=linewidth, colors='k')
+	ax.invert_yaxis()
+	if with_grid:
+		ax.grid(True)
+	if cbar_orient == 'vertical':
+		cax = make_axes_locatable(ax).append_axes('right', size='2%', pad=0.05, axes_class=plt.Axes)
+	else:
+		cax = make_axes_locatable(ax).append_axes('bottom', size='5%', pad=0.3, axes_class=plt.Axes)
+	if levels is not None and norm is None:
+		if ticks is not None:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=ticks)
+		else:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=levels)
+	elif levels is None and norm is not None:
+		if ticks is not None:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=ticks)
+		else:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=norm.boundaries[1::2])
+	else:
+		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient)
+	formatter = ticker.ScalarFormatter(useMathText=True)
+	if use_scientific:
+		formatter.set_scientific(True)
+		formatter.set_powerlimits((0, 0))
+	cbar.formatter = formatter
+	cbar.ax.tick_params(labelsize=font_size)
+	cbar.update_ticks()
+
+def plot_contour_lat_z(ax, var,
 	cmap=None,
 	norm=None,
 	levels=None,
@@ -204,3 +278,35 @@ def plot_time_series(ax, time, var, ylim=None, color='black', font_size=8):
 def window_closed(event):
 	plt.close()
 	exit(0)
+
+last_update_time = None
+def update_plot(data_path, fig, plot_func):
+	global last_update_time
+	modified_time = os.path.getmtime(data_path)
+	if last_update_time != None:
+		if last_update_time < modified_time:
+			last_update_time = modified_time
+			need_update = True
+		else:
+			need_update = False
+	else:
+		last_update_time = modified_time
+		need_update = True
+
+	if not need_update: return
+
+	fig.clf()
+
+	plot_func(data_path, fig)
+
+	plt.tight_layout()
+	plt.draw()
+
+def loop_plot(data_path, fig, plot_func, update_seconds=10):
+	fig.canvas.mpl_connect('close_event', window_closed)
+	while True:
+		plt.pause(update_seconds)
+		try:
+			update_plot(data_path, fig, plot_func)
+		except:
+			pass

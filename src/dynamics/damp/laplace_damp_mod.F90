@@ -14,6 +14,7 @@ module laplace_damp_mod
   ! ∂t
 
   use const_mod
+  use math_mod
   use namelist_mod
   use latlon_mesh_mod, only: global_mesh
   use latlon_field_types_mod
@@ -36,13 +37,27 @@ module laplace_damp_mod
     module procedure laplace_damp_3d
   end interface laplace_damp
 
+  real(r8), allocatable, dimension(:), target :: sponge_layer
+
 contains
 
   subroutine laplace_damp_init()
 
+    integer k
+
+    call laplace_damp_final()
+
+    allocate(sponge_layer(global_mesh%full_nlev))
+
+    do k = global_mesh%full_kds, global_mesh%full_kde
+      sponge_layer(k) = exp_two_values(1.0_r8, 0.0_r8, 1.0_r8, real(sponge_layer_k0, r8), real(k, r8))
+    end do
+
   end subroutine laplace_damp_init
 
   subroutine laplace_damp_final()
+
+    if (allocated(sponge_layer)) deallocate(sponge_layer)
 
   end subroutine laplace_damp_final
 
@@ -59,6 +74,11 @@ contains
       call laplace_damp(block, dstate%w_lev, laplace_damp_order, laplace_damp_coef, block%aux%dwdt_damp)
       call fill_halo(dstate%w_lev, async=.true.)
     end if
+
+    call laplace_damp(block, dstate%u_lon, 2, sponge_layer_coef, block%aux%dudt_damp, use_sponge_layer=.true.)
+    call fill_halo(dstate%u_lon, async=.true.)
+    call laplace_damp(block, dstate%v_lat, 2, sponge_layer_coef, block%aux%dvdt_damp, use_sponge_layer=.true.)
+    call fill_halo(dstate%v_lat, async=.true.)
 
   end subroutine laplace_damp_run
 
@@ -197,17 +217,21 @@ contains
 
   end subroutine laplace_damp_2d
 
-  subroutine laplace_damp_3d(block, f, order, coef, dfx)
+  subroutine laplace_damp_3d(block, f, order, coef, dfx, use_sponge_layer)
 
     type(block_type), intent(inout) :: block
     type(latlon_field3d_type), intent(inout) :: f
     integer, intent(in) :: order
     real(r8), intent(in) :: coef
     type(latlon_field3d_type), intent(inout) :: dfx
+    logical, intent(in), optional :: use_sponge_layer
 
+    logical use_sponge_layer_opt
     real(r8) work(f%mesh%full_ids:f%mesh%full_ide,f%mesh%full_nlev), pole(f%mesh%full_nlev)
     real(r8) c0
     integer i, j, k, l
+
+    use_sponge_layer_opt = .false.; if (present(use_sponge_layer)) use_sponge_layer_opt = use_sponge_layer
 
     call wait_halo(f)
 
@@ -424,7 +448,7 @@ contains
             f%d(i,j,k) = f%d(i,j,k) - c0 * (dfx%d(i,j,k) + ( &
               fy%d(i,j  ,k) * mesh%le_lat(j  ) -             &
               fy%d(i,j-1,k) * mesh%le_lat(j-1)               &
-            ) / (2 * mesh%area_lon(j)))
+            ) / (2 * mesh%area_lon(j))) * merge(sponge_layer(k), 1.0_r8, use_sponge_layer_opt)
           end do
         end do
       end do
@@ -502,7 +526,7 @@ contains
             f%d(i,j,k) = f%d(i,j,k) - c0 * (dfx%d(i,j,k) + ( &
               fy%d(i,j+1,k) * mesh%de_lon(j+1) -             &
               fy%d(i,j  ,k) * mesh%de_lon(j  )               &
-            ) / (2 * mesh%area_lat(j)))
+            ) / (2 * mesh%area_lat(j))) * merge(sponge_layer(k), 1.0_r8, use_sponge_layer_opt)
           end do
         end do
       end do

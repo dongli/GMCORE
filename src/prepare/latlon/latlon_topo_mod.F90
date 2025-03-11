@@ -145,7 +145,7 @@ contains
                dzsdx  => block%static%dzsdx   , &
                dzsdy  => block%static%dzsdy   )
     call zs_polar_filter(block, gzs, dzsdx, dzsdy)
-    call zs_grad_filter(block, lnd, gzs, dzsdx, dzsdy)
+    ! call zs_grad_filter(block, lnd, gzs, dzsdx, dzsdy)
     tmp = global_max(proc%comm_model, maxval(gzs%d / g))
     if (proc%is_root()) call log_notice('Maximum zs is ' // to_str(tmp, 'F8.1') // ' m.')
     tmp = global_max(proc%comm_model, max(dzsdx%absmax(), dzsdy%absmax()))

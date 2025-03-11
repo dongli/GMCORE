@@ -801,7 +801,7 @@ contains
                dmg_vtx => block%aux%dmg_vtx, & ! in
                vor     => block%aux%vor    , & ! in
                pv      => block%aux%pv     )   ! out
-    call calc_vor(block, dstate, with_halo=.true.)
+    call calc_vor(block, dstate)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%half_ids, mesh%half_ide
@@ -1195,7 +1195,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%half_ids, mesh%half_ide
-          tmp = -(                                                &
+          tmp = -(                                                 &
             mfz_lev_lon%d(i,j,k+1) * (u%d(i,j,k+1) - u%d(i,j,k)) - &
             mfz_lev_lon%d(i,j,k  ) * (u%d(i,j,k-1) - u%d(i,j,k))   &
           ) / dmg_lon%d(i,j,k) / 2.0_r8
@@ -1209,7 +1209,7 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%half_jds, mesh%half_jde
         do i = mesh%full_ids, mesh%full_ide
-          tmp = -(                                                &
+          tmp = -(                                                 &
             mfz_lev_lat%d(i,j,k+1) * (v%d(i,j,k+1) - v%d(i,j,k)) - &
             mfz_lev_lat%d(i,j,k  ) * (v%d(i,j,k-1) - v%d(i,j,k))   &
           ) / dmg_lat%d(i,j,k) / 2.0_r8

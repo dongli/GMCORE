@@ -158,10 +158,10 @@ module namelist_mod
   logical         :: use_vor_damp         = .false.
   integer         :: vor_damp_cycles      = 1
   integer         :: vor_damp_order       = 2
-  real(r8)        :: vor_damp_coef2       = 0.0005_r8
+  real(r8)        :: vor_damp_coef2       = 0.002_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 100
+  real(r8)        :: vor_damp_pole        = 1
   real(r8)        :: vor_damp_lat0        = 80
   logical         :: use_rayleigh_damp_w  = .false.
   real(r8)        :: rayleigh_damp_w_coef = 0.2
@@ -174,6 +174,8 @@ module namelist_mod
   logical         :: use_laplace_damp     = .false.
   integer         :: laplace_damp_order   = 4
   real(r8)        :: laplace_damp_coef    = 0.0_r8
+  integer         :: sponge_layer_k0      = 20
+  real(r8)        :: sponge_layer_coef    = 0.0_r8
 
   ! Input settings
   integer         :: input_ngroups        = 0
@@ -321,6 +323,8 @@ module namelist_mod
     use_laplace_damp          , &
     laplace_damp_order        , &
     laplace_damp_coef         , &
+    sponge_layer_k0           , &
+    sponge_layer_coef         , &
     input_ngroups             , &
     output_h0                 , &
     output_h0_dtype           , &

@@ -14,7 +14,6 @@ module vor_damp_mod
   use namelist_mod
   use latlon_parallel_mod
   use block_mod
-  use filter_mod
   use operators_mod
 
   implicit none
@@ -79,6 +78,8 @@ contains
 
     integer i, j, k
 
+    call calc_vor(block, dstate, with_halo=.true.)
+
     associate (mesh => block%mesh      , &
                vor  => block%aux%vor   , &
                dv   => block%dtend%dvdt, &
@@ -86,7 +87,6 @@ contains
                v    => dstate%v_lat    )
     select case (vor_damp_order)
     case (2)
-      call wait_halo(u)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
@@ -98,16 +98,7 @@ contains
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
-            dv%d(i,j,k) = dt * cy(j,k) * (vor%d(i,j,k) - vor%d(i-1,j,k)) / mesh%le_lat(j)
-          end do
-        end do
-      end do
-      call filter_run(block%small_filter, dv)
-      call wait_halo(v)
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%half_jds, mesh%half_jde
-          do i = mesh%full_ids, mesh%full_ide
-            v%d(i,j,k) = v%d(i,j,k) + dv%d(i,j,k)
+            v%d(i,j,k) = v%d(i,j,k) + dt * cy(j,k) * (vor%d(i,j,k) - vor%d(i-1,j,k)) / mesh%le_lat(j)
           end do
         end do
       end do

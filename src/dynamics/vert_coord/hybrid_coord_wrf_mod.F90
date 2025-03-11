@@ -10,6 +10,7 @@ module hybrid_coord_wrf_mod
   use const_mod
   use namelist_mod, only: nlev, tiso, dzmax, dzbot, dzstretch_s, dzstretch_u, eta_b
   use latlon_mesh_mod, only: global_mesh
+  use latlon_parallel_types_mod, only: proc
 
   implicit none
 
@@ -78,13 +79,13 @@ contains
       p_lev(k) = p0 * exp(-g * z_lev(k) / (rd * tiso))
       eta_lev(k) = (p_lev(k) - ptop) / (p0 - ptop)
       if (k == nlev + 1) then
-        call log_error('Too few vertical levels for given parameters. Increase nlev!', __FILE__, __LINE__)
+        call log_error('Too few vertical levels for given parameters. Increase nlev!', __FILE__, __LINE__, pid=proc%id_model)
       end if
     end do
 
     dz = (ztop - z_lev(k0)) / (nlev - k0 + 1)
     if (dz > 1.5 * dzmax) then
-      call log_error('Upper levels may be too coarse!', __FILE__, __LINE__)
+      call log_error('Upper levels may be too coarse!', __FILE__, __LINE__, pid=proc%id_model)
     end if
 
     do k = k0 + 1, nlev + 1
