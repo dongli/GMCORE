@@ -36,7 +36,9 @@ program gmcore_driver
   use dcmip31_test_mod
   use mars_cold_run_mod
   use tropical_cyclone_test_mod
+#ifdef HAS_LAPACK
   use supercell_test_mod
+#endif
   use prepare_mod
 
   implicit none
@@ -72,8 +74,10 @@ program gmcore_driver
     call steady_state_pgf_test_set_params()
   case ('dcmip31')
     call dcmip31_test_set_params()
+#ifdef HAS_LAPACK
   case ('sc')
     call supercell_test_set_params()
+#endif
   end select
 
   call gmcore_init_stage1(namelist_path)
@@ -85,8 +89,10 @@ program gmcore_driver
     call mountain_wave_test_init()
   case ('tc')
     call tropical_cyclone_test_init()
+#ifdef HAS_LAPACK
   case ('sc')
     call supercell_test_init(namelist_path)
+#endif
   end select
 
   if (initial_file == 'N/A' .and. test_case == 'N/A' .and. .not. restart) then
@@ -147,8 +153,10 @@ program gmcore_driver
       set_ic => mars_cold_run_set_ic
     case ('tc')
       set_ic => tropical_cyclone_test_set_ic
+#ifdef HAS_LAPACK
     case ('sc')
       set_ic => supercell_test_set_ic
+#endif
     case default
       if (proc%is_root()) call log_error('Unknown test case ' // trim(test_case) // '!')
     end select

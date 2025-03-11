@@ -1,3 +1,4 @@
+#ifdef HAS_LAPACK
 module supercell_test_mod
 
 !=======================================================================
@@ -963,3 +964,4 @@ contains
   end subroutine diff_lagrangian_polynomial_coeffs
 
 end module supercell_test_mod
+#endif
