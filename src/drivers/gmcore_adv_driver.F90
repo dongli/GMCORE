@@ -50,31 +50,31 @@ program gmcore_adv_driver
   call gmcore_init_stage1(namelist_path)
 
   select case (test_case)
-  case ('solid_rotation')
+  case ('adv_sr')
     call solid_rotation_test_init()
     set_ic => solid_rotation_test_set_ic
     set_uv => solid_rotation_test_set_uv
-  case ('deform_case1')
+  case ('adv_dc1')
     call deform_test_init(1)
     set_ic => deform_test_set_ic
     set_uv => deform_case1_test_set_uv
-  case ('deform_case2')
+  case ('adv_dc2')
     call deform_test_init(2)
     set_ic => deform_test_set_ic
     set_uv => deform_case2_test_set_uv
-  case ('deform_case3')
+  case ('adv_dc3')
     call deform_test_init(3)
     set_ic => deform_test_set_ic
     set_uv => deform_case3_test_set_uv
-  case ('deform_case4')
+  case ('adv_dc4')
     call deform_test_init(4)
     set_ic => deform_test_set_ic
     set_uv => deform_case4_test_set_uv
-  case ('moving_vortices')
+  case ('adv_mv')
     call moving_vortices_test_init()
     set_ic => moving_vortices_test_set_ic
     set_uv => moving_vortices_test_set_uv
-  case ('dcmip12')
+  case ('adv_dcmip12')
     call dcmip12_test_init()
     set_ic => dcmip12_test_set_ic
     set_uv => dcmip12_test_set_uv

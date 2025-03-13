@@ -99,12 +99,12 @@ contains
 
     call calc_div(block, dstate)
 
-    associate (mesh => block%mesh      , &
-               div  => block%aux%div   , &
-               div2 => block%aux%div2  , &
-               du   => block%dtend%dudt, &
-               u    => dstate%u_lon    , &
-               v    => dstate%v_lat    )
+    associate (mesh => block%mesh         , &
+               div  => block%aux%div      , &
+               div2 => block%aux%div2     , &
+               du   => block%aux%dudt_damp, &
+               u    => dstate%u_lon       , &
+               v    => dstate%v_lat       )
     select case (div_damp_order)
     case (2)
       do k = mesh%full_kds, mesh%full_kde

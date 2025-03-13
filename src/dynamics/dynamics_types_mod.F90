@@ -276,8 +276,8 @@ contains
         long_name       ='Dry-air weight'                                    , &
         units           ='Pa'                                                , &
         loc             ='cell'                                              , &
-        mesh            =mesh                                                , &
-        halo            =halo                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dmg                                            )
@@ -1644,7 +1644,7 @@ contains
         field           =this%dqdt_phys                                      )
     end if
 
-    if (use_laplace_damp) then
+    if (use_laplace_damp .or. use_div_damp .or. use_smag_damp) then
       call append_field(this%fields                                          , &
         name            ='dudt_damp'                                         , &
         long_name       ='Tendency of zonal wind due to damping'             , &
@@ -1655,6 +1655,8 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dudt_damp                                      )
+    end if
+    if (use_laplace_damp .or. use_vor_damp .or. use_smag_damp) then
       call append_field(this%fields                                          , &
         name            ='dvdt_damp'                                         , &
         long_name       ='Tendency of meridional wind due to damping'        , &
@@ -1665,6 +1667,8 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dvdt_damp                                      )
+    end if
+    if (use_laplace_damp .and. nonhydrostatic) then
       call append_field(this%fields                                          , &
         name            ='dwdt_damp'                                         , &
         long_name       ='Tendency of vertical wind due to damping'          , &
@@ -1675,6 +1679,8 @@ contains
         output          ='h1'                                                , &
         restart         =.false.                                             , &
         field           =this%dwdt_damp                                      )
+    end if
+    if (use_smag_damp) then
       call append_field(this%fields                                          , &
         name            ='dptdt_damp'                                        , &
         long_name       ='Tendency of temperature due to damping'            , &

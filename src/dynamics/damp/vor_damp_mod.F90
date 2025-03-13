@@ -81,11 +81,11 @@ contains
 
     call calc_vor(block, dstate, with_halo=.true.)
 
-    associate (mesh => block%mesh      , &
-               vor  => block%aux%vor   , &
-               dv   => block%dtend%dvdt, &
-               u    => dstate%u_lon    , &
-               v    => dstate%v_lat    )
+    associate (mesh => block%mesh         , &
+               vor  => block%aux%vor      , &
+               dv   => block%aux%dvdt_damp, &
+               u    => dstate%u_lon       , &
+               v    => dstate%v_lat       )
     select case (vor_damp_order)
     case (2)
       do k = mesh%full_kds, mesh%full_kde

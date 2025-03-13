@@ -77,9 +77,9 @@ contains
                kmh_lat   => block%aux%kmh_lat   , & ! working array
                kmh       => block%aux%kmh       , & ! working array
                dmg       => dstate%dmg          , & ! working array
-               dudt      => block%dtend%dudt    , & ! working array
-               dvdt      => block%dtend%dvdt    , & ! working array
-               dptdt     => block%dtend%dptdt   , & ! working array
+               dudt      => block%aux%dudt_damp , & ! working array
+               dvdt      => block%aux%dvdt_damp , & ! working array
+               dptdt     => block%aux%dptdt_damp, & ! working array
                u         => dstate%u_lon        , & ! inout
                v         => dstate%v_lat        , & ! inout
                pt        => dstate%pt           )   ! inout
