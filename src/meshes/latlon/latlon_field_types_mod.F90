@@ -304,15 +304,23 @@ contains
     with_halo_opt = .false.; if (present(with_halo)) with_halo_opt = with_halo
 
     if (with_halo_opt) then
-      is = merge(this%mesh%full_ims, this%mesh%half_ims, this%full_lon)
-      ie = merge(this%mesh%full_ime, this%mesh%half_ime, this%full_lon)
-      js = merge(this%mesh%full_jms, this%mesh%half_jms, this%full_lat)
-      je = merge(this%mesh%full_jme, this%mesh%half_jme, this%full_lat)
+      is = merge(max(this%mesh%full_ims, other%mesh%full_ims), &
+                 max(this%mesh%half_ims, other%mesh%half_ims), this%full_lon)
+      ie = merge(min(this%mesh%full_ime, other%mesh%full_ime), &
+                 min(this%mesh%half_ime, other%mesh%half_ime), this%full_lon)
+      js = merge(max(this%mesh%full_jms, other%mesh%full_jms), &
+                 max(this%mesh%half_jms, other%mesh%half_jms), this%full_lat)
+      je = merge(min(this%mesh%full_jme, other%mesh%full_jme), &
+                 max(this%mesh%half_jme, other%mesh%half_jme), this%full_lat)
     else
-      is = merge(this%mesh%full_ids, this%mesh%half_ids, this%full_lon)
-      ie = merge(this%mesh%full_ide, this%mesh%half_ide, this%full_lon)
-      js = merge(this%mesh%full_jds, this%mesh%half_jds, this%full_lat)
-      je = merge(this%mesh%full_jde, this%mesh%half_jde, this%full_lat)
+      is = merge(max(this%mesh%full_ids, other%mesh%full_ids), &
+                 max(this%mesh%half_ids, other%mesh%half_ids), this%full_lon)
+      ie = merge(min(this%mesh%full_ide, other%mesh%full_ide), &
+                 min(this%mesh%half_ide, other%mesh%half_ide), this%full_lon)
+      js = merge(max(this%mesh%full_jds, other%mesh%full_jds), &
+                 max(this%mesh%half_jds, other%mesh%half_jds), this%full_lat)
+      je = merge(min(this%mesh%full_jde, other%mesh%full_jde), &
+                 min(this%mesh%half_jde, other%mesh%half_jde), this%full_lat)
     end if
 
     do j = js, je

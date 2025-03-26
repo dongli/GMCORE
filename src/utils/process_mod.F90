@@ -195,7 +195,7 @@ contains
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id)
         case (south_west, south_east, north_west, north_east)
           lon_hw = 2
-          call blocks(1)%filter_halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,        &
+          call blocks(1)%filter_halo(i)%init(blocks(1)%filter_mesh, proc%ngb(i)%orient, dtype, &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)
           call blocks(1)%halo(i)%init(blocks(1)%mesh, proc%ngb(i)%orient, dtype,               &
                                       host_id=proc%id_model, ngb_id=proc%ngb(i)%id, lon_hw=lon_hw)

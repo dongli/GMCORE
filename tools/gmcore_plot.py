@@ -4,6 +4,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.ticker as ticker
@@ -34,7 +35,7 @@ def vinterp_z(zi, var, zo, axis=0):
 	res = interpolate_1d(zo, zi, var, axis=axis)
 	if isinstance(var, xr.DataArray):
 		if isinstance(zo, pint.Quantity):
-			zo = np.array([zo.magnitude]) * zo.units
+			zo = np.array([zo.magnitude]).squeeze() * zo.units
 		res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 		res.attrs = var.attrs
 		if 'lev' in var.dims:
@@ -53,13 +54,14 @@ def vinterp_p(pi, var, po):
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	return res
 
-def plot_contour_lon_p(ax, var,
+def plot_contour_lon(ax, var,
 	cmap=None,
 	norm=None,
 	levels=None,
 	ticks=None,
 	left_string=None,
 	right_string=None,
+	invert_yaxis=False,
 	with_grid=True,
 	font_size=8,
 	use_scientific=False,
@@ -68,12 +70,11 @@ def plot_contour_lon_p(ax, var,
 	cbar_orient='vertical'):
 	if left_string is not None:
 		ax.set_title(left_string)
-		# How to set title font size?
-		ax.title.set_fontsize(font_size)
 	elif 'long_name' in var.attrs:
 		ax.set_title(var.long_name)
 	else:
 		ax.set_title('')
+	ax.title.set_fontsize(font_size)
 	if 'lon' in var.dims:
 		lon = var.lon.copy()
 	elif 'ilon' in var.dims:
@@ -95,7 +96,7 @@ def plot_contour_lon_p(ax, var,
 	else:
 		im = ax.contourf(lon, lev, var, cmap=cmap, extend='both')
 		if with_contour: ax.contour(lon, lev, var, levels=levels, linewidths=linewidth, colors='k')
-	ax.invert_yaxis()
+	if invert_yaxis: ax.invert_yaxis()
 	if with_grid:
 		ax.grid(True)
 	if cbar_orient == 'vertical':
@@ -122,7 +123,7 @@ def plot_contour_lon_p(ax, var,
 	cbar.ax.tick_params(labelsize=font_size)
 	cbar.update_ticks()
 
-def plot_contour_lat_z(ax, var,
+def plot_contour_lat(ax, var,
 	cmap=None,
 	norm=None,
 	levels=None,
@@ -137,12 +138,11 @@ def plot_contour_lat_z(ax, var,
 	cbar_orient='vertical'):
 	if left_string is not None:
 		ax.set_title(left_string)
-		# How to set title font size?
-		ax.title.set_fontsize(font_size)
 	elif 'long_name' in var.attrs:
 		ax.set_title(var.long_name)
 	else:
 		ax.set_title('')
+	ax.title.set_fontsize(font_size)
 	if 'lat' in var.dims:
 		lat = var.lat.copy()
 	elif 'ilat' in var.dims:
@@ -206,12 +206,11 @@ def plot_contour_map(ax, var,
 	transform_first=True):
 	if left_string is not None:
 		ax.set_title(left_string)
-		# How to set title font size?
-		ax.title.set_fontsize(font_size)
 	elif 'long_name' in var.attrs:
 		ax.set_title(var.long_name)
 	else:
 		ax.set_title('')
+	ax.title.set_fontsize(font_size)
 	if 'lon' in var.dims:
 		lon = var.lon.copy()
 	elif 'ilon' in var.dims:
@@ -260,11 +259,12 @@ def plot_contour_map(ax, var,
 		circle = mpath.Path(verts * radius + center)
 		ax.set_boundary(circle, transform=ax.transAxes)
 
-def plot_time_series(ax, time, var, ylim=None, color='black', font_size=8):
-	ax.plot(time, var, '-', color=color)
+def plot_time_series(ax, time, var, ylim=None, label=None, color='black', font_size=8):
+	ax.plot(time, var, '-', color=color, label=label)
 	ax.tick_params(axis='both', labelsize=font_size)
 	if ylim is not None: ax.set_ylim(ylim)
 	ax.set_title(var.long_name)
+	ax.title.set_fontsize(font_size)
 	if time.dtype == '<M8[ns]':
 		# locator = mdates.AutoDateLocator(maxticks=4, interval_multiples=True)
 		locator = mdates.DayLocator(interval=60)

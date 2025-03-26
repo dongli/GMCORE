@@ -61,9 +61,7 @@ if not os.path.isdir('GMCORE-TESTBED'):
 
 if len(args.cases) > 0:
 	for case in args.cases:
-		if 'swm' in case:
-			run_case('gmcore_swm_driver.exe', case)
-		elif 'adv' in case:
+		if 'adv' in case:
 			run_case('gmcore_adv_driver.exe', case)
 		else:
 			run_case('gmcore_driver.exe', case)

@@ -226,15 +226,17 @@ contains
     end select
     call time_add_alert('print', seconds=seconds)
 
-    if (.not. advection) call operators_prepare(blocks, old, dt_dyn)
-    call physics_init_stage3()
+    if (proc%is_model()) then
+      if (.not. advection) call operators_prepare(blocks, old, dt_dyn)
+      call physics_init_stage3()
+    end if
     call history_init_stage3()
 
   end subroutine gmcore_init_stage3
 
   subroutine gmcore_run()
 
-    integer i, j, m, iblk, itime
+    integer iblk, itime
 
     if (proc%is_model()) then
       do iblk = 1, size(blocks)
