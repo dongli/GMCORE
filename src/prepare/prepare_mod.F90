@@ -48,6 +48,8 @@ contains
 
   subroutine prepare_tracers()
 
+    if (ideal_dry_core) return
+
     select case (planet)
     case ('earth')
       select case (bkg_type)

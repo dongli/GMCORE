@@ -65,6 +65,8 @@ contains
       interp_pv => interp_pv_midpoint
     case ('upwind')
       interp_pv => interp_pv_upwind
+    case ('weno')
+      interp_pv => interp_pv_weno
     case default
       if (proc%is_root()) call log_error('Invalid pv_scheme ' // trim(pv_scheme) // '!')
     end select
@@ -96,7 +98,7 @@ contains
       if (baroclinic    ) call calc_t     (blocks(iblk), blocks(iblk)%dstate(itime))
       call calc_mf                        (blocks(iblk), blocks(iblk)%dstate(itime), dt)
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
-      call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime))
+      call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
       if (hydrostatic   ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
@@ -116,7 +118,7 @@ contains
     case (all_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
-      call calc_pv                        (block, dstate)
+      call calc_pv                        (block, dstate,     substep)
       call interp_pv                      (block, dstate, dt, substep)
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
@@ -124,7 +126,7 @@ contains
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
-      call calc_pv                        (block, dstate)
+      call calc_pv                        (block, dstate,     substep)
       call interp_pv                      (block, dstate, dt, substep)
     case (backward_pass)
       if (baroclinic    ) call calc_t     (block, dstate)
@@ -522,26 +524,33 @@ contains
 
     call perf_start('calc_div')
 
-    associate (mesh  => block%mesh    , &
-               u_lon => dstate%u_lon  , & ! in
-               v_lat => dstate%v_lat  , & ! in
-               div   => block%aux%div , & ! out
-               div2  => block%aux%div2)   ! out
+    associate (mesh  => block%mesh         , &
+               u_lon => dstate%u_lon       , & ! in
+               v_lat => dstate%v_lat       , & ! in
+               div   => block%aux%div      , & ! out
+               divx  => block%aux%g1_3d_lon, & ! working array
+               divy  => block%aux%g1_3d_lat, & ! working array
+               div2  => block%aux%div2     )   ! out
     call div_operator(u_lon, v_lat, div, with_halo=.true.)
     if (div_damp_order == 4) then
-      call fill_halo(div)
       do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole + merge(0, 1, mesh%has_north_pole())
-          do i = mesh%full_ids, mesh%full_ide + 1
-            div2%d(i,j,k) = (                                                                 &
-              div%d(i+1,j,k) - 2 * div%d(i,j,k) + div%d(i-1,j,k)                              &
-            ) / mesh%de_lon(j)**2 + (                                                         &
-              (div%d(i,j+1,k) - div%d(i,j  ,k)) * mesh%half_cos_lat(j  ) / mesh%de_lat(j  ) - &
-              (div%d(i,j  ,k) - div%d(i,j-1,k)) * mesh%half_cos_lat(j-1) / mesh%de_lat(j-1)   &
-            ) / mesh%le_lon(j) / mesh%full_cos_lat(j)
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            divx%d(i,j,k) = (div%d(i+1,j,k) - div%d(i,j,k)) / mesh%de_lon(j)
           end do
         end do
       end do
+      call fill_halo(divx, async=.true.)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            divy%d(i,j,k) = (div%d(i,j+1,k) - div%d(i,j,k)) / mesh%de_lat(j)
+          end do
+        end do
+      end do
+      call fill_halo(divy, async=.true.)
+      call div_operator(divx, divy, div2)
+      call fill_halo(div2, west_halo=.false., south_halo=.false.)
     end if
     end associate
 
@@ -788,10 +797,11 @@ contains
 
   end subroutine calc_vor
 
-  subroutine calc_pv(block, dstate)
+  subroutine calc_pv(block, dstate, substep)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(inout) :: dstate
+    integer, intent(in) :: substep
 
     integer i, j, k
 
@@ -801,15 +811,15 @@ contains
                dmg_vtx => block%aux%dmg_vtx, & ! in
                vor     => block%aux%vor    , & ! in
                pv      => block%aux%pv     )   ! out
-    call calc_vor(block, dstate)
+    call calc_vor(block, dstate, with_halo=substep<total_substeps)
     do k = mesh%full_kds, mesh%full_kde
-      do j = mesh%half_jds, mesh%half_jde
-        do i = mesh%half_ids, mesh%half_ide
+      do j = mesh%half_jds - merge(0, 1, mesh%has_south_pole()), mesh%half_jde
+        do i = mesh%half_ids - 1, mesh%half_ide
           pv%d(i,j,k) = (vor%d(i,j,k) + mesh%f_lat(j)) / dmg_vtx%d(i,j,k)
         end do
       end do
     end do
-    call fill_halo(pv)
+    if (substep == total_substeps) call fill_halo(pv)
     end associate
 
     call perf_stop('calc_pv')
@@ -845,10 +855,8 @@ contains
         end do
       end do
     end do
-    if (substep == total_substeps) then
-      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
-      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
-    end if
+    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
     end associate
 
     call perf_stop('interp_pv_midpoint')
@@ -863,12 +871,9 @@ contains
     integer, intent(in) :: substep
 
     real(r8) b
-    integer i, j, k
+    integer upwind_order, i, j, k
 
-    if (save_dyn_calc .and. substep < total_substeps) then
-      call interp_pv_midpoint(block, dstate, dt, substep)
-      return
-    end if
+    upwind_order = merge(1, upwind_order_pv, save_dyn_calc .and. substep < total_substeps)
 
     call perf_start('interp_pv_upwind')
 
@@ -880,7 +885,7 @@ contains
                pv     => block%aux%pv    , & ! in
                pv_lon => block%aux%pv_lon, & ! out
                pv_lat => block%aux%pv_lat)   ! out
-    select case (upwind_order_pv)
+    select case (upwind_order)
     case (1)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
@@ -933,15 +938,96 @@ contains
         end do
       end do
     end select
-    if (substep == total_substeps .or. .not. save_dyn_calc) then
-      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
-      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
-    end if
+    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
     end associate
 
     call perf_stop('interp_pv_upwind')
 
   end subroutine interp_pv_upwind
+
+  subroutine interp_pv_weno(block, dstate, dt, substep)
+
+    type(block_type), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    real(r8), intent(in) :: dt
+    integer, intent(in) :: substep
+
+    real(r8) b
+    integer weno_order, i, j, k
+
+    weno_order = merge(1, weno_order_pv, save_dyn_calc .and. substep < total_substeps)
+
+    call perf_start('interp_pv_weno')
+
+    associate (mesh   => block%mesh      , &
+               un     => dstate%u_lon    , & ! in
+               vn     => dstate%v_lat    , & ! in
+               ut     => block%aux%u_lat , & ! in
+               vt     => block%aux%v_lon , & ! in
+               pv     => block%aux%pv    , & ! in
+               pv_lon => block%aux%pv_lon, & ! out
+               pv_lat => block%aux%pv_lat)   ! out
+    select case (weno_order)
+    case (1)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            b = abs(vt%d(i,j,k)) / (sqrt(un%d(i,j,k)**2 + vt%d(i,j,k)**2) + eps)
+            pv_lon%d(i,j,k) = b * upwind1(sign(1.0_r8, vt%d(i,j,k)), upwind_wgt_pv, pv%d(i,j-1:j,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i,j-1,k) + pv%d(i,j,k))
+          end do
+        end do
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            b = abs(ut%d(i,j,k)) / (sqrt(ut%d(i,j,k)**2 + vn%d(i,j,k)**2) + eps)
+            pv_lat%d(i,j,k) = b * upwind1(sign(1.0_r8, ut%d(i,j,k)), upwind_wgt_pv, pv%d(i-1:i,j,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i-1,j,k) + pv%d(i,j,k))
+          end do
+        end do
+      end do
+    case (3)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            b = abs(vt%d(i,j,k)) / (sqrt(un%d(i,j,k)**2 + vt%d(i,j,k)**2) + eps)
+            pv_lon%d(i,j,k) = b * weno3(sign(1.0_r8, vt%d(i,j,k)), pv%d(i,j-2:j+1,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i,j-1,k) + pv%d(i,j,k))
+          end do
+        end do
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            b = abs(ut%d(i,j,k)) / (sqrt(ut%d(i,j,k)**2 + vn%d(i,j,k)**2) + eps)
+            pv_lat%d(i,j,k) = b * weno3(sign(1.0_r8, ut%d(i,j,k)), pv%d(i-2:i+1,j,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i-1,j,k) + pv%d(i,j,k))
+          end do
+        end do
+      end do
+    case (5)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+          do i = mesh%half_ids, mesh%half_ide
+            b = abs(vt%d(i,j,k)) / (sqrt(un%d(i,j,k)**2 + vt%d(i,j,k)**2) + eps)
+            pv_lon%d(i,j,k) = b * weno5(sign(1.0_r8, vt%d(i,j,k)), pv%d(i,j-3:j+2,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i,j-1,k) + pv%d(i,j,k))
+          end do
+        end do
+        do j = mesh%half_jds, mesh%half_jde
+          do i = mesh%full_ids, mesh%full_ide
+            b = abs(ut%d(i,j,k)) / (sqrt(ut%d(i,j,k)**2 + vn%d(i,j,k)**2) + eps)
+            pv_lat%d(i,j,k) = b * weno5(sign(1.0_r8, ut%d(i,j,k)), pv%d(i-3:i+2,j,k)) + &
+                              (1 - b) * 0.5_r8 * (pv%d(i-1,j,k) + pv%d(i,j,k))
+          end do
+        end do
+      end do
+    end select
+    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end associate
+
+    call perf_stop('interp_pv_weno')
+
+  end subroutine interp_pv_weno
 
   subroutine calc_coriolis(block, dstate, dtend, dt, substep)
 

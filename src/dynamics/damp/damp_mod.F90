@@ -71,6 +71,9 @@ contains
     if (use_smag_damp) then
       call smag_damp_run(block, dstate, dt)
     end if
+    if (use_sponge_layer) then
+      call sponge_layer_run(block, dstate)
+    end if
 
   end subroutine damp_run
 

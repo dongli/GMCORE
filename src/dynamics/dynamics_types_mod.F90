@@ -971,7 +971,7 @@ contains
       output            =''                                                  , &
       restart           =.false.                                             , &
       field             =this%dxdt_2d                                        )
-    if (use_laplace_damp) then
+    if (use_laplace_damp .or. use_sponge_layer) then
       call append_field(this%fields                                          , &
         name            ='g1_3d'                                             , &
         long_name       ='Temporal array for 3D Laplacian damping'           , &
@@ -1012,6 +1012,8 @@ contains
         output          =''                                                  , &
         restart         =.false.                                             , &
         field           =this%fy_3d                                          )
+    end if
+    if (use_laplace_damp .or. use_sponge_layer .or. (use_div_damp .and. div_damp_order == 4)) then
       call append_field(this%fields                                          , &
         name            ='g1_3d_lon'                                         , &
         long_name       ='Temporal array for 3D Laplacian damping'           , &
@@ -1644,7 +1646,7 @@ contains
         field           =this%dqdt_phys                                      )
     end if
 
-    if (use_laplace_damp .or. use_div_damp .or. use_smag_damp) then
+    if (use_laplace_damp .or. use_sponge_layer .or. use_div_damp .or. use_smag_damp) then
       call append_field(this%fields                                          , &
         name            ='dudt_damp'                                         , &
         long_name       ='Tendency of zonal wind due to damping'             , &
@@ -1656,7 +1658,7 @@ contains
         restart         =.false.                                             , &
         field           =this%dudt_damp                                      )
     end if
-    if (use_laplace_damp .or. use_vor_damp .or. use_smag_damp) then
+    if (use_laplace_damp .or. use_sponge_layer .or. use_vor_damp .or. use_smag_damp) then
       call append_field(this%fields                                          , &
         name            ='dvdt_damp'                                         , &
         long_name       ='Tendency of meridional wind due to damping'        , &

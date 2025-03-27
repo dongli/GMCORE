@@ -187,6 +187,8 @@ contains
     select case (batch%scheme_h)
     case ('upwind')
       call upwind_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
+    case ('weno')
+      call weno_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
     case ('ffsl')
       call ffsl_calc_tracer_hflx_swift(batch, q, qmfx, qmfy, dt)
     end select
@@ -203,6 +205,8 @@ contains
     select case (batch%scheme_v)
     case ('upwind')
       call upwind_calc_tracer_vflx(batch, q, qmfz, dt)
+    case ('weno')
+      call weno_calc_tracer_vflx(batch, q, qmfz, dt)
     case ('ffsl')
       call ffsl_calc_tracer_vflx(batch, q, qmfz, dt)
     end select

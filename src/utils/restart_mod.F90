@@ -197,6 +197,7 @@ contains
       call read_fields('r0', mesh, aux   %fields)
       field => tracers(old)%q
       call read_field ('r0', mesh, q)
+      ! FIXME: We need to aqcuire tracer advection batches information from restart file, and register them.
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
         call read_fields('r0', mesh, batch%fields)

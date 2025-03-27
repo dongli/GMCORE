@@ -68,14 +68,16 @@ contains
       do k = global_mesh%full_kds, global_mesh%full_kde
         do j = global_mesh%full_jds_no_pole, global_mesh%full_jde_no_pole
           cx(j,k) = div_damp_coef4 * global_mesh%full_cos_lat(j)**(r - 2) * &
-            global_mesh%le_lon(j)**2 * global_mesh%de_lon(j)**2
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%full_lat_deg(j))) * &
+            global_mesh%le_lon(j)**2 * global_mesh%de_lon(j)**2 / dt_dyn
         end do
       end do
       lat0 = abs(global_mesh%half_lat_deg(1))
       do k = global_mesh%full_kds, global_mesh%full_kde
         do j = global_mesh%half_jds, global_mesh%half_jde
           cy(j,k) = div_damp_coef4 * global_mesh%half_cos_lat(j)**(r - 2) * &
-            global_mesh%le_lat(j)**2 * global_mesh%de_lat(j)**2
+            exp_two_values(div_damp_pole, 1.0_r8, lat0, div_damp_lat0, abs(global_mesh%half_lat_deg(j))) * &
+            global_mesh%le_lat(j)**2 * global_mesh%de_lat(j)**2 / dt_dyn
         end do
       end do
     end select

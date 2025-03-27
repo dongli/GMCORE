@@ -153,8 +153,8 @@ contains
     ! --------------------------------------------------------------------------
     case ('cell>vtx')
       do k = x%mesh%full_kds, x%mesh%full_kde
-        do j = x%mesh%half_jds, x%mesh%half_jde
-          do i = x%mesh%half_ids, x%mesh%half_ide
+        do j = x%mesh%half_jds - merge(0, 1, x%mesh%has_south_pole()), x%mesh%half_jde
+          do i = x%mesh%half_ids - 1, x%mesh%half_ide
             y%d(i,j,k) = (                                                   &
               (x%d(i,j  ,k) + x%d(i+1,j  ,k)) * x%mesh%area_subcell(2,j  ) + &
               (x%d(i,j+1,k) + x%d(i+1,j+1,k)) * x%mesh%area_subcell(1,j+1)   &

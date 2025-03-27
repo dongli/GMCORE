@@ -30,6 +30,7 @@ module laplace_damp_mod
   public laplace_damp_init
   public laplace_damp_final
   public laplace_damp_run
+  public sponge_layer_run
   public laplace_damp
 
   interface laplace_damp
@@ -75,12 +76,19 @@ contains
       call fill_halo(dstate%w_lev, async=.true.)
     end if
 
+  end subroutine laplace_damp_run
+
+  subroutine sponge_layer_run(block, dstate)
+
+    type(block_type), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+
     call laplace_damp(block, dstate%u_lon, 2, sponge_layer_coef, block%aux%dudt_damp, use_sponge_layer=.true.)
     call fill_halo(dstate%u_lon, async=.true.)
     call laplace_damp(block, dstate%v_lat, 2, sponge_layer_coef, block%aux%dvdt_damp, use_sponge_layer=.true.)
     call fill_halo(dstate%v_lat, async=.true.)
 
-  end subroutine laplace_damp_run
+  end subroutine sponge_layer_run
 
   subroutine laplace_damp_2d(block, f, order, coef)
 
@@ -179,7 +187,7 @@ contains
           dxdt%d(i,j) = (fx%d(i,j) - fx%d(i-1,j)) * mesh%le_lon(j) / mesh%area_cell(j)
         end do
       end do
-      call filter_run(block%big_filter, dxdt)
+      call filter_run(block%small_filter, dxdt)
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
           f%d(i,j) = f%d(i,j) - c0 * (dxdt%d(i,j) + ( &
@@ -333,7 +341,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfx)
+      call filter_run(block%small_filter, dfx)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide
@@ -441,7 +449,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfx)
+      call filter_run(block%small_filter, dfx)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%half_ids, mesh%half_ide
@@ -519,7 +527,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfx)
+      call filter_run(block%small_filter, dfx)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%half_jds, mesh%half_jde
           do i = mesh%full_ids, mesh%full_ide
@@ -625,7 +633,7 @@ contains
           end do
         end do
       end do
-      call filter_run(block%big_filter, dfx)
+      call filter_run(block%small_filter, dfx)
       do k = mesh%half_kds + 1, mesh%half_kde - 1
         do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
           do i = mesh%full_ids, mesh%full_ide

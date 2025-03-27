@@ -58,6 +58,7 @@ module namelist_mod
   logical         :: baroclinic           = .false.
   logical         :: hydrostatic          = .true.
   logical         :: nonhydrostatic       = .false.
+  logical         :: ideal_dry_core       = .false.
   logical         :: advection            = .false.
   logical         :: restart              = .false.
 
@@ -109,10 +110,11 @@ module namelist_mod
   integer         :: ke_scheme            = 2
   real(r8)        :: ke_cell_wgt          = 0.5_r8
 
-  character(30)   :: pv_scheme            = 'upwind' ! midpoint, upwind, ffsl
+  character(30)   :: pv_scheme            = 'weno'   ! midpoint, upwind, weno
   logical         :: pv_pole_stokes       = .true.
-  integer         :: upwind_order_pv      = 5
-  real(r8)        :: upwind_wgt_pv        = 0.75_r8
+  integer         :: upwind_order_pv      = 3
+  real(r8)        :: upwind_wgt_pv        = 1
+  integer         :: weno_order_pv        = 3
 
   character(8)    :: pgf_scheme           = ''       ! lin97, ptb
 
@@ -123,12 +125,14 @@ module namelist_mod
   character(8)    :: ffsl_flux_type       = 'ppm'
   character(8)    :: tvd_limiter_type     = 'van_leer'
 
-  character(8)    :: zonal_tridiag_solver = 'spk' ! mkl, spk
+  character(8)    :: zonal_tridiag_solver = 'spk'   ! mkl, spk
 
-  integer         :: weno_order           = -1 ! -1, 3
-  integer         :: upwind_order         = 5  ! 0, 1, 3, 5
-  integer         :: upwind_order_h       = -1 ! 0, 1, 3, 5
-  integer         :: upwind_order_v       = -1 ! 0, 1, 3, 5
+  integer         :: weno_order           = 3       ! 3, 5
+  integer         :: weno_order_h         = 3       ! 3, 5
+  integer         :: weno_order_v         = 3       ! 3, 5
+  integer         :: upwind_order         = 3       ! 0, 1, 3, 5
+  integer         :: upwind_order_h       = -1      ! 0, 1, 3, 5
+  integer         :: upwind_order_v       = -1      ! 0, 1, 3, 5
   real(r8)        :: upwind_wgt           = 0.75_r8
 
   character(30)   :: time_scheme          = 'wrfrk3'
@@ -144,25 +148,28 @@ module namelist_mod
 
   ! Damping settings
   logical         :: use_topo_smooth      = .false.
+  logical         :: use_zs_polar_filter  = .false.
   real(r8)        :: topo_max_slope       = 0.12_r8
-  integer         :: topo_smooth_cycles   = 3
+  integer         :: topo_smooth_order    = 2
+  real(r8)        :: topo_smooth_coef     = 1.0e4_r8
+  integer         :: topo_smooth_cycles   = 500
   logical         :: use_div_damp         = .false.
   integer         :: div_damp_cycles      = 1
   integer         :: div_damp_order       = 2
-  real(r8)        :: div_damp_top         = 1
-  integer         :: div_damp_k0          = 6
+  real(r8)        :: div_damp_top         = 3
+  integer         :: div_damp_k0          = 10
   real(r8)        :: div_damp_pole        = 100
-  real(r8)        :: div_damp_lat0        = 80
+  real(r8)        :: div_damp_lat0        = 70
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
-  real(r8)        :: div_damp_coef4       = 0.001_r8
+  real(r8)        :: div_damp_coef4       = 0.01_r8
   logical         :: use_vor_damp         = .false.
   integer         :: vor_damp_cycles      = 1
   integer         :: vor_damp_order       = 2
-  real(r8)        :: vor_damp_coef2       = 0.002_r8
+  real(r8)        :: vor_damp_coef2       = 0.0005_r8
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
-  real(r8)        :: vor_damp_pole        = 1
-  real(r8)        :: vor_damp_lat0        = 80
+  real(r8)        :: vor_damp_pole        = 100
+  real(r8)        :: vor_damp_lat0        = 70
   logical         :: use_rayleigh_damp_w  = .false.
   real(r8)        :: rayleigh_damp_w_coef = 0.2
   real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
@@ -173,9 +180,10 @@ module namelist_mod
   real(r8)        :: smag_damp_coef       = 0.015
   logical         :: use_laplace_damp     = .false.
   integer         :: laplace_damp_order   = 4
-  real(r8)        :: laplace_damp_coef    = 0.0_r8
-  integer         :: sponge_layer_k0      = 20
-  real(r8)        :: sponge_layer_coef    = 0.0_r8
+  real(r8)        :: laplace_damp_coef    = 1.0e12_r8
+  logical         :: use_sponge_layer     = .false.
+  integer         :: sponge_layer_k0      = 6
+  real(r8)        :: sponge_layer_coef    = 1.0e6_r8
 
   ! Input settings
   integer         :: input_ngroups        = 0
@@ -207,6 +215,7 @@ module namelist_mod
     nlat                      , &
     nlev                      , &
     nonhydrostatic            , &
+    ideal_dry_core            , &
     advection                 , &
     nproc_io                  , &
     nproc_x                   , &
@@ -265,6 +274,7 @@ module namelist_mod
     pv_pole_stokes            , &
     upwind_order_pv           , &
     upwind_wgt_pv             , &
+    weno_order_pv             , &
     pgf_scheme                , &
     bg_adv_scheme             , &
     pt_adv_scheme             , &
@@ -274,6 +284,8 @@ module namelist_mod
     tvd_limiter_type          , &
     zonal_tridiag_solver      , &
     weno_order                , &
+    weno_order_h              , &
+    weno_order_v              , &
     upwind_order              , &
     upwind_order_h            , &
     upwind_order_v            , &
@@ -294,6 +306,8 @@ module namelist_mod
     gmcore_data_dir           , &
     use_topo_smooth           , &
     topo_max_slope            , &
+    topo_smooth_order         , &
+    topo_smooth_coef          , &
     topo_smooth_cycles        , &
     use_div_damp              , &
     div_damp_cycles           , &
@@ -323,6 +337,7 @@ module namelist_mod
     use_laplace_damp          , &
     laplace_damp_order        , &
     laplace_damp_coef         , &
+    use_sponge_layer          , &
     sponge_layer_k0           , &
     sponge_layer_coef         , &
     input_ngroups             , &
@@ -422,6 +437,7 @@ contains
       write(*, *) 'pbl_scheme          = ', trim(pbl_scheme)
       write(*, *) 'hydrostatic         = ', to_str(hydrostatic)
       write(*, *) 'nonhydrostatic      = ', to_str(nonhydrostatic)
+      write(*, *) 'ideal_dry_core      = ', to_str(ideal_dry_core)
       write(*, *) 'vert_coord_scheme   = ', trim(vert_coord_scheme)
       write(*, *) 'vert_coord_template = ', trim(vert_coord_template)
       write(*, *) 'ptop                = ', to_str(ptop, 4)
@@ -456,11 +472,16 @@ contains
     if (pv_scheme == 'upwind') then
       write(*, *) 'upwind_order_pv     = ', to_str(upwind_order_pv)
       write(*, *) 'upwind_wgt_pv       = ', to_str(upwind_wgt_pv, 2)
+    else if (pv_scheme == 'weno') then
+      write(*, *) 'weno_order_pv       = ', to_str(weno_order_pv)
     end if
     if (pt_adv_scheme == 'upwind' .or. nh_adv_scheme == 'upwind') then
       write(*, *) 'upwind_order_h      = ', to_str(upwind_order_h)
       write(*, *) 'upwind_order_v      = ', to_str(upwind_order_v)
       write(*, *) 'upwind_wgt          = ', to_str(upwind_wgt, 4)
+    else if (pt_adv_scheme == 'weno' .or. nh_adv_scheme == 'weno') then
+      write(*, *) 'weno_order_h        = ', to_str(weno_order_h)
+      write(*, *) 'weno_order_v        = ', to_str(weno_order_v)
     end if
       write(*, *) 'use_topo_smooth     = ', to_str(use_topo_smooth)
     if (use_topo_smooth) then
@@ -506,6 +527,11 @@ contains
       write(*, *) 'laplace_damp_order  = ', to_str(laplace_damp_order)
       write(*, *) 'laplace_damp_coef   = ', laplace_damp_coef
     end if
+      write(*, *) 'use_sponge_layer    = ', to_str(use_sponge_layer)
+    if (use_sponge_layer) then
+      write(*, *) 'sponge_layer_k0     = ', to_str(sponge_layer_k0)
+      write(*, *) 'sponge_layer_coef   = ', sponge_layer_coef
+    end if
       write(*, *) '========================================================='
 
   end subroutine print_namelist
@@ -520,6 +546,8 @@ contains
     call fiona_add_att(tag, 'dt_dyn', dt_dyn / time_scale)
     call fiona_add_att(tag, 'dt_adv', dt_adv / time_scale)
     call fiona_add_att(tag, 'dt_phys', dt_phys / time_scale)
+    call fiona_add_att(tag, 'pt_adv_scheme', pt_adv_scheme)
+    call fiona_add_att(tag, 'nh_adv_scheme', nh_adv_scheme)
     call fiona_add_att(tag, 'physics_suite', physics_suite)
     call fiona_add_att(tag, 'filter_coef_a', filter_coef_a)
     call fiona_add_att(tag, 'filter_coef_b', filter_coef_b)
@@ -532,7 +560,7 @@ contains
       call fiona_add_att(tag, 'div_damp_pole', div_damp_pole)
       call fiona_add_att(tag, 'div_damp_lat0', div_damp_lat0)
     end if
-    call fiona_add_att(tag, 'use_vor_damp', use_vor_damp)
+    call fiona_add_att(tag, 'use_vor_damp', merge(1, 0, use_vor_damp))
     if (use_vor_damp) then
       call fiona_add_att(tag, 'vor_damp_coef2', vor_damp_coef2)
       call fiona_add_att(tag, 'vor_damp_top', vor_damp_top)
@@ -540,9 +568,19 @@ contains
       call fiona_add_att(tag, 'vor_damp_pole', vor_damp_pole)
       call fiona_add_att(tag, 'vor_damp_lat0', vor_damp_lat0)
     end if
-    call fiona_add_att(tag, 'use_smag_damp', use_smag_damp)
+    call fiona_add_att(tag, 'use_smag_damp', merge(1, 0, use_smag_damp))
     if (use_smag_damp) then
       call fiona_add_att(tag, 'smag_damp_coef', smag_damp_coef)
+    end if
+    call fiona_add_att(tag, 'use_laplace_damp', merge(1, 0, use_laplace_damp))
+    if (use_laplace_damp) then
+      call fiona_add_att(tag, 'laplace_damp_order', laplace_damp_order)
+      call fiona_add_att(tag, 'laplace_damp_coef', laplace_damp_coef)
+    end if
+    call fiona_add_att(tag, 'use_sponge_layer', merge(1, 0, use_sponge_layer))
+    if (use_sponge_layer) then
+      call fiona_add_att(tag, 'sponge_layer_k0', sponge_layer_k0)
+      call fiona_add_att(tag, 'sponge_layer_coef', sponge_layer_coef)
     end if
 
   end subroutine namelist_add_atts

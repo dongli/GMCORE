@@ -1,15 +1,137 @@
 module weno_mod
 
   use const_mod
+  use namelist_mod
+  use adv_batch_mod
+  use latlon_field_types_mod
+  use latlon_parallel_mod
+  use perf_mod
 
   implicit none
 
   private
 
+  public weno_calc_tracer_hflx
+  public weno_calc_tracer_vflx
   public weno3
   public weno5
 
 contains
+
+  subroutine weno_calc_tracer_hflx(batch, q, qmfx, qmfy, dt)
+
+    type(adv_batch_type     ), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in   ) :: q
+    type(latlon_field3d_type), intent(inout) :: qmfx
+    type(latlon_field3d_type), intent(inout) :: qmfy
+    real(r8), intent(in), optional :: dt
+
+    integer ks, ke, i, j, k
+
+    call perf_start('weno_calc_tracer_hflx')
+
+    associate (mesh => q%mesh   , &
+               mfx  => batch%mfx, & ! in
+               mfy  => batch%mfy)   ! in
+    select case (batch%loc)
+    case ('cell', 'lev')
+      ks = merge(mesh%full_kds, mesh%half_kds, batch%loc == 'cell')
+      ke = merge(mesh%full_kde, mesh%half_kde, batch%loc == 'cell')
+      select case (weno_order_h)
+      case (3)
+        do k = ks, ke
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids, mesh%half_ide
+              qmfx%d(i,j,k) = weno3(sign(1.0_r8, mfx%d(i,j,k)), q%d(i-1:i+2,j,k)) * mfx%d(i,j,k)
+            end do
+          end do
+          do j = mesh%half_jds, mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfy%d(i,j,k) = weno3(sign(1.0_r8, mfy%d(i,j,k)), q%d(i,j-1:j+2,k)) * mfy%d(i,j,k)
+            end do
+          end do
+        end do
+      case (5)
+        do k = ks, ke
+          do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
+            do i = mesh%half_ids, mesh%half_ide
+              qmfx%d(i,j,k) = weno5(sign(1.0_r8, mfx%d(i,j,k)), q%d(i-2:i+3,j,k)) * mfx%d(i,j,k)
+            end do
+          end do
+          do j = mesh%half_jds, mesh%half_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfy%d(i,j,k) = weno5(sign(1.0_r8, mfy%d(i,j,k)), q%d(i,j-2:j+3,k)) * mfy%d(i,j,k)
+            end do
+          end do
+        end do
+      end select
+    end select
+    call fill_halo(qmfx, south_halo=.false., north_halo=.false., east_halo =.false.)
+    call fill_halo(qmfy, west_halo =.false., east_halo =.false., north_halo=.false.)
+    end associate
+
+    call perf_stop('weno_calc_tracer_hflx')
+
+  end subroutine weno_calc_tracer_hflx
+
+  subroutine weno_calc_tracer_vflx(batch, q, qmfz, dt)
+
+    type(adv_batch_type), intent(inout) :: batch
+    type(latlon_field3d_type), intent(in) :: q
+    type(latlon_field3d_type), intent(inout) :: qmfz
+    real(r8), intent(in), optional :: dt
+
+    integer i, j, k
+
+    call perf_start('weno_calc_tracer_vflx')
+
+    associate (mesh => q%mesh   , &
+               mfz  => batch%mfz)   ! in
+    select case (batch%loc)
+    case ('cell')
+      select case (weno_order_v)
+      case (3)
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfz%d(i,j,k) = weno3(sign(1.0_r8, mfz%d(i,j,k)), q%d(i,j,k-2:k+1)) * mfz%d(i,j,k)
+            end do
+          end do
+        end do
+      case (5)
+        do k = mesh%half_kds + 1, mesh%half_kde - 1
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfz%d(i,j,k) = weno5(sign(1.0_r8, mfz%d(i,j,k)), q%d(i,j,k-3:k+2)) * mfz%d(i,j,k)
+            end do
+          end do
+        end do
+      end select
+    case ('lev')
+      select case (weno_order_v)
+      case (3)
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfz%d(i,j,k) = weno3(sign(1.0_r8, mfz%d(i,j,k)), q%d(i,j,k-1:k+2)) * mfz%d(i,j,k)
+            end do
+          end do
+        end do
+      case (5)
+        do k = mesh%full_kds, mesh%full_kde
+          do j = mesh%full_jds, mesh%full_jde
+            do i = mesh%full_ids, mesh%full_ide
+              qmfz%d(i,j,k) = weno5(sign(1.0_r8, mfz%d(i,j,k)), q%d(i,j,k-2:k+3)) * mfz%d(i,j,k)
+            end do
+          end do
+        end do
+      end select
+    end select
+    end associate
+
+    call perf_stop('weno_calc_tracer_vflx')
+
+  end subroutine weno_calc_tracer_vflx
 
   pure real(r8) function weno3(dir, f) result(res)
 
@@ -18,7 +140,7 @@ contains
 
     real(r8), parameter :: c11 = -0.5_r8, c12 =  1.5_r8
     real(r8), parameter :: c21 =  0.5_r8, c22 =  0.5_r8
-    real(r8), parameter :: weno_coef(2) = [1.0_r8 / 3.0_r8, 2.0_r8 / 3.0_r8]
+    real(r8), parameter :: weno_coef(2) = [1.0_r8 / 4.0_r8, 3.0_r8 / 4.0_r8]
     real(r8), parameter :: eps = 1.0e-16_r8
 
     real(r8) fs(2), beta(2), alpha(2)
