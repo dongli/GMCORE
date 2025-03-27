@@ -60,7 +60,7 @@ contains
 
   subroutine operators_init()
 
-    select case (pv_scheme)
+    select case (pv_adv_scheme)
     case ('midpoint')
       interp_pv => interp_pv_midpoint
     case ('upwind')
@@ -68,7 +68,7 @@ contains
     case ('weno')
       interp_pv => interp_pv_weno
     case default
-      if (proc%is_root()) call log_error('Invalid pv_scheme ' // trim(pv_scheme) // '!')
+      if (proc%is_root()) call log_error('Invalid pv_scheme ' // trim(pv_adv_scheme) // '!')
     end select
 
   end subroutine operators_init

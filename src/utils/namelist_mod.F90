@@ -110,7 +110,7 @@ module namelist_mod
   integer         :: ke_scheme            = 2
   real(r8)        :: ke_cell_wgt          = 0.5_r8
 
-  character(30)   :: pv_scheme            = 'weno'   ! midpoint, upwind, weno
+  character(30)   :: pv_adv_scheme        = 'weno'   ! midpoint, upwind, weno
   logical         :: pv_pole_stokes       = .true.
   integer         :: upwind_order_pv      = 3
   real(r8)        :: upwind_wgt_pv        = 1
@@ -270,7 +270,7 @@ module namelist_mod
     hybrid_coord_ncep_dptop   , &
     ke_scheme                 , &
     ke_cell_wgt               , &
-    pv_scheme                 , &
+    pv_adv_scheme             , &
     pv_pole_stokes            , &
     upwind_order_pv           , &
     upwind_wgt_pv             , &
@@ -467,12 +467,12 @@ contains
     if (ke_scheme == 2) then
       write(*, *) 'ke_cell_wgt         = ', to_str(ke_cell_wgt, 2)
     end if
-      write(*, *) 'pv_scheme           = ', trim(pv_scheme)
+      write(*, *) 'pv_adv_scheme       = ', trim(pv_adv_scheme)
       write(*, *) 'pv_pole_stokes      = ', to_str(pv_pole_stokes)
-    if (pv_scheme == 'upwind') then
+    if (pv_adv_scheme == 'upwind') then
       write(*, *) 'upwind_order_pv     = ', to_str(upwind_order_pv)
       write(*, *) 'upwind_wgt_pv       = ', to_str(upwind_wgt_pv, 2)
-    else if (pv_scheme == 'weno') then
+    else if (pv_adv_scheme == 'weno') then
       write(*, *) 'weno_order_pv       = ', to_str(weno_order_pv)
     end if
     if (pt_adv_scheme == 'upwind' .or. nh_adv_scheme == 'upwind') then
