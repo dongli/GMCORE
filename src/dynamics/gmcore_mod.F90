@@ -509,8 +509,8 @@ contains
       call operators_prepare(block, star_dstate, dt, pass, substep)
       if (baroclinic) then
         call calc_grad_mf          (block, star_dstate)
-        call calc_dmgsdt           (block, star_dstate, dtend, dt)
-        call calc_mfz              (block, star_dstate, dtend, dt)
+        call calc_dmgsdt           (block, star_dstate, dtend)
+        call calc_mfz              (block, star_dstate, dtend)
         call calc_grad_ptf         (block, star_dstate, dtend, dt)
         call calc_grad_ke          (block, star_dstate, dtend, dt)
         call pgf_run               (block, star_dstate, dtend)
@@ -543,8 +543,8 @@ contains
       call operators_prepare(block, star_dstate, dt, pass, substep)
       if (baroclinic) then
         call calc_grad_mf          (block, star_dstate)
-        call calc_dmgsdt           (block, star_dstate, dtend, dt)
-        call calc_mfz              (block, star_dstate, dtend, dt)
+        call calc_dmgsdt           (block, star_dstate, dtend)
+        call calc_mfz              (block, star_dstate, dtend)
         call calc_grad_ptf         (block, star_dstate, dtend, dt)
 
         dtend%update_mgs = .true.

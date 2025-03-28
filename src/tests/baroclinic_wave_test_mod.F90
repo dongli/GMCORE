@@ -160,7 +160,7 @@ CONTAINS
           call baroclinic_wave_test(  &
             deep   =0               , &
             moist  =moist           , &
-            pertt  =0               , &
+            pertt  =1               , &
             X      =1.0d0           , &
             lon    =mesh%full_lon(i), &
             lat    =mesh%full_lat(j), &

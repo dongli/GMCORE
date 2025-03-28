@@ -33,25 +33,16 @@ def parse_datetime(x):
 
 def vinterp_z(zi, var, zo, axis=0):
 	res = interpolate_1d(zo, zi, var, axis=axis)
-	if isinstance(var, xr.DataArray):
-		if isinstance(zo, pint.Quantity):
-			zo = np.array([zo.magnitude]).squeeze() * zo.units
-		res = xr.DataArray(res, coords=var.coords, dims=var.dims)
-		res.attrs = var.attrs
-		if 'lev' in var.dims:
-			res['lev'] = zo
-			res['lev'].attrs['long_name'] = 'Height'
-			res['lev'].attrs['units'] = zo.units
-		elif 'ilev' in var.dims:
-			res['ilev'] = zo
-			res['ilev'].attrs['long_name'] = 'Height'
-			res['ilev'].attrs['units'] = zo.units
+	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
+	res.attrs = var.attrs
+	res['lev'] = zo
+	res['lev'].attrs = {'units': zo.units, 'long_name': 'Height'}
 	return res
 
-def vinterp_p(pi, var, po):
-	plev = np.array([po]) * units.hPa
-	res = interpolate_1d(plev, pi, var)
+def vinterp_p(pi, var, po, axis=0):
+	res = interpolate_1d(po, pi, var, axis=axis)
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
+	res.attrs = var.attrs
 	return res
 
 def plot_contour_lon(ax, var,
@@ -84,9 +75,12 @@ def plot_contour_lon(ax, var,
 		exit(1)
 	if 'lev' in var.dims:
 		lev = var.lev.copy()
+	elif 'ilev' in var.dims:
+		lev = var.ilev.copy()
 	else:
 		print(f'[Error]: Variable {var.name} has no lev dimension!')
 		exit(1)
+	ax.set_ylabel(f'{lev.long_name} ({lev.units})', fontsize=font_size)
 	if levels is not None and norm is None:
 		im = ax.contourf(lon, lev, var, cmap=cmap, levels=levels, extend='both')
 		if with_contour: ax.contour(lat, lev, var, levels=levels, linewidths=linewidth, colors='k')

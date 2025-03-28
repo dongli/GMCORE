@@ -240,11 +240,11 @@ contains
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds_no_pole, mesh%full_jde_no_pole
         do i = mesh%full_ids, mesh%full_ide
-          sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
+          sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k)
           omg%d(i,j,k) = 0.5_r8 * ((                                              &
             u_lon%d(i  ,j,k) * (ph%d(i,j,k) + ph%d(i+1,j,k)) -                    &
             u_lon%d(i-1,j,k) * (ph%d(i,j,k) + ph%d(i-1,j,k))                      &
-          ) * mesh%le_lon(j) - (                                                  &
+          ) * mesh%le_lon(j) + (                                                  &
             v_lat%d(i,j  ,k) * (ph%d(i,j,k) + ph%d(i,j+1,k)) * mesh%le_lat(j  ) - &
             v_lat%d(i,j-1,k) * (ph%d(i,j,k) + ph%d(i,j-1,k)) * mesh%le_lat(j-1)   &
           )) / mesh%area_cell(j) - ph%d(i,j,k) * div%d(i,j,k) - sum_dmf(i,j)
@@ -259,10 +259,10 @@ contains
         end do
       end do
       call zonal_sum(proc%zonal_circle, work, pole)
-      pole = -pole / mesh%area_pole_cap
+      pole = pole / mesh%area_pole_cap
       do k = mesh%full_kds, mesh%full_kde
         i = mesh%full_ids
-        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
+        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k)
         omg%d(:,j,k) = pole(k) - ph%d(i,j,k) * div%d(i,j,k) - sum_dmf(i,j)
       end do
     end if
@@ -274,10 +274,10 @@ contains
         end do
       end do
       call zonal_sum(proc%zonal_circle, work, pole)
-      pole = pole / mesh%area_pole_cap
+      pole = -pole / mesh%area_pole_cap
       do k = mesh%full_kds, mesh%full_kde
         i = mesh%full_ids
-        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k) * mesh%full_dlev(k)
+        sum_dmf(i,j) = sum_dmf(i,j) + dmf%d(i,j,k)
         omg%d(:,j,k) = pole(k) - ph%d(i,j,k) * div%d(i,j,k) - sum_dmf(i,j)
       end do
     end if
@@ -355,12 +355,11 @@ contains
 
   end subroutine calc_rhod
 
-  subroutine calc_mfz(block, dstate, dtend, dt)
+  subroutine calc_mfz(block, dstate, dtend)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(in) :: dstate
     type(dtend_type), intent(in) :: dtend
-    real(r8), intent(in) :: dt
 
     integer i, j, k
 
@@ -1222,12 +1221,11 @@ contains
 
   end subroutine calc_grad_ptf
 
-  subroutine calc_dmgsdt(block, dstate, dtend, dt)
+  subroutine calc_dmgsdt(block, dstate, dtend)
 
     type(block_type), intent(inout) :: block
     type(dstate_type), intent(in) :: dstate
     type(dtend_type), intent(inout) :: dtend
-    real(r8), intent(in) :: dt
 
     integer i, j, k
 
