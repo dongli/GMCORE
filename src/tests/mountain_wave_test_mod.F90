@@ -30,7 +30,7 @@ contains
 
   subroutine mountain_wave_test_init()
 
-    call tracer_add('adv', dt_adv, 'one', 'Constant one tracer')
+    ! call tracer_add('adv', dt_adv, 'one', 'Constant one tracer')
 
   end subroutine mountain_wave_test_init
 
@@ -92,7 +92,7 @@ contains
     end do
     call fill_halo(pt)
 
-    tracers(block%id)%q%d(:,:,:,1) = 1.0_r8
+    ! tracers(block%id)%q%d(:,:,:,1) = 1.0_r8
     end associate
 
   end subroutine mountain_wave_test_set_ic

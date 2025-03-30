@@ -140,9 +140,9 @@ module namelist_mod
 
   ! Filter settings
   real(r8)        :: filter_wave_speed    = 300.0_r8
-  real(r8)        :: filter_coef_a        = 3.5_r8
-  real(r8)        :: filter_coef_b        = 0.5_r8
-  real(r8)        :: filter_coef_c        = 0.3_r8
+  real(r8)        :: filter_coef_a        = 3.0_r8
+  real(r8)        :: filter_coef_b        = 0.8_r8
+  real(r8)        :: filter_coef_c        = 0.0_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 0.0_r8
 
