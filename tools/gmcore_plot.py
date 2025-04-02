@@ -35,8 +35,12 @@ def vinterp_z(zi, var, zo, axis=0):
 	res = interpolate_1d(zo, zi, var, axis=axis)
 	res = xr.DataArray(res, coords=var.coords, dims=var.dims)
 	res.attrs = var.attrs
-	res['lev'] = zo
-	res['lev'].attrs = {'units': zo.units, 'long_name': 'Height'}
+	if 'lev' in res.dims:
+		res['lev'] = zo
+		res['lev'].attrs = {'units': zo.units, 'long_name': 'Height'}
+	elif 'ilev' in res.dims:
+		res['ilev'] = zo
+		res['ilev'].attrs = {'units': zo.units, 'long_name': 'Height'}
 	return res
 
 def vinterp_p(pi, var, po, axis=0):
@@ -101,7 +105,7 @@ def plot_contour_lon(ax, var,
 		if ticks is not None:
 			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=ticks)
 		else:
-			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=levels)
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels)
 	elif levels is None and norm is not None:
 		if ticks is not None:
 			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=ticks)
@@ -168,7 +172,7 @@ def plot_contour_lat(ax, var,
 		if ticks is not None:
 			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=ticks)
 		else:
-			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels, ticks=levels)
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=levels)
 	elif levels is None and norm is not None:
 		if ticks is not None:
 			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, boundaries=norm.boundaries[1::2], ticks=ticks)
@@ -197,7 +201,9 @@ def plot_contour_map(ax, var,
 	with_contour=True,
 	contour_levels=None,
 	linewidth=0.5,
-	transform_first=True):
+	transform_first=True,
+	with_cbar=True,
+	cbar_orient='vertical'):
 	if left_string is not None:
 		ax.set_title(left_string)
 	elif 'long_name' in var.attrs:
@@ -236,15 +242,16 @@ def plot_contour_map(ax, var,
 		gl.yformatter = ccrs.cartopy.mpl.gridliner.LATITUDE_FORMATTER
 		gl.xlabel_style = {'size': font_size}
 		gl.ylabel_style = {'size': font_size if show_lat_labels else 0}
-	cax = make_axes_locatable(ax).append_axes('right', size='2%', pad=0.05, axes_class=plt.Axes)
-	cbar = plt.colorbar(im, cax=cax, orientation='vertical')
-	formatter = ticker.ScalarFormatter(useMathText=True)
-	if use_scientific:
-		formatter.set_scientific(True)
-		formatter.set_powerlimits((0, 0))
-	cbar.formatter = formatter
-	cbar.ax.tick_params(labelsize=font_size)
-	cbar.update_ticks()
+	if with_cbar:
+		cax = make_axes_locatable(ax).append_axes('right', size='2%', pad=0.05, axes_class=plt.Axes)
+		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient)
+		formatter = ticker.ScalarFormatter(useMathText=True)
+		if use_scientific:
+			formatter.set_scientific(True)
+			formatter.set_powerlimits((0, 0))
+		cbar.formatter = formatter
+		cbar.ax.tick_params(labelsize=font_size)
+		cbar.update_ticks()
 
 	if isinstance(ax.projection, ccrs.NorthPolarStereo):
 		theta = np.linspace(0, 2 * np.pi, 100)

@@ -378,6 +378,7 @@ contains
     ! Update cflx, cfly and mfx_frac for tracer advection.
     ! NOTE: Swap mx and my.
     call batch%calc_cflxy_tracer(my, mx, mfx, mfy, cflx, cfly, mfx_frac, dt_opt)
+    ! Calculate intermediate mass due to horizontal advection, which is used for horizontal-vertical splitting (see adv_run_tracers).
     do k = ks, ke
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
