@@ -83,7 +83,7 @@ module namelist_mod
 
   character(30)   :: tangent_wgt_scheme   = 'classic'
 
-  real(r8)        :: implicit_w_wgt       = 1
+  real(r8)        :: implicit_w_wgt       = 0.55
 
   character(30)   :: vert_coord_scheme    = 'hybrid'
   character(30)   :: vert_coord_template  = 'N/A'
@@ -133,16 +133,16 @@ module namelist_mod
   integer         :: upwind_order         = 3       ! 0, 1, 3, 5
   integer         :: upwind_order_h       = -1      ! 0, 1, 3, 5
   integer         :: upwind_order_v       = -1      ! 0, 1, 3, 5
-  real(r8)        :: upwind_wgt           = 0.75_r8
+  real(r8)        :: upwind_wgt           = 1
 
   character(30)   :: time_scheme          = 'wrfrk3'
   logical         :: save_dyn_calc        = .true.
 
   ! Filter settings
   real(r8)        :: filter_wave_speed    = 300.0_r8
-  real(r8)        :: filter_coef_a        = 3.0_r8
-  real(r8)        :: filter_coef_b        = 0.8_r8
-  real(r8)        :: filter_coef_c        = 0.0_r8
+  real(r8)        :: filter_coef_a        = 3.5_r8
+  real(r8)        :: filter_coef_b        = 0.5_r8
+  real(r8)        :: filter_coef_c        = 0.5_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 0.0_r8
 
@@ -156,10 +156,10 @@ module namelist_mod
   logical         :: use_div_damp         = .false.
   integer         :: div_damp_cycles      = 1
   integer         :: div_damp_order       = 2
-  real(r8)        :: div_damp_top         = 3
+  real(r8)        :: div_damp_top         = 1
   integer         :: div_damp_k0          = 10
   real(r8)        :: div_damp_pole        = 100
-  real(r8)        :: div_damp_lat0        = 70
+  real(r8)        :: div_damp_lat0        = 80
   real(r8)        :: div_damp_coef2       = 1.0_r8 / 128.0_r8
   real(r8)        :: div_damp_coef4       = 0.01_r8
   logical         :: use_vor_damp         = .false.
@@ -169,10 +169,10 @@ module namelist_mod
   real(r8)        :: vor_damp_top         = 1
   integer         :: vor_damp_k0          = 6
   real(r8)        :: vor_damp_pole        = 100
-  real(r8)        :: vor_damp_lat0        = 70
+  real(r8)        :: vor_damp_lat0        = 80
   logical         :: use_rayleigh_damp_w  = .false.
-  real(r8)        :: rayleigh_damp_w_coef = 0.2
-  real(r8)        :: rayleigh_damp_top    = 10.0d3 ! m
+  real(r8)        :: rayleigh_damp_w_coef = 0.2       ! s-1
+  real(r8)        :: rayleigh_damp_top    = 10.0d3    ! m
   logical         :: use_p_damp           = .false.
   real(r8)        :: p_damp_coef          = 0.12_r8
   logical         :: use_smag_damp        = .false.
@@ -510,6 +510,8 @@ contains
     if (nonhydrostatic) then
       write(*, *) 'implicit_w_wgt      = ', to_str(implicit_w_wgt, 3)
       write(*, *) 'use_rayleigh_damp_w = ', to_str(use_rayleigh_damp_w)
+    end if
+    if (use_rayleigh_damp_w) then
       write(*, *) 'rayleigh_damp_w_coef= ', to_str(rayleigh_damp_w_coef, 2)
       write(*, *) 'rayleigh_damp_top   = ', to_str(rayleigh_damp_top   , 2)
     end if

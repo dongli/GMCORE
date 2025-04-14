@@ -47,8 +47,10 @@ contains
                mg_lev => block%dstate(1)%mg_lev, &
                mg     => block%dstate(1)%mg    , &
                t      => block%aux%t           , &
+               tv     => block%aux%tv          , &
                pt     => block%dstate(1)%pt    , &
-               gzs    => block%static%gzs)
+               gzs    => block%static%gzs      , &
+               gz_lev => block%dstate(1)%gz_lev)
     u%d = 0
     v%d = 0
 
@@ -66,6 +68,7 @@ contains
     do j = mesh%full_jds, mesh%full_jde
       do i = mesh%full_ids, mesh%full_ide
         mgs%d(i,j) = p0 * (1 - gamma / T0 * gzs%d(i,j) / g)**(g / Rd / gamma)
+        gz_lev%d(i,j,mesh%half_kde) = gzs%d(i,j)
       end do
     end do
     call fill_halo(mgs)
@@ -76,11 +79,16 @@ contains
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           t %d(i,j,k) = T0 * (mg%d(i,j,k) / p0)**(Rd * gamma / g)
+          tv%d(i,j,k) = t%d(i,j,k)
           pt%d(i,j,k) = modified_potential_temperature(t%d(i,j,k), mg%d(i,j,k), 0.0_r8)
         end do
       end do
     end do
     call fill_halo(pt)
+
+    call calc_dmg   (block, block%dstate(1))
+    call calc_ph    (block, block%dstate(1))
+    call calc_gz_lev(block, block%dstate(1))
     end associate
 
   end subroutine steady_state_pgf_test_set_ic

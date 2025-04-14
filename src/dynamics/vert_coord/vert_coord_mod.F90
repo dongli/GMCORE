@@ -136,7 +136,7 @@ contains
     k = global_mesh%half_kds
     global_mesh%half_dlev(k) = global_mesh%full_lev(k) - global_mesh%half_lev(k)
     k = global_mesh%half_kde
-    global_mesh%half_dlev(k) = global_mesh%half_lev(k) - global_mesh%full_lev(k)
+    global_mesh%half_dlev(k) = global_mesh%half_lev(k) - global_mesh%full_lev(k-1)
 
     do k = global_mesh%full_kms, global_mesh%full_kds - 1
       global_mesh%full_dlev(k) = global_mesh%full_dlev(global_mesh%full_kds)

@@ -122,7 +122,7 @@ contains
       call interp_pv                      (block, dstate, dt, substep)
       if (baroclinic    ) call calc_t     (block, dstate)
       if (hydrostatic   ) call calc_gz_lev(block, dstate)
-      if (hydrostatic   ) call calc_rhod  (block, dstate)
+      if (baroclinic    ) call calc_rhod  (block, dstate)
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
       call calc_ke                        (block, dstate,     substep)
