@@ -74,7 +74,7 @@ contains
 
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          mgs%d(i,j) = peq * exp(-0.5_r8 * ueq**2 / Rd / teq * mesh%full_sin_lat(j)**2 - gzs%d(i,j) / Rd / teq)
+          mgs%d(i,j) = peq * exp(-0.5_r8 * ueq**2 / rd / teq * mesh%full_sin_lat(j)**2 - gzs%d(i,j) / rd / teq)
         end do
       end do
       call fill_halo(mgs)
@@ -93,7 +93,7 @@ contains
       do k = mesh%half_kds, mesh%half_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            gz_lev%d(i,j,k) = Rd * teq * log(peq / mg_lev%d(i,j,k)) - 0.5_r8 * ueq**2 * mesh%full_sin_lat(j)**2
+            gz_lev%d(i,j,k) = rd * teq * log(peq / mg_lev%d(i,j,k)) - 0.5_r8 * ueq**2 * mesh%full_sin_lat(j)**2
           end do
         end do
       end do
@@ -139,7 +139,7 @@ contains
 
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
-          mgs%d(i,j) = peq * exp(-0.5_r8 * ueq**2 / Rd / teq * mesh%full_sin_lat(j)**2 - gzs%d(i,j) / Rd / teq)
+          mgs%d(i,j) = peq * exp(-0.5_r8 * ueq**2 / rd / teq * mesh%full_sin_lat(j)**2 - gzs%d(i,j) / rd / teq)
         end do
       end do
       call fill_halo(mgs)
@@ -158,7 +158,7 @@ contains
       do k = mesh%half_kds, mesh%half_kde
         do j = mesh%full_jds, mesh%full_jde
           do i = mesh%full_ids, mesh%full_ide
-            gz_lev%d(i,j,k) = Rd * teq * log(peq / mg_lev%d(i,j,k)) - 0.5_r8 * ueq**2 * mesh%full_sin_lat(j)**2
+            gz_lev%d(i,j,k) = rd * teq * log(peq / mg_lev%d(i,j,k)) - 0.5_r8 * ueq**2 * mesh%full_sin_lat(j)**2
           end do
         end do
       end do

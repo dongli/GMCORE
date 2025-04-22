@@ -92,6 +92,8 @@ contains
         call hybrid_coord_supercell_l40(p0, ptop, hyai, hybi)
       case ('schar_l40')
         call hybrid_coord_schar_l40(p0, ptop, hyai, hybi)
+      case ('schar_l60')
+        call hybrid_coord_schar_l60(p0, ptop, hyai, hybi)
       case ('dcmip21_l60')
         call hybrid_coord_dcmip21_l60(p0, ptop, hyai, hybi)
       case ('dcmip31_l10')
