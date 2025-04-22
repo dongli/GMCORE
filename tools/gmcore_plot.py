@@ -53,6 +53,7 @@ def plot_contour_lon(ax, var,
 	cmap=None,
 	norm=None,
 	levels=None,
+	contour_levels=None,
 	ticks=None,
 	left_string=None,
 	right_string=None,
@@ -87,10 +88,18 @@ def plot_contour_lon(ax, var,
 	ax.set_ylabel(f'{lev.long_name} ({lev.units})', fontsize=font_size)
 	if levels is not None and norm is None:
 		im = ax.contourf(lon, lev, var, cmap=cmap, levels=levels, extend='both')
-		if with_contour: ax.contour(lat, lev, var, levels=levels, linewidths=linewidth, colors='k')
+		if with_contour:
+			if contour_levels is not None:
+				ax.contour(lon, lev, var, levels=contour_levels, linewidths=linewidth, colors='k')
+			else:
+				ax.contour(lon, lev, var, levels=levels, linewidths=linewidth, colors='k')
 	elif levels is None and norm is not None:
 		im = ax.contourf(lon, lev, var, cmap=cmap, norm=norm, levels=norm.boundaries, extend='both')
-		if with_contour: ax.contour(lon, lev, var, norm=norm, levels=norm.boundaries, linewidths=linewidth, colors='k')
+		if with_contour:
+			if contour_levels is not None:
+				ax.contour(lon, lev, var, norm=norm, levels=contour_levels, linewidths=linewidth, colors='k')
+			else:
+				ax.contour(lon, lev, var, norm=norm, levels=norm.boundaries, linewidths=linewidth, colors='k')
 	else:
 		im = ax.contourf(lon, lev, var, cmap=cmap, extend='both')
 		if with_contour: ax.contour(lon, lev, var, levels=levels, linewidths=linewidth, colors='k')
