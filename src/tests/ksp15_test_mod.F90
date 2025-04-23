@@ -52,6 +52,7 @@ contains
                phs    => block%dstate(1)%phs   , &
                mg     => block%dstate(1)%mg    , &
                mg_lev => block%dstate(1)%mg_lev, &
+               gz     => block%dstate(1)%gz    , &
                gz_lev => block%dstate(1)%gz_lev)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
@@ -98,6 +99,14 @@ contains
         end do
       end do
       call fill_halo(gz_lev)
+
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            gz%d(i,j,k) = 0.5_r8 * (gz_lev%d(i,j,k) + gz_lev%d(i,j,k+1))
+          end do
+        end do
+      end do
     end associate
 
   end subroutine ksp15_01_test_set_ic
@@ -119,6 +128,7 @@ contains
                mgs    => block%dstate(1)%mgs   , &
                mg     => block%dstate(1)%mg    , &
                mg_lev => block%dstate(1)%mg_lev, &
+               gz     => block%dstate(1)%gz    , &
                gz_lev => block%dstate(1)%gz_lev)
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
@@ -163,6 +173,14 @@ contains
         end do
       end do
       call fill_halo(gz_lev)
+
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            gz%d(i,j,k) = 0.5_r8 * (gz_lev%d(i,j,k) + gz_lev%d(i,j,k+1))
+          end do
+        end do
+      end do
     end associate
 
   end subroutine ksp15_02_test_set_ic

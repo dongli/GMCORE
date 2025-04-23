@@ -209,6 +209,7 @@ def plot_contour_map(ax, var,
 	show_lat_labels=True,
 	with_contour=True,
 	contour_levels=None,
+	ticks=None,
 	linewidth=0.5,
 	transform_first=True,
 	with_cbar=True,
@@ -240,9 +241,9 @@ def plot_contour_map(ax, var,
 	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=transform_first)
 	if with_contour:
 		if contour_levels is None:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=transform_first)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, ticks=levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 		else:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, linewidths=linewidth, colors='k', transform_first=transform_first)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, ticks=contour_levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 	if with_grid:
 		gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, color='gray', alpha=0.5, linestyle='--')
 		gl.top_labels = False
@@ -253,7 +254,10 @@ def plot_contour_map(ax, var,
 		gl.ylabel_style = {'size': font_size if show_lat_labels else 0}
 	if with_cbar:
 		cax = make_axes_locatable(ax).append_axes('right', size='2%', pad=0.05, axes_class=plt.Axes)
-		cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient)
+		if ticks is not None:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient, ticks=ticks)
+		else:
+			cbar = plt.colorbar(im, cax=cax, orientation=cbar_orient)
 		formatter = ticker.ScalarFormatter(useMathText=True)
 		if use_scientific:
 			formatter.set_scientific(True)
