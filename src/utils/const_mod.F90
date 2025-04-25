@@ -25,6 +25,12 @@ module const_mod
   integer, parameter :: r8 = 8
 #endif
 
+  integer, parameter :: strlen_scheme    = 30
+  integer, parameter :: strlen_loc       = 10
+  integer, parameter :: strlen_name      = 30
+  integer, parameter :: strlen_long_name = 50
+  integer, parameter :: strlen_units     = 32
+
   real( 8), parameter :: pi           = atan(1.0d0) * 4.0d0
   real( 8), parameter :: pi2          = pi * 2
   real( 8), parameter :: pi05         = pi * 0.5d0

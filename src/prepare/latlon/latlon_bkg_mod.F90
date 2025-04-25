@@ -828,14 +828,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_qv) = q%d(i,j,k,idx_qv) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_qv) = q%d(i,j,k,idx_qv) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_qv)
       end associate
     end do
 
@@ -858,14 +859,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_qc) = q%d(i,j,k,idx_qc) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_qc) = q%d(i,j,k,idx_qc) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_qc)
       end associate
     end do
 
@@ -888,14 +890,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_qi) = q%d(i,j,k,idx_qi) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_qi) = q%d(i,j,k,idx_qi) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_qi)
       end associate
     end do
 
@@ -918,14 +921,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_nc) = q%d(i,j,k,idx_nc) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_nc) = q%d(i,j,k,idx_nc) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_nc)
       end associate
     end do
 
@@ -948,14 +952,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_ni) = q%d(i,j,k,idx_ni) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_ni) = q%d(i,j,k,idx_ni) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_ni)
       end associate
     end do
 
@@ -978,14 +983,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_qr) = q%d(i,j,k,idx_qr) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_qr) = q%d(i,j,k,idx_qr) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_qr)
       end associate
     end do
 
@@ -1008,14 +1014,15 @@ contains
       associate (mesh => blocks(iblk)%mesh, &
                  qm   => tracers(iblk)%qm , & ! in
                  q    => tracers(iblk)%q  )   ! out
-        do k = mesh%full_kds, mesh%full_kde
-          do j = mesh%full_jds, mesh%full_jde
-            do i = mesh%full_ids, mesh%full_ide
-              ! NOTE: qm is currently the total wet mixing ratio of water substances.
-              q%d(i,j,k,idx_qs) = q%d(i,j,k,idx_qs) / (1 - qm%d(i,j,k))
-            end do
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            ! NOTE: qm is currently the total wet mixing ratio of water substances.
+            q%d(i,j,k,idx_qs) = q%d(i,j,k,idx_qs) / (1 - qm%d(i,j,k))
           end do
         end do
+      end do
+      call fill_halo(q, idx_qs)
       end associate
     end do
 

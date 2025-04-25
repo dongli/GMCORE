@@ -52,10 +52,10 @@ module adv_batch_mod
   ! Different tracers can be combined into one batch, and advected in different
   ! time steps.
   type adv_batch_type
-    character(30) :: scheme_h = 'N/A'
-    character(30) :: scheme_v = 'N/A'
-    character(10) :: loc  = 'cell'
-    character(30) :: name = ''
+    character(strlen_scheme) :: scheme_h = 'N/A'
+    character(strlen_scheme) :: scheme_v = 'N/A'
+    character(strlen_loc   ) :: loc  = 'cell'
+    character(strlen_name  ) :: name = ''
     logical  :: initialized = .false.
     logical  :: dynamic     = .false.
     logical  :: passive     = .true.

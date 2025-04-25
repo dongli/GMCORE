@@ -111,32 +111,81 @@ contains
     call fiona_add_dim('r0', 'ilev'     , size=global_mesh%half_nlev)
     call fiona_add_var('r0', 'time_step', long_name='', units='', dim_names=['time'], dtype='i4')
 
+    call fiona_add_dim('r0', 'adv_batch', size=nbatches)
+    call fiona_add_dim('r0', 'ntracers' , size=ntracers)
+    if (nbatches > 0) then
+      call fiona_add_dim('r0', 'strlen_scheme'     , size=strlen_scheme   )
+      call fiona_add_dim('r0', 'strlen_loc'        , size=strlen_loc      )
+      call fiona_add_dim('r0', 'strlen_name'       , size=strlen_name     )
+      call fiona_add_dim('r0', 'strlen_long_name'  , size=strlen_long_name)
+      call fiona_add_dim('r0', 'strlen_units'      , size=strlen_units    )
+      call fiona_add_var('r0', 'adv_batch_scheme_h', long_name='Tracer advection horizontal scheme', units='' , dim_names=['strlen_scheme   ', 'adv_batch       '], dtype='s' )
+      call fiona_add_var('r0', 'adv_batch_scheme_v', long_name='Tracer advection vertical scheme'  , units='' , dim_names=['strlen_scheme   ', 'adv_batch       '], dtype='s' )
+      call fiona_add_var('r0', 'adv_batch_loc'     , long_name='Tracer advection location'         , units='' , dim_names=['strlen_loc      ', 'adv_batch       '], dtype='s' )
+      call fiona_add_var('r0', 'adv_batch_names'   , long_name='Tracer advection batch name'       , units='' , dim_names=['strlen_name     ', 'adv_batch       '], dtype='s' )
+      call fiona_add_var('r0', 'adv_batch_dt'      , long_name='Tracer advection time step'        , units='s', dim_names=[                    'adv_batch       '], dtype='r8')
+      call fiona_add_var('r0', 'adv_batch_ntracers', long_name='Number of tracers in each batch'   , units='' , dim_names=[                    'adv_batch       '], dtype='i4')
+      call fiona_add_var('r0', 'adv_batch_idx'     , long_name='Tracer indices for each batch'     , units='' , dim_names=['ntracers        ', 'adv_batch       '], dtype='i4')
+      call fiona_add_var('r0', 'tracer_names'      , long_name='Tracer names'                      , units='' , dim_names=['strlen_name     ', 'ntracers        '], dtype='s' )
+      call fiona_add_var('r0', 'tracer_long_names' , long_name='Tracer long names'                 , units='' , dim_names=['strlen_long_name', 'ntracers        '], dtype='s' )
+      call fiona_add_var('r0', 'tracer_units'      , long_name='Tracer units'                      , units='' , dim_names=['strlen_units    ', 'ntracers        '], dtype='s' )
+      call fiona_add_var('r0', 'tracer_types'      , long_name='Tracer types'                      , units='' , dim_names=[                    'ntracers        '], dtype='i4')
+    end if
+
     call add_fields('r0', blocks(1)%dstate(1)%fields)
     call add_fields('r0', blocks(1)%static   %fields, static=.true.)
     call add_fields('r0', blocks(1)%aux      %fields)
     field => tracers(1)%q
+    call add_field ('r0', field)
+    field => tracers(1)%qm
+    call add_field ('r0', field)
+    field => tracers(1)%qm_lev
     call add_field ('r0', field)
     do i = 1, nbatches
       call add_fields('r0', blocks(1)%adv_batches(i)%fields)
     end do
 
     call fiona_start_output('r0', dble(elapsed_seconds), new_file=.true.)
-    call fiona_output('r0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon))
-    call fiona_output('r0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat))
-    call fiona_output('r0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon))
-    call fiona_output('r0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat))
+    call fiona_output('r0', 'lon' , global_mesh%full_lon_deg(1:global_mesh%full_nlon), only_root=.true.)
+    call fiona_output('r0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat), only_root=.true.)
+    call fiona_output('r0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon), only_root=.true.)
+    call fiona_output('r0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat), only_root=.true.)
     call fiona_output('r0', 'time_step', time_step)
+
+    if (nbatches > 0) then
+      do i = 1, nbatches
+        associate (batch => blocks(1)%adv_batches(i))
+        call fiona_output('r0', 'adv_batch_scheme_h', batch%scheme_h, start=[1,i], count=[strlen_scheme ,1])
+        call fiona_output('r0', 'adv_batch_scheme_v', batch%scheme_v, start=[1,i], count=[strlen_scheme ,1])
+        call fiona_output('r0', 'adv_batch_loc'     , batch%loc     , start=[1,i], count=[strlen_loc    ,1])
+        call fiona_output('r0', 'adv_batch_names'   , batch%name    , start=[1,i], count=[strlen_name   ,1])
+        call fiona_output('r0', 'adv_batch_dt'      , batch%dt      )
+        call fiona_output('r0', 'adv_batch_ntracers', batch%ntracers)
+        call fiona_output('r0', 'adv_batch_idx'     , batch%idx     , start=[1,i], count=[batch%ntracers,1])
+        end associate
+      end do
+      do i = 1, ntracers
+        call fiona_output('r0', 'tracer_names'      , tracer_names     (i), start=[1,i], count=[strlen_name     ,1])
+        call fiona_output('r0', 'tracer_long_names' , tracer_long_names(i), start=[1,i], count=[strlen_long_name,1])
+        call fiona_output('r0', 'tracer_units'      , tracer_units     (i), start=[1,i], count=[strlen_units    ,1])
+        call fiona_output('r0', 'tracer_types'      , tracer_types     (i), start=[  i])
+      end do
+    end if
 
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh         , &
                  dstate => blocks(iblk)%dstate(itime), &
                  static => blocks(iblk)%static       , &
                  aux    => blocks(iblk)%aux          , &
-                 q       => tracers(iblk)%q          )
+                 q      => tracers(iblk)%q           , &
+                 qm     => tracers(iblk)%qm          , &
+                 qm_lev => tracers(iblk)%qm_lev      )
       call write_fields('r0', mesh, dstate%fields)
       call write_fields('r0', mesh, static%fields)
       call write_fields('r0', mesh, aux   %fields)
-      call write_field ('r0', mesh, q)
+      call write_field ('r0', mesh, q            )
+      call write_field ('r0', mesh, qm           )
+      call write_field ('r0', mesh, qm_lev       )
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
         if (batch%step /= 0) then
@@ -160,12 +209,15 @@ contains
   subroutine restart_read()
 
     type(datetime_type) time
-    integer iblk, i
-    real(r8) time_value, time1, time2
+    integer iblk, i, j, n
+    real(r8) time_value, time1, time2, dt
     character(50) time_units
     class(*), pointer :: field
-
     character(30) start_time_str
+    character(strlen_scheme) scheme_h, scheme_v
+    character(strlen_loc   ) loc
+    character(strlen_name  ) name
+    integer, allocatable :: idx(:)
 
     if (restart_file == 'N/A') then
       call log_error('Parameter restart_file is needed to restart!', pid=proc%id_model)
@@ -186,17 +238,74 @@ contains
     call fiona_input('r0', 'time_step', time_step)
     call time_fast_forward(time_value, time_units, change_end_time=.false.)
 
+    call fiona_get_dim('r0', 'adv_batch', nbatches)
+    call fiona_get_dim('r0', 'ntracers' , ntracers)
+    if (nbatches > 0) then
+      if (allocated(tracer_names     )) deallocate(tracer_names     ); allocate(tracer_names     (ntracers))
+      if (allocated(tracer_long_names)) deallocate(tracer_long_names); allocate(tracer_long_names(ntracers))
+      if (allocated(tracer_units     )) deallocate(tracer_units     ); allocate(tracer_units     (ntracers))
+      if (allocated(tracer_types     )) deallocate(tracer_types     ); allocate(tracer_types     (ntracers))
+      do i = 1, ntracers
+        call fiona_input('r0', 'tracer_names'     , tracer_names     (i), start=[1,i], count=[strlen_name     ,1])
+        call fiona_input('r0', 'tracer_long_names', tracer_long_names(i), start=[1,i], count=[strlen_long_name,1])
+        call fiona_input('r0', 'tracer_units'     , tracer_units     (i), start=[1,i], count=[strlen_units    ,1])
+        call fiona_input('r0', 'tracer_types'     , tracer_types     (i), start=[  i])
+        call tracer_catalog(i)
+      end do
+      allocate(idx(ntracers))
+      do iblk = 1, size(blocks)
+        allocate(blocks(iblk)%adv_batches(nbatches))
+        do i = 1, nbatches
+          associate (batch => blocks(iblk)%adv_batches(i))
+          call fiona_input('r0', 'adv_batch_scheme_h', scheme_h, start=[1,i], count=[strlen_scheme,1])
+          call fiona_input('r0', 'adv_batch_scheme_v', scheme_v, start=[1,i], count=[strlen_scheme,1])
+          call fiona_input('r0', 'adv_batch_loc'     , loc     , start=[1,i], count=[strlen_loc   ,1])
+          call fiona_input('r0', 'adv_batch_names'   , name    , start=[1,i], count=[strlen_name  ,1])
+          call fiona_input('r0', 'adv_batch_dt'      , dt      )
+          call fiona_input('r0', 'adv_batch_ntracers', n       )
+          call fiona_input('r0', 'adv_batch_idx'     , idx     , start=[1,i], count=[ntracers     ,1])
+          call batch%init(                                      &
+            blocks(iblk)%big_filter                           , &
+            blocks(iblk)%filter_mesh, blocks(iblk)%filter_halo, &
+            blocks(iblk)%mesh, blocks(iblk)%halo              , &
+            trim(scheme_h)//':'//trim(scheme_v), loc, name, dt, &
+            dynamic=.false., passive=.true., idx=idx(1:n)     , &
+            bg=blocks(iblk)%adv_batch_bg)
+          end associate
+        end do
+      end do
+      deallocate(idx)
+
+      if (proc%is_root()) then
+        call log_notice('There are ' // to_str(size(blocks(1)%adv_batches)) // ' advection batches.')
+        do i = 1, size(blocks(1)%adv_batches)
+          write(*, *) '- ', trim(blocks(1)%adv_batches(i)%name), ' dt_adv = ', to_str(int(blocks(1)%adv_batches(i)%dt))
+          do j = 1, blocks(1)%adv_batches(i)%ntracers
+            write(*, *) '  * ', trim(tracer_names(blocks(1)%adv_batches(i)%idx(j)))
+          end do
+        end do
+      end if
+
+      call tracer_init_stage2()
+    end if
+
     do iblk = 1, size(blocks)
       associate (mesh   => blocks(iblk)%mesh       , &
                  dstate => blocks(iblk)%dstate(old), &
                  static => blocks(iblk)%static     , &
                  aux    => blocks(iblk)%aux        , &
-                 q      => tracers(iblk)%q         )
+                 q      => tracers(iblk)%q         , &
+                 qm     => tracers(iblk)%qm        , &
+                 qm_lev => tracers(iblk)%qm_lev    )
       call read_fields('r0', mesh, dstate%fields)
       call read_fields('r0', mesh, static%fields)
       call read_fields('r0', mesh, aux   %fields)
-      field => tracers(old)%q
-      call read_field ('r0', mesh, q)
+      field => tracers(iblk)%q
+      call read_field ('r0', mesh, q     )
+      field => tracers(iblk)%qm
+      call read_field ('r0', mesh, qm    )
+      field => tracers(iblk)%qm_lev
+      call read_field ('r0', mesh, qm_lev)
       ! FIXME: We need to aqcuire tracer advection batches information from restart file, and register them.
       do i = 1, nbatches
         associate (batch => blocks(iblk)%adv_batches(i))
@@ -278,7 +387,7 @@ contains
     type is (latlon_field4d_type)
       if (.not. field%restart) return
       do i = 1, field%dim4_size
-        call fiona_add_var(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), long_name=trim(field%long_name) // ' of ' // trim(field%var4_names(i)), &
+        call fiona_add_var(dtag, field%var4_names(i), long_name=trim(field%long_name) // ' of ' // trim(field%var4_names(i)), &
           units=field%units, dim_names=cell_dims_3d, dtype='r8')
       end do
     end select
@@ -367,6 +476,7 @@ contains
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       call fiona_output(dtag, field%name, field%d(is:ie,js:je,ks:ke), start=start3d, count=count3d)
+      if (field%name == 'p') print *, 'write field p', sum(field%d(is:ie,js:je,ks:ke)), field%d(is,23,1), field%d(ie+1,23,1)
     type is (latlon_field4d_type)
       if (.not. field%restart) return
       select case (field%loc)
@@ -378,8 +488,7 @@ contains
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       do i = 1, field%dim4_size
-        call fiona_output(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), &
-          field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
+        call fiona_output(dtag, field%var4_names(i), field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
       end do
     end select
 
@@ -469,6 +578,7 @@ contains
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       call fiona_input(dtag, field%name, field%d(is:ie,js:je,ks:ke), start=start3d, count=count3d)
       call fill_halo(field)
+      if (field%name == 'p') print *, 'read field p', sum(field%d(is:ie,js:je,ks:ke)), field%d(is,23,1), field%d(ie+1,23,1)
     type is (latlon_field4d_type)
       if (.not. field%restart) return
       select case (field%loc)
@@ -480,8 +590,7 @@ contains
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       do i = 1, field%dim4_size
-        call fiona_input(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), &
-          field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
+        call fiona_input(dtag, field%var4_names(i), field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
         call fill_halo(field, i)
       end do
     end select

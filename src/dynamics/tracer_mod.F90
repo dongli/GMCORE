@@ -27,6 +27,7 @@ module tracer_mod
   public tracer_init_stage2
   public tracer_final
   public tracer_add
+  public tracer_catalog
   public tracer_get_idx
   public tracer_calc_qm
   public ntracers
@@ -148,39 +149,46 @@ contains
     end if
 
     ntracers = ntracers + 1
-    tracer_batches(ntracers) = batch_name
-    tracer_names(ntracers) = name
+    tracer_batches   (ntracers) = batch_name
+    tracer_names     (ntracers) = name
     tracer_long_names(ntracers) = long_name
     if (present(units)) tracer_units(ntracers) = units
-    if (present(type)) tracer_types(ntracers) = type
+    if (present(type )) tracer_types(ntracers) = type
 
-    ! Set tracer indices.
-    select case (name)
-    case ('qv', 'Q')
-      idx_qv    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
-    case ('qc', 'CLDLIQ')
-      idx_qc    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
-    case ('nc', 'NUMLIQ')
-      idx_nc    = ntracers
-    case ('qi', 'CLDICE')
-      idx_qi    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
-    case ('ni', 'NUMICE')
-      idx_ni    = ntracers
-    case ('qr', 'RAINQM')
-      idx_qr    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
-    case ('qs', 'SNOWQM')
-      idx_qs    = ntracers; is_water_tracer(ntracers) = .true.; ntracers_water = ntracers_water + 1
-    case ('qg')
-      idx_qg    = ntracers; ntracers_water = ntracers_water + 1
-    case ('qh')
-      idx_qh    = ntracers; ntracers_water = ntracers_water + 1
-    case ('qo3')
-      idx_qo3   = ntracers
-    case ('qso2', 'SO2')
-      idx_qso2  = ntracers
-    end select
+    call tracer_catalog(ntracers)
 
   end subroutine tracer_add
+
+  subroutine tracer_catalog(idx)
+
+    integer, intent(in) :: idx
+
+    select case (tracer_names(idx))
+    case ('qv', 'Q')
+      idx_qv    = idx; is_water_tracer(idx) = .true.; ntracers_water = ntracers_water + 1
+    case ('qc', 'CLDLIQ')
+      idx_qc    = idx; is_water_tracer(idx) = .true.; ntracers_water = ntracers_water + 1
+    case ('nc', 'NUMLIQ')
+      idx_nc    = idx
+    case ('qi', 'CLDICE')
+      idx_qi    = idx; is_water_tracer(idx) = .true.; ntracers_water = ntracers_water + 1
+    case ('ni', 'NUMICE')
+      idx_ni    = idx
+    case ('qr', 'RAINQM')
+      idx_qr    = idx; is_water_tracer(idx) = .true.; ntracers_water = ntracers_water + 1
+    case ('qs', 'SNOWQM')
+      idx_qs    = idx; is_water_tracer(idx) = .true.; ntracers_water = ntracers_water + 1
+    case ('qg')
+      idx_qg    = idx; ntracers_water = ntracers_water + 1
+    case ('qh')
+      idx_qh    = idx; ntracers_water = ntracers_water + 1
+    case ('qo3')
+      idx_qo3   = idx
+    case ('qso2', 'SO2')
+      idx_qso2  = idx
+    end select
+
+  end subroutine tracer_catalog
 
   pure integer function tracer_get_idx(name) result(res)
 

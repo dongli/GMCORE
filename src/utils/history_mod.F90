@@ -478,7 +478,7 @@ contains
     type is (latlon_field4d_type)
       if (field%output /= dtag) return
       do i = 1, field%dim4_size
-        call fiona_add_var(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), long_name=trim(field%long_name) // ' of ' // trim(field%var4_names(i)), &
+        call fiona_add_var(dtag, field%var4_names(i), long_name=trim(field%long_name) // ' of ' // trim(field%var4_names(i)), &
           units=field%units, dim_names=cell_dims_3d, dtype=output_h0_dtype)
       end do
     end select
@@ -568,8 +568,7 @@ contains
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       do i = 1, field%dim4_size
-        call fiona_output(dtag, trim(field%name) // '_' // trim(field%var4_names(i)), &
-          field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
+        call fiona_output(dtag, field%var4_names(i), field%d(is:ie,js:je,ks:ke,i), start=start3d, count=count3d)
       end do
     end select
 

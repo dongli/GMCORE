@@ -29,12 +29,12 @@ module tracer_types_mod
   integer idx_qo3
   integer idx_qso2
 
-  character(32), allocatable :: batch_names(:)
+  character(strlen_name     ), allocatable :: batch_names(:)
+  character(strlen_name     ), allocatable :: tracer_batches(:)
+  character(strlen_name     ), allocatable :: tracer_names(:)
+  character(strlen_long_name), allocatable :: tracer_long_names(:)
+  character(strlen_units    ), allocatable :: tracer_units(:)
   real(r8), allocatable :: batch_dts(:)
-  character(32), allocatable :: tracer_batches(:)
-  character(32), allocatable :: tracer_names(:)
-  character(32), allocatable :: tracer_long_names(:)
-  character(32), allocatable :: tracer_units(:)
   ! Follow other model's definition:
   ! 0 - Generic tracer
   ! 1 - Prognostic chemical tracer
@@ -76,13 +76,13 @@ contains
     name      = 'qm'
     long_name = 'Total moist tracer dry mixing ratioo'
     units     = 'kg kg-1'
-    call this%qm%init(name, long_name, units, 'cell', mesh, halo)
+    call this%qm%init(name, long_name, units, 'cell', mesh, halo, restart=.true.)
 
     if (nonhydrostatic) then
       name      = 'qm_lev'
       long_name = 'Total moist tracer dry mixing ratioo on half level'
       units     = 'kg kg-1'
-      call this%qm_lev%init(name, long_name, units, 'lev', mesh, halo)
+      call this%qm_lev%init(name, long_name, units, 'lev', mesh, halo, restart=.true.)
     end if
 
     this%initialized = .true.
