@@ -198,6 +198,8 @@ def plot_contour_lat(ax, var,
 	cbar.update_ticks()
 
 def plot_contour_map(ax, var,
+	lon=None,
+	lat=None,
 	cmap=None,
 	levels=None,
 	left_string=None,
@@ -221,29 +223,31 @@ def plot_contour_map(ax, var,
 	else:
 		ax.set_title('')
 	ax.title.set_fontsize(font_size)
-	if 'lon' in var.dims:
-		lon = var.lon.copy()
-	elif 'ilon' in var.dims:
-		lon = var.ilon.copy()
-	else:
-		print(f'[Error]: Variable {var.name} has no lon or ilon dimension!')
-		exit(1)
-	if 'lat' in var.dims:
-		lat = var.lat.copy()
-	elif 'ilat' in var.dims:
-		lat = var.ilat.copy()
-	else:
-		print(f'[Error]: Variable {var.name} has no lat or ilat dimension!')
-		exit(1)
+	if lon is None:
+		if 'lon' in var.dims:
+			lon = var.lon.copy()
+		elif 'ilon' in var.dims:
+			lon = var.ilon.copy()
+		else:
+			print(f'[Error]: Variable {var.name} has no lon or ilon dimension!')
+			exit(1)
+	if lat is None:
+		if 'lat' in var.dims:
+			lat = var.lat.copy()
+		elif 'ilat' in var.dims:
+			lat = var.ilat.copy()
+		else:
+			print(f'[Error]: Variable {var.name} has no lat or ilat dimension!')
+			exit(1)
 	if add_cyclic_point: var, lon = cutil.add_cyclic_point(var, coord=lon)
 	# Use transform_first as in https://scitools.org.uk/cartopy/docs/latest/gallery/scalar_data/contour_transforms.html to avoid failure in contouring.
 	lon2d, lat2d = np.meshgrid(lon, lat) # Needs 2D coordinates for transform_first=True.
 	im = ax.contourf(lon2d, lat2d, var, transform=ccrs.PlateCarree(), cmap=cmap, levels=levels, extend='both', transform_first=transform_first)
 	if with_contour:
 		if contour_levels is None:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, ticks=levels, linewidths=linewidth, colors='k', transform_first=transform_first)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 		else:
-			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, ticks=contour_levels, linewidths=linewidth, colors='k', transform_first=transform_first)
+			ax.contour(lon2d, lat2d, var, transform=ccrs.PlateCarree(), levels=contour_levels, linewidths=linewidth, colors='k', transform_first=transform_first)
 	if with_grid:
 		gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, color='gray', alpha=0.5, linestyle='--')
 		gl.top_labels = False
