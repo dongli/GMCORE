@@ -49,6 +49,8 @@ module history_mod
   character(8), parameter :: lev_lon_dims_3d(4) = ['ilon', 'lat ', 'ilev', 'time']
   character(8), parameter :: lev_lat_dims_3d(4) = ['lon ', 'ilat', 'ilev', 'time']
 
+  integer :: time_step_h0 = 0
+
 contains
 
   subroutine history_init_stage1()
@@ -64,7 +66,10 @@ contains
   subroutine history_init_stage3()
 
     character(10) time_value, time_units
-    real(r8) seconds, months
+    real(r8) seconds, months, restart_time
+    integer ntime
+    real(r8), allocatable :: time_h0(:)
+    logical exist
 
     if (history_interval(1) == 'N/A') call log_error('Parameter history_interval is not set!')
     if (case_name == 'N/A') call log_error('Parameter case_name is not set!')
@@ -92,6 +97,32 @@ contains
       if (proc%is_root()) call log_notice('Output data every ' // trim(history_interval(1)) // '.')
     else if (output_h0_new_file == 'one_file') then
       if (proc%is_root()) call log_notice('Output data in one file.')
+      if (restart .and. append_h0) then
+        inquire(file=trim(case_name) // '.h0.nc', exist=exist)
+        if (exist) then
+          ! Find the restart time step.
+          call fiona_open_dataset('r0', file_path=restart_file, mpi_comm=proc%comm_io, async=use_async_io)
+          call fiona_start_input('r0')
+          call fiona_input('r0', 'time', restart_time)
+          call fiona_end_input('r0')
+          call fiona_open_dataset('h0', file_path=trim(case_name) // '.h0.nc', mpi_comm=proc%comm_io, async=use_async_io)
+          call fiona_get_dim('h0', 'time', size=ntime)
+          allocate(time_h0(ntime))
+          call fiona_start_input('h0')
+          call fiona_input('h0', 'time', time_h0)
+          do time_step_h0 = 1, ntime
+            if (abs(time_h0(time_step_h0) - restart_time) < 1.0e-6) exit
+          end do
+          if (time_step_h0 == ntime + 1) then
+            if (proc%is_root()) call log_error('Restart time step not found in h0 file!', __FILE__, __LINE__)
+          end if
+          time_step_h0 = time_step_h0 - 1
+          call fiona_end_input('h0')
+          deallocate(time_h0)
+        else
+          append_h0 = .false.
+        end if
+      end if
     else
       time_value = split_string(output_h0_new_file, ' ', 1)
       time_units = split_string(output_h0_new_file, ' ', 2)
@@ -126,9 +157,9 @@ contains
 
     call fiona_set_time(time_units, start_time_str)
 
-    call history_setup_h0()
-    call history_setup_h1()
-    call history_setup_h2()
+    if (output_h0) call history_setup_h0()
+    if (output_h1) call history_setup_h1()
+    if (output_h2) call history_setup_h2()
 
   end subroutine history_init_stage3
 
@@ -144,7 +175,7 @@ contains
     integer i
 
     call fiona_create_dataset('h0', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm_io, ngroups=output_ngroups, async=use_async_io)
+      time_step=time_step_h0, mpi_comm=proc%comm_io, ngroups=output_ngroups, async=use_async_io)
     ! Global attributes
     call fiona_add_att('h0', 'planet', planet)
     call namelist_add_atts('h0')
@@ -205,9 +236,9 @@ contains
     end if
 
     if (.not. time_has_alert('h0_new_file')) then
-      call fiona_start_output('h0', dble(elapsed_seconds), new_file=first_call)
+      call fiona_start_output('h0', dble(elapsed_seconds), new_file=first_call.and..not.append_h0)
     else
-      call fiona_start_output('h0', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
+      call fiona_start_output('h0', dble(elapsed_seconds), new_file=.not.append_h0, tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
 
     select case (planet)

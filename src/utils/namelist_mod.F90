@@ -195,6 +195,7 @@ module namelist_mod
   character(8)    :: output_i0_dtype      = 'r8'
 #endif
   logical         :: output_h0            = .true.
+  logical         :: append_h0            = .true.
   character(8)    :: output_h0_dtype      = 'r4'
   logical         :: output_h1            = .false.
   logical         :: output_h2            = .false.
@@ -368,6 +369,10 @@ contains
     if (use_async_io) then
       input_ngroups = nproc_io
       output_ngroups = nproc_io
+    end if
+
+    if (.not. restart) then
+      append_h0 = .false.
     end if
 
     ! Here we set baroclinic according to levels.

@@ -238,6 +238,19 @@ contains
     call fiona_input('r0', 'time_step', time_step)
     call time_fast_forward(time_value, time_units, change_end_time=.false.)
 
+    select case (split_string(time_units, ' ', 1))
+    case ('days', 'sol')
+      elapsed_seconds = time_value * 86400.0
+    case ('hours')
+      elapsed_seconds = time_value * 3600.0
+    case ('minutes')
+      elapsed_seconds = time_value * 60.0
+    case ('seconds')
+      elapsed_seconds = time_value
+    case default
+      if (proc%is_root()) call log_error('Invalid time_units ' // trim(time_units) // '!', __FILE__, __LINE__)
+    end select
+
     call fiona_get_dim('r0', 'adv_batch', nbatches)
     call fiona_get_dim('r0', 'ntracers' , ntracers)
     if (nbatches > 0) then
@@ -476,7 +489,6 @@ contains
       start3d = [is,js,ks]
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       call fiona_output(dtag, field%name, field%d(is:ie,js:je,ks:ke), start=start3d, count=count3d)
-      if (field%name == 'p') print *, 'write field p', sum(field%d(is:ie,js:je,ks:ke)), field%d(is,23,1), field%d(ie+1,23,1)
     type is (latlon_field4d_type)
       if (.not. field%restart) return
       select case (field%loc)
@@ -578,7 +590,6 @@ contains
       count3d = [ie-is+1,je-js+1,ke-ks+1]
       call fiona_input(dtag, field%name, field%d(is:ie,js:je,ks:ke), start=start3d, count=count3d)
       call fill_halo(field)
-      if (field%name == 'p') print *, 'read field p', sum(field%d(is:ie,js:je,ks:ke)), field%d(is,23,1), field%d(ie+1,23,1)
     type is (latlon_field4d_type)
       if (.not. field%restart) return
       select case (field%loc)
