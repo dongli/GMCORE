@@ -173,7 +173,6 @@ contains
 
     integer iblk
 
-    call regrid_init()
     call physics_init_stage2(namelist_path)
     call pgf_init()
     call interp_init()
@@ -226,6 +225,7 @@ contains
     end select
     call time_add_alert('print', seconds=seconds)
 
+    call regrid_init()
     if (proc%is_model()) then
       if (.not. advection) call operators_prepare(blocks, old, dt_dyn)
       call physics_init_stage3()

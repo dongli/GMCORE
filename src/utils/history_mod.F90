@@ -50,6 +50,7 @@ module history_mod
   character(8), parameter :: lev_lat_dims_3d(4) = ['lon ', 'ilat', 'ilev', 'time']
 
   integer :: time_step_h0 = 0
+  integer :: time_step_h2 = 0
 
 contains
 
@@ -68,7 +69,7 @@ contains
     character(10) time_value, time_units
     real(r8) seconds, months, restart_time
     integer ntime
-    real(r8), allocatable :: time_h0(:)
+    real(r8), allocatable :: time_values(:)
     logical exist
 
     if (history_interval(1) == 'N/A') call log_error('Parameter history_interval is not set!')
@@ -100,25 +101,45 @@ contains
       if (restart .and. append_h0) then
         inquire(file=trim(case_name) // '.h0.nc', exist=exist)
         if (exist) then
-          ! Find the restart time step.
+          ! Get the restart time step.
           call fiona_open_dataset('r0', file_path=restart_file, mpi_comm=proc%comm_io, async=use_async_io)
           call fiona_start_input('r0')
           call fiona_input('r0', 'time', restart_time)
           call fiona_end_input('r0')
-          call fiona_open_dataset('h0', file_path=trim(case_name) // '.h0.nc', mpi_comm=proc%comm_io, async=use_async_io)
-          call fiona_get_dim('h0', 'time', size=ntime)
-          allocate(time_h0(ntime))
-          call fiona_start_input('h0')
-          call fiona_input('h0', 'time', time_h0)
-          do time_step_h0 = 1, ntime
-            if (abs(time_h0(time_step_h0) - restart_time) < 1.0e-6) exit
-          end do
-          if (time_step_h0 == ntime + 1) then
-            if (proc%is_root()) call log_error('Restart time step not found in h0 file!', __FILE__, __LINE__)
+          if (output_h0) then
+            ! Find the restart time step in h0 file.
+            call fiona_open_dataset('h0', file_path=trim(case_name) // '.h0.nc', mpi_comm=proc%comm_io, async=use_async_io)
+            call fiona_get_dim('h0', 'time', size=ntime)
+            allocate(time_values(ntime))
+            call fiona_start_input('h0')
+            call fiona_input('h0', 'time', time_values)
+            do time_step_h0 = 1, ntime
+              if (abs(time_values(time_step_h0) - restart_time) < 1.0e-6) exit
+            end do
+            if (time_step_h0 == ntime + 1) then
+              if (proc%is_root()) call log_error('Restart time step not found in h0 file!', __FILE__, __LINE__)
+            end if
+            time_step_h0 = time_step_h0 - 1
+            call fiona_end_input('h0')
+            deallocate(time_values)
           end if
-          time_step_h0 = time_step_h0 - 1
-          call fiona_end_input('h0')
-          deallocate(time_h0)
+          if (output_h2) then
+            ! Find the restart time step in h2 file.
+            call fiona_open_dataset('h2', file_path=trim(case_name) // '.h2.nc', mpi_comm=proc%comm_io, async=use_async_io)
+            call fiona_get_dim('h2', 'time', size=ntime)
+            allocate(time_values(ntime))
+            call fiona_start_input('h2')
+            call fiona_input('h2', 'time', time_values)
+            do time_step_h2 = 1, ntime
+              if (abs(time_values(time_step_h2) - restart_time) < 1.0e-6) exit
+            end do
+            if (time_step_h2 == ntime + 1) then
+              if (proc%is_root()) call log_error('Restart time step not found in h2 file!', __FILE__, __LINE__)
+            end if
+            time_step_h2 = time_step_h2 - 1
+            call fiona_end_input('h2')
+            deallocate(time_values)
+          end if
         else
           append_h0 = .false.
         end if
@@ -391,7 +412,7 @@ contains
     if (.not. regrid_initialized) return
 
     call fiona_create_dataset('h2', desc=case_desc, file_prefix=trim(case_name), &
-      mpi_comm=proc%comm_io, ngroups=output_ngroups)
+      time_step=time_step_h2, mpi_comm=proc%comm_io, ngroups=output_ngroups)
     ! Global attributes
     call fiona_add_att('h2', 'planet', planet)
     ! Dimensions
