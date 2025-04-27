@@ -27,9 +27,9 @@ module pgf_mod
   interface
     subroutine pgf_run_interface(block, dstate, dtend)
       import block_type, dstate_type, dtend_type
-      type(block_type), intent(inout) :: block
-      type(dstate_type), intent(in) :: dstate
-      type(dtend_type), intent(inout) :: dtend
+      type(block_type ), intent(inout) :: block
+      type(dstate_type), intent(inout) :: dstate
+      type(dtend_type ), intent(inout) :: dtend
     end subroutine pgf_run_interface
   end interface
 

@@ -382,7 +382,7 @@ contains
         end do
       end do
     end do
-    call fill_halo(new_p_lev)
+    call fill_halo(new_p_lev, west_halo=.false., south_halo=.false., async=.true.)
     end associate
 
     call perf_stop('calc_p')

@@ -18,9 +18,9 @@ contains
 
   subroutine pgf_swm_run(block, dstate, dtend)
 
-    type(block_type), intent(inout) :: block
-    type(dstate_type), intent(in) :: dstate
-    type(dtend_type), intent(inout) :: dtend
+    type(block_type ), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    type(dtend_type ), intent(inout) :: dtend
 
     real(r8) tmp
     integer i, j, k

@@ -25,6 +25,7 @@ module pgf_ptb_mod
   use const_mod
   use block_mod
   use formula_mod
+  use namelist_mod
   use vert_coord_mod
   use tracer_mod
   use latlon_field_types_mod
@@ -122,9 +123,9 @@ contains
 
   subroutine pgf_ptb_run(block, dstate, dtend)
 
-    type(block_type), intent(inout) :: block
-    type(dstate_type), intent(in) :: dstate
-    type(dtend_type), intent(inout) :: dtend
+    type(block_type ), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    type(dtend_type ), intent(inout) :: dtend
 
     real(r8) L, tmp1, tmp2, tmp3, tmp4, tmp
     integer i, j, k
@@ -143,6 +144,7 @@ contains
                gz     => dstate%gz             , & ! in
                dudt   => dtend%dudt            , & ! out
                dvdt   => dtend%dvdt            )   ! out
+    if (nonhydrostatic) call wait_halo(p_lev)
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde + merge(0, 1, mesh%has_north_pole())
         do i = mesh%full_ids, mesh%full_ide + 1

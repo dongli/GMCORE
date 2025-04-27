@@ -22,9 +22,9 @@ contains
 
   subroutine pgf_lin97_run(block, dstate, dtend)
 
-    type(block_type), intent(inout) :: block
-    type(dstate_type), intent(in) :: dstate
-    type(dtend_type), intent(inout) :: dtend
+    type(block_type ), intent(inout) :: block
+    type(dstate_type), intent(inout) :: dstate
+    type(dtend_type ), intent(inout) :: dtend
 
     real(r8) dpk24, dpk13, dgz13, dgz42, dpp24, dpp13, dph24, dph13, L, tmp
     integer i, j, k
@@ -119,6 +119,7 @@ contains
         end do
       end do
     else if (nonhydrostatic) then
+      call wait_halo(p_lev)
       do k = mesh%full_kds, mesh%full_kde
         !
         !   4             3
