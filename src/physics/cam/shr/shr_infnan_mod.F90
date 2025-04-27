@@ -313,10 +313,7 @@ end function shr_infnan_isinf_real
 ! TYPE double,real
 # 191 "shr_infnan_mod.F90.in"
 elemental function shr_infnan_isposinf_double(x) result(isposinf)
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_class, &
-       ieee_positive_inf, &
-       operator(==)
+  use, intrinsic :: ieee_arithmetic
   real(r8), intent(in) :: x
   logical :: isposinf
 
@@ -327,10 +324,7 @@ end function shr_infnan_isposinf_double
 ! TYPE double,real
 # 191 "shr_infnan_mod.F90.in"
 elemental function shr_infnan_isposinf_real(x) result(isposinf)
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_class, &
-       ieee_positive_inf, &
-       operator(==)
+  use, intrinsic :: ieee_arithmetic
   real(r4), intent(in) :: x
   logical :: isposinf
 
@@ -342,10 +336,7 @@ end function shr_infnan_isposinf_real
 ! TYPE double,real
 # 204 "shr_infnan_mod.F90.in"
 elemental function shr_infnan_isneginf_double(x) result(isneginf)
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_class, &
-       ieee_negative_inf, &
-       operator(==)
+  use, intrinsic :: ieee_arithmetic
   real(r8), intent(in) :: x
   logical :: isneginf
 
@@ -356,10 +347,7 @@ end function shr_infnan_isneginf_double
 ! TYPE double,real
 # 204 "shr_infnan_mod.F90.in"
 elemental function shr_infnan_isneginf_real(x) result(isneginf)
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_class, &
-       ieee_negative_inf, &
-       operator(==)
+  use, intrinsic :: ieee_arithmetic
   real(r4), intent(in) :: x
   logical :: isneginf
 
@@ -487,10 +475,7 @@ end function shr_infnan_isneginf_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_0d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -530,10 +515,7 @@ end subroutine set_nan_0d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_1d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -573,10 +555,7 @@ end subroutine set_nan_1d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_2d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -616,10 +595,7 @@ end subroutine set_nan_2d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_3d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -659,10 +635,7 @@ end subroutine set_nan_3d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_4d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -702,10 +675,7 @@ end subroutine set_nan_4d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_5d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -745,10 +715,7 @@ end subroutine set_nan_5d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_6d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -788,10 +755,7 @@ end subroutine set_nan_6d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_7d_double(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -831,10 +795,7 @@ end subroutine set_nan_7d_double
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_0d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -874,10 +835,7 @@ end subroutine set_nan_0d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_1d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -917,10 +875,7 @@ end subroutine set_nan_1d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_2d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -960,10 +915,7 @@ end subroutine set_nan_2d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_3d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -1003,10 +955,7 @@ end subroutine set_nan_3d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_4d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -1046,10 +995,7 @@ end subroutine set_nan_4d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_5d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -1089,10 +1035,7 @@ end subroutine set_nan_5d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_6d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -1132,10 +1075,7 @@ end subroutine set_nan_6d_real
 # 286 "shr_infnan_mod.F90.in"
 pure subroutine set_nan_7d_real(output, nan)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_signaling_nan, &
-       ieee_quiet_nan, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: snan_pat = ssnan_pat
@@ -1176,10 +1116,7 @@ end subroutine set_nan_7d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_0d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1219,10 +1156,7 @@ end subroutine set_inf_0d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_1d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1262,10 +1196,7 @@ end subroutine set_inf_1d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_2d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1305,10 +1236,7 @@ end subroutine set_inf_2d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_3d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1348,10 +1276,7 @@ end subroutine set_inf_3d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_4d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1391,10 +1316,7 @@ end subroutine set_inf_4d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_5d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1434,10 +1356,7 @@ end subroutine set_inf_5d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_6d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1477,10 +1396,7 @@ end subroutine set_inf_6d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_7d_double(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (102 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1520,10 +1436,7 @@ end subroutine set_inf_7d_double
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_0d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1563,10 +1476,7 @@ end subroutine set_inf_0d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_1d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1606,10 +1516,7 @@ end subroutine set_inf_1d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_2d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1649,10 +1556,7 @@ end subroutine set_inf_2d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_3d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1692,10 +1596,7 @@ end subroutine set_inf_3d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_4d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
@@ -1735,10 +1636,7 @@ end subroutine set_inf_4d_real
 # 328 "shr_infnan_mod.F90.in"
 pure subroutine set_inf_5d_real(output, inf)
 #ifdef HAVE_IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: &
-       ieee_positive_inf, &
-       ieee_negative_inf, &
-       ieee_value
+  use, intrinsic :: ieee_arithmetic
 #else
 #if (101 == TYPEREAL)
   integer(i4), parameter :: posinf_pat = sposinf_pat
