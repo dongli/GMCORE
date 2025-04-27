@@ -278,7 +278,7 @@ contains
       call fiona_output('h0', 'lat' , global_mesh%full_lat_deg(1:global_mesh%full_nlat), only_root=.true.)
       call fiona_output('h0', 'ilon', global_mesh%half_lon_deg(1:global_mesh%half_nlon), only_root=.true.)
       call fiona_output('h0', 'ilat', global_mesh%half_lat_deg(1:global_mesh%half_nlat), only_root=.true.)
-      call fiona_output('h0', 'area', global_mesh%area_cell(1:global_mesh%full_nlat), only_root=.true.)
+      call fiona_output('h0', 'area', global_mesh%area_cell(1:global_mesh%full_nlat)   , only_root=.true.)
       do iblk = 1, size(blocks)
         call write_fields('h0', blocks(iblk)%mesh, blocks(iblk)%static%fields)
       end do
@@ -430,6 +430,7 @@ contains
 
   subroutine history_write_h2()
 
+    logical, save :: first_call = .true.
     integer is, ie, js, je, ks, ke, i
     integer start(3), count(3)
     real(8) time1, time2
@@ -440,15 +441,14 @@ contains
     end if
 
     if (.not. time_has_alert('h0_new_file')) then
-      call fiona_start_output('h2', dble(elapsed_seconds), new_file=time_step==0)
-    else if (time_is_alerted('h0_new_file')) then
-      call fiona_start_output('h2', dble(elapsed_seconds), new_file=.true., tag=curr_time%format('%Y-%m-%d_%H_%M'))
+      call fiona_start_output('h2', dble(elapsed_seconds), new_file=first_call.and..not.append_h0)
     else
-      call fiona_start_output('h2', dble(elapsed_seconds), new_file=.false.)
+      call fiona_start_output('h2', dble(elapsed_seconds), new_file=.not.append_h0, tag=curr_time%format('%Y-%m-%d_%H_%M'))
     end if
-    call fiona_output('h2', 'lon', regrid_global_mesh%full_lon_deg(1:regrid_global_mesh%full_nlon))
-    call fiona_output('h2', 'lat', regrid_global_mesh%full_lat_deg(1:regrid_global_mesh%full_nlat))
-    call fiona_output('h2', 'lev', regrid_global_mesh%full_lev(1:regrid_global_mesh%full_nlev))
+
+    call fiona_output('h2', 'lon', regrid_global_mesh%full_lon_deg(1:regrid_global_mesh%full_nlon), only_root=.true.)
+    call fiona_output('h2', 'lat', regrid_global_mesh%full_lat_deg(1:regrid_global_mesh%full_nlat), only_root=.true.)
+    call fiona_output('h2', 'lev', regrid_global_mesh%full_lev(1:regrid_global_mesh%full_nlev)    , only_root=.true.)
 
     is = regrids(1)%mesh%full_ids; ie = regrids(1)%mesh%full_ide
     js = regrids(1)%mesh%full_jds; je = regrids(1)%mesh%full_jde

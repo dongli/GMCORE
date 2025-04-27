@@ -343,6 +343,7 @@ module namelist_mod
     sponge_layer_coef         , &
     input_ngroups             , &
     output_h0                 , &
+    append_h0                 , &
     output_h0_dtype           , &
     output_h1                 , &
     output_h2                 , &
