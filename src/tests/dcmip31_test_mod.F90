@@ -2,7 +2,7 @@ module dcmip31_test_mod
 
   use flogger
   use namelist_mod
-  use const_mod, only: r8, pi, Rd, Rd_o_cpd, cpd, g, radius, omega
+  use const_mod, only: r8, pi, rd, rd_o_cpd, cpd, g, radius, omega
   use latlon_parallel_mod
   use block_mod
   use formula_mod
@@ -44,7 +44,7 @@ contains
     type(block_type), intent(inout), target :: block
 
     integer i, j, k
-    real(r8) ts, cos_2lat, r, local_z, local_ztop
+    real(r8) ts, cos_2lat, r
 
     associate (mesh   => block%mesh            , &
                u      => block%dstate(1)%u_lon , &
@@ -54,7 +54,6 @@ contains
                mg_lev => block%dstate(1)%mg_lev, &
                mg     => block%dstate(1)%mg    , &
                pt     => block%dstate(1)%pt    , &
-               t      => block%aux%t           , &
                gz_lev => block%dstate(1)%gz_lev, &
                gz     => block%dstate(1)%gz    , &
                gzs    => block%static%gzs)
@@ -68,52 +67,49 @@ contains
       call fill_halo(u)
 
       v  %d = 0
+      w  %d = 0
       gzs%d = 0
 
       do j = mesh%full_jds, mesh%full_jde
         cos_2lat = cos(2 * mesh%full_lat(j))
         ts = t0 + (teq - t0) * exp(-u0 * N2 / (4 * g**2) * (u0 + 2 * omega * radius) * (cos_2lat - 1))
         do i = mesh%full_ids, mesh%full_ide
-          mgs%d(i,j) = peq * exp(u0 / (4 * t0 * Rd) * (u0 + 2 * omega * radius) * (cos_2lat - 1)) * &
-                       (ts / teq)**(1 / Rd_o_cpd)
+          mgs%d(i,j) = peq * exp(u0 / (4 * t0 * rd) * (u0 + 2 * omega * radius) * (cos_2lat - 1)) * &
+                       (ts / teq)**(1 / rd_o_cpd)
         end do
       end do
       call fill_halo(mgs)
 
-      call calc_mg(block, block%dstate(1))
+      call calc_mg (block, block%dstate(1))
 
-      if (nonhydrostatic) then
-        w%d = 0
-        do k = mesh%half_kds, mesh%half_kde
-          do j = mesh%full_jds, mesh%full_jde
-            cos_2lat = cos(2 * mesh%full_lat(j))
-            ts = t0 + (teq - t0) * exp(-u0 * N2 / (4 * g**2) * (u0 + 2 * omega * radius) * (cos_2lat - 1))
-            do i = mesh%full_ids, mesh%full_ide
-              gz_lev%d(i,j,k) = - g**2 / N2 * log(ts / t0 * ((mg_lev%d(i,j,k) / mgs%d(i,j))**Rd_o_cpd - 1) + 1)
-            end do
+      do k = mesh%half_kds, mesh%half_kde
+        do j = mesh%full_jds, mesh%full_jde
+          cos_2lat = cos(2 * mesh%full_lat(j))
+          ts = t0 + (teq - t0) * exp(-u0 * N2 / (4 * g**2) * (u0 + 2 * omega * radius) * (cos_2lat - 1))
+          do i = mesh%full_ids, mesh%full_ide
+            gz_lev%d(i,j,k) = -g**2 / n2 * log(ts / t0 * ((mg_lev%d(i,j,k) / mgs%d(i,j))**rd_o_cpd - 1) + 1)
           end do
         end do
-        call fill_halo(gz_lev)
-      end if
+      end do
+      call fill_halo(gz_lev)
+      do k = mesh%full_kds, mesh%full_kde
+        do j = mesh%full_jds, mesh%full_jde
+          do i = mesh%full_ids, mesh%full_ide
+            gz%d(i,j,k) = 0.5_r8 * (gz_lev%d(i,j,k) + gz_lev%d(i,j,k+1))
+          end do
+        end do
+      end do
+      call fill_halo(gz)
 
       do k = mesh%full_kds, mesh%full_kde
         do j = mesh%full_jds, mesh%full_jde
           cos_2lat = cos(2 * mesh%full_lat(j))
           ts = t0 + (teq - t0) * exp(-u0 * N2 / (4 * g**2) * (u0 + 2 * omega * radius) * (cos_2lat - 1))
           do i = mesh%full_ids, mesh%full_ide
-            pt%d(i,j,k) = ts * (p0 / mgs%d(i,j))**Rd_o_cpd / (ts / t0 * ((mg%d(i,j,k) / mgs%d(i,j))**Rd_o_cpd - 1) + 1)
-          end do
-        end do
-      end do
-
-      do k = mesh%full_kds, mesh%full_kde
-        do j = mesh%full_jds, mesh%full_jde
-          do i = mesh%full_ids, mesh%full_ide
+            pt%d(i,j,k) = ts * (p0 / mgs%d(i,j))**rd_o_cpd / (ts / t0 * ((mg%d(i,j,k) / mgs%d(i,j))**rd_o_cpd - 1) + 1)
             ! Perturbation
-            local_z = 0.5_r8 * (gz_lev%d(i,j,k+1) + gz_lev%d(i,j,k)) / g
-            local_ztop = gz_lev%d(i,j,mesh%half_kds) / g
             r = radius * acos(sin(latc) * mesh%full_sin_lat(j) + cos(latc) * mesh%full_cos_lat(j) * cos(mesh%full_lon(i) - lonc))
-            pt%d(i,j,k) = pt%d(i,j,k) + dpt * d**2 / (d**2 + r**2) * sin(pi * local_z / local_ztop)
+            pt%d(i,j,k) = pt%d(i,j,k) + dpt * d**2 / (d**2 + r**2) * sin(2 * pi * gz%d(i,j,k) / g / lz)
           end do
         end do
       end do

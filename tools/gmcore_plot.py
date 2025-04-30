@@ -85,7 +85,8 @@ def plot_contour_lon(ax, var,
 	else:
 		print(f'[Error]: Variable {var.name} has no lev dimension!')
 		exit(1)
-	ax.set_ylabel(f'{lev.long_name} ({lev.units})', fontsize=font_size)
+	if 'long_name' in lev and 'units' in lev:
+		ax.set_ylabel(f'{lev.long_name} ({lev.units})', fontsize=font_size)
 	if levels is not None and norm is None:
 		im = ax.contourf(lon, lev, var, cmap=cmap, levels=levels, extend='both')
 		if with_contour:
@@ -323,8 +324,8 @@ def update_plot(data_path, fig, plot_func):
 def loop_plot(data_path, fig, plot_func, update_seconds=10):
 	fig.canvas.mpl_connect('close_event', window_closed)
 	while True:
-		plt.pause(update_seconds)
 		try:
 			update_plot(data_path, fig, plot_func)
 		except:
 			pass
+		plt.pause(update_seconds)
