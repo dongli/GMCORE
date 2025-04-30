@@ -46,7 +46,7 @@ index 0000000..de0efb7
 --- /dev/null
 +++ b/CMakeLists.txt
 @@ -0,0 +1,173 @@
-+cmake_minimum_required(VERSION 3.0)
++cmake_minimum_required(VERSION 3.5)
 +
 +project(noahmp LANGUAGES Fortran)
 +
@@ -213,6 +213,7 @@ index 0000000..de0efb7
 +  src/SnowCoverGlacierMod.F90
 +  src/SnowWaterMainGlacierMod.F90
 +  src/SnowpackHydrologyGlacierMod.F90
++  src/SnowpackCompactionAR24Mod.F90
 +  src/SurfaceAlbedoGlacierMod.F90
 +  src/SurfaceEmissivityGlacierMod.F90
 +  src/SurfaceEnergyFluxGlacierMod.F90
