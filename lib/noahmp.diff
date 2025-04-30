@@ -45,7 +45,7 @@ new file mode 100644
 index 0000000..de0efb7
 --- /dev/null
 +++ b/CMakeLists.txt
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,174 @@
 +cmake_minimum_required(VERSION 3.5)
 +
 +project(noahmp LANGUAGES Fortran)
