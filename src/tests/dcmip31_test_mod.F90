@@ -2,7 +2,7 @@ module dcmip31_test_mod
 
   use flogger
   use namelist_mod
-  use const_mod, only: r8, pi, rd, rd_o_cpd, cpd, g, radius, omega
+  use const_mod, only: r8, pi, rd, rd_o_cpd, cpd, g, p0, radius, omega
   use latlon_parallel_mod
   use block_mod
   use formula_mod
@@ -27,7 +27,6 @@ module dcmip31_test_mod
   real(r8), parameter :: N    = 0.01_r8      ! s-1
   real(r8), parameter :: N2   = N**2
   real(r8)            :: t0
-  real(r8), parameter :: p0   = 1.0e5_r8     ! Pa
 
 contains
 
@@ -67,20 +66,21 @@ contains
       call fill_halo(u)
 
       v  %d = 0
-      w  %d = 0
       gzs%d = 0
+
+      if (nonhydrostatic) w%d = 0
 
       do j = mesh%full_jds, mesh%full_jde
         cos_2lat = cos(2 * mesh%full_lat(j))
         ts = t0 + (teq - t0) * exp(-u0 * N2 / (4 * g**2) * (u0 + 2 * omega * radius) * (cos_2lat - 1))
         do i = mesh%full_ids, mesh%full_ide
           mgs%d(i,j) = peq * exp(u0 / (4 * t0 * rd) * (u0 + 2 * omega * radius) * (cos_2lat - 1)) * &
-                       (ts / teq)**(1 / rd_o_cpd)
+                       (ts / teq)**(1.0_r8 / rd_o_cpd)
         end do
       end do
       call fill_halo(mgs)
 
-      call calc_mg (block, block%dstate(1))
+      call calc_mg(block, block%dstate(1))
 
       do k = mesh%half_kds, mesh%half_kde
         do j = mesh%full_jds, mesh%full_jde

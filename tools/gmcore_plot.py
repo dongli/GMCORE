@@ -282,7 +282,8 @@ def plot_time_series(ax, time, var, ylim=None, label=None, color='black', font_s
 	ax.plot(time, var, '-', color=color, label=label)
 	ax.tick_params(axis='both', labelsize=font_size)
 	if ylim is not None: ax.set_ylim(ylim)
-	ax.set_title(var.long_name)
+	if 'long_name' in var.attrs:
+		ax.set_title(var.long_name)
 	ax.title.set_fontsize(font_size)
 	if time.dtype == '<M8[ns]':
 		# locator = mdates.AutoDateLocator(maxticks=4, interval_multiples=True)
