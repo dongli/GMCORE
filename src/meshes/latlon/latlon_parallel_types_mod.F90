@@ -23,10 +23,10 @@ module latlon_parallel_types_mod
 
   integer, public :: cart_dim_lon = 1
   integer, public :: cart_dim_lat = 2
-  integer, public, parameter :: west  = 1
-  integer, public, parameter :: east  = 2
-  integer, public, parameter :: south = 3
-  integer, public, parameter :: north = 4
+  integer, public, parameter :: west       = 1
+  integer, public, parameter :: east       = 2
+  integer, public, parameter :: south      = 3
+  integer, public, parameter :: north      = 4
   integer, public, parameter :: south_west = 5
   integer, public, parameter :: south_east = 6
   integer, public, parameter :: north_west = 7

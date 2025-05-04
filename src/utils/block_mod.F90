@@ -44,8 +44,8 @@ module block_mod
     type(halo_type), allocatable :: halo(:)
     type(array_type) accum_list
   contains
-    procedure :: init_stage_1 => block_init_stage_1
-    procedure :: init_stage_2 => block_init_stage_2
+    procedure :: init_stage1 => block_init_stage1
+    procedure :: init_stage2 => block_init_stage2
     procedure :: clear => block_clear
     procedure :: accum => block_accum
     final :: block_final
@@ -55,7 +55,7 @@ module block_mod
 
 contains
 
-  subroutine block_init_stage_1(this, id, ids, ide, jds, jde)
+  subroutine block_init_stage1(this, id, ids, ide, jds, jde)
 
     class(block_type), intent(inout) :: this
     integer, intent(in) :: id
@@ -131,9 +131,9 @@ contains
       active=.false.)
     call this%accum_list%append(accum)
 
-  end subroutine block_init_stage_1
+  end subroutine block_init_stage1
 
-  subroutine block_init_stage_2(this)
+  subroutine block_init_stage2(this)
 
     class(block_type), intent(inout) :: this
 
@@ -162,7 +162,7 @@ contains
       call this%static%init_stage1(this%filter_mesh, this%filter_halo, this%mesh, this%halo)
     end if
 
-  end subroutine block_init_stage_2
+  end subroutine block_init_stage2
 
   subroutine block_clear(this)
 

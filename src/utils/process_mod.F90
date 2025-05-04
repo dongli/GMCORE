@@ -95,10 +95,10 @@ contains
 
     integer i, ierr
 
-    if (allocated(proc%ngb)) deallocate(proc%ngb)
+    if (allocated(proc%ngb            )) deallocate(proc%ngb            )
     if (allocated(proc%grid_proc_idmap)) deallocate(proc%grid_proc_idmap)
-    if (allocated(proc%global_grid_id)) deallocate(proc%global_grid_id)
-    if (allocated(proc%local_grid_id)) deallocate(proc%local_grid_id)
+    if (allocated(proc%global_grid_id )) deallocate(proc%global_grid_id )
+    if (allocated(proc%local_grid_id  )) deallocate(proc%local_grid_id  )
     if (allocated(blocks)) then
       do i = 1, size(blocks)
         call blocks(i)%clear()
@@ -125,7 +125,7 @@ contains
 
     if (.not. allocated(blocks)) allocate(blocks(1))
 
-    call blocks(1)%init_stage_1(1, proc%ids, proc%ide, proc%jds, proc%jde)
+    call blocks(1)%init_stage1(1, proc%ids, proc%ide, proc%jds, proc%jde)
 
     ! Each process calculate lon_hw from its big_filter%ngrid_lat(:) and big_filter%ngrid_lon(:).
     lon_hw = global_mesh%lon_hw
@@ -171,7 +171,7 @@ contains
       allocate(blocks(1)%filter_halo(1))
       allocate(blocks(1)%       halo(1))
     end if
-    call blocks(1)%init_stage_2()
+    call blocks(1)%init_stage2()
 
     ! Setup halos (only normal halos for the time being).
     select case (r8)
