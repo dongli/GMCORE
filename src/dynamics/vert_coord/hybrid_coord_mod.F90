@@ -98,6 +98,8 @@ contains
         call hybrid_coord_dcmip21_l60(p0, ptop, hyai, hybi)
       case ('dcmip31_l10')
         call hybrid_coord_dcmip31_l10(p0, ptop, hyai, hybi)
+      case ('modon_l5')
+        call hybrid_coord_modon_l5(p0, ptop, hyai, hybi)
       case ('waccm_l70')
         call hybrid_coord_waccm_l70(p0, ptop, hyai, hybi)
       case ('emars28')

@@ -66,7 +66,7 @@ program gmcore_driver
   select case (test_case)
   case ('swm_sp')
     call splash_test_set_params()
-  case ('swm_cm')
+  case ('swm_cm', 'cm')
     call colliding_modons_test_set_params()
   case ('ksp15_01', 'ksp15_02')
     call ksp15_test_set_params()
@@ -129,7 +129,7 @@ program gmcore_driver
       set_ic => vortex_erosion_test_set_ic
     case ('swm_sp')
       set_ic => splash_test_set_ic
-    case ('swm_cm')
+    case ('swm_cm', 'cm')
       set_ic => colliding_modons_test_set_ic
     case ('ss')
       set_ic => steady_state_test_set_ic

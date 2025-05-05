@@ -31,6 +31,7 @@ module hybrid_coord_test_mod
   public hybrid_coord_schar_l60
   public hybrid_coord_dcmip21_l60
   public hybrid_coord_dcmip31_l10
+  public hybrid_coord_modon_l5
   public hybrid_coord_waccm_l70
   public hybrid_coord_dcmip12
   public hybrid_coord_cam_l32
@@ -1211,6 +1212,40 @@ contains
     ptop = p0 * hyai(1)
 
   end subroutine hybrid_coord_dcmip31_l10
+
+  subroutine hybrid_coord_modon_l5(p0, ptop, hyai, hybi)
+
+    real(r8), intent(in) :: p0
+    real(r8), intent(out) :: ptop
+    real(r8), intent(out) :: hyai(6)
+    real(r8), intent(out) :: hybi(6)
+
+    if (global_mesh%full_nlev /= 5 .and. proc%is_root()) then
+      call log_error('nlev should be 5 in namelist!')
+    end if
+
+    hyai = [  &
+      320.44, & !  1
+      402.35, & !  2
+      255.18, & !  3
+      134.31, & !  4
+       46.43, & !  5
+        0.00  & !  6
+    ]
+
+    hybi = [  &
+        0.00, & !  1
+        0.00, & !  2
+        0.25, & !  3
+        0.50, & !  4
+        0.75, & !  5
+        1.00  & !  6
+    ]
+
+    hyai = hyai / 1000.0_r8
+    ptop = p0 * hyai(1)
+
+  end subroutine hybrid_coord_modon_l5
 
   subroutine hybrid_coord_waccm_l70(p0, ptop, hyai, hybi)
 

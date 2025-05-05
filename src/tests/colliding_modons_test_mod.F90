@@ -51,8 +51,7 @@ contains
                pt     => block%dstate(1)%pt   )
     if (baroclinic) then
       mgs%d = p0
-      call calc_mg (block, dstate)
-      call calc_dmg(block, dstate)
+      call calc_mg(block, dstate)
 
       t%d = T0
       do k = mesh%full_kds, mesh%full_kde
