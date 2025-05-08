@@ -53,7 +53,6 @@ contains
                mg_lev => block%dstate(1)%mg_lev, &
                mg     => block%dstate(1)%mg    , &
                pt     => block%dstate(1)%pt    , &
-               tv     => block%aux%tv          , &
                gz_lev => block%dstate(1)%gz_lev, &
                gz     => block%dstate(1)%gz    , &
                gzs    => block%static%gzs)
@@ -116,10 +115,7 @@ contains
     end do
     call fill_halo(pt)
 
-    ! Reset geopotential from hydrostatic balance.
-    tv%d = virtual_temperature_from_modified_potential_temperature(pt%d, mg%d**rd_o_cpd, 0.0_r8)
-    if (nonhydrostatic) call block%dstate(1)%ph_lev%copy(mg_lev)
-    call calc_gz_lev(block, block%dstate(1))
+    init_hydrostatic_gz = .true.
     end associate
 
   end subroutine dcmip31_test_set_ic

@@ -28,7 +28,7 @@ module operators_mod
   public calc_dmg
   public calc_t
   public calc_rhod
-  public calc_gz_lev
+  public calc_gz
   public calc_mfz
   public calc_div
   public calc_vor
@@ -100,7 +100,9 @@ contains
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
-      if (hydrostatic   ) call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(itime))
+      if (hydrostatic .or. init_hydrostatic_gz) then
+        call calc_gz                      (blocks(iblk), blocks(iblk)%dstate(itime))
+      end if
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
     end do
 
@@ -121,7 +123,7 @@ contains
       call calc_pv                        (block, dstate,     substep)
       call interp_pv                      (block, dstate, dt, substep)
       if (baroclinic    ) call calc_t     (block, dstate)
-      if (hydrostatic   ) call calc_gz_lev(block, dstate)
+      if (hydrostatic   ) call calc_gz    (block, dstate)
       if (baroclinic    ) call calc_rhod  (block, dstate)
     case (forward_pass)
       call calc_mf                        (block, dstate, dt)
@@ -130,7 +132,7 @@ contains
       call interp_pv                      (block, dstate, dt, substep)
     case (backward_pass)
       if (baroclinic    ) call calc_t     (block, dstate)
-      if (hydrostatic   ) call calc_gz_lev(block, dstate)
+      if (hydrostatic   ) call calc_gz    (block, dstate)
       if (baroclinic    ) call calc_rhod  (block, dstate)
     end select
 
@@ -557,14 +559,14 @@ contains
 
   end subroutine calc_div
 
-  subroutine calc_gz_lev(block, dstate)
+  subroutine calc_gz(block, dstate)
 
     type(block_type), intent(in) :: block
     type(dstate_type), intent(inout) :: dstate
 
     integer i, j, k
 
-    call perf_start('calc_gz_lev')
+    call perf_start('calc_gz')
 
     associate (mesh   => block%mesh      , &
                tv     => block%aux%tv    , & ! in
@@ -588,9 +590,9 @@ contains
     end do
     end associate
 
-    call perf_stop('calc_gz_lev')
+    call perf_stop('calc_gz')
 
-  end subroutine calc_gz_lev
+  end subroutine calc_gz
 
   subroutine calc_dmg(block, dstate)
 

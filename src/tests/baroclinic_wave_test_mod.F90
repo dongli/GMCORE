@@ -125,6 +125,7 @@ CONTAINS
 
   subroutine baroclinic_wave_test_set_ic(block)
 
+    use namelist_mod
     use block_mod
     use tracer_mod
     use operators_mod
@@ -223,6 +224,8 @@ CONTAINS
     call wind_a2c_operator(u, v, u_lon, v_lat)
     call fill_halo(u_lon)
     call fill_halo(v_lat)
+
+    init_hydrostatic_gz = .true.
     end associate
 
   end subroutine baroclinic_wave_test_set_ic

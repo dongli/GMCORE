@@ -63,6 +63,7 @@ module namelist_mod
   logical         :: restart              = .false.
 
   logical         :: prepare_regrid_gz    = .true.
+  logical         :: init_hydrostatic_gz  = .false.
 
   character(30)   :: physics_suite        = 'N/A'
   character(30)   :: mp_scheme            = 'N/A'
@@ -246,6 +247,7 @@ module namelist_mod
     restart_file              , &
     restart                   , &
     prepare_regrid_gz         , &
+    init_hydrostatic_gz       , &
     topo_file                 , &
     topo_type                 , &
     bkg_file                  , &
@@ -550,7 +552,10 @@ contains
 
     character(*), intent(in) :: tag
 
+    call fiona_add_att(tag, 'planet', planet)
+    call fiona_add_att(tag, 'nonhydrostatic', nonhydrostatic)
     call fiona_add_att(tag, 'case_name', case_name)
+    call fiona_add_att(tag, 'time_scheme', time_scheme)
     call fiona_add_att(tag, 'dt_dyn', dt_dyn / time_scale)
     call fiona_add_att(tag, 'dt_adv', dt_adv / time_scale)
     call fiona_add_att(tag, 'dt_phys', dt_phys / time_scale)

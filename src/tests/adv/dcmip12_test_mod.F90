@@ -65,7 +65,7 @@ contains
       ph_lev%d = mg_lev%d
       ph%d = mg%d
       tv%d = T0
-      call calc_gz_lev(block, dstate)
+      call calc_gz(block, dstate)
       end associate
     end do
 

@@ -40,16 +40,13 @@ contains
     real(r8) cos_lat, sin_lat, full_lon, r
     integer i, j, k
 
-    associate (mesh   => block%mesh            , &
-               u      => block%dstate(1)%u_lon , &
-               v      => block%dstate(1)%v_lat , &
-               mgs    => block%dstate(1)%mgs   , &
-               mg_lev => block%dstate(1)%mg_lev, &
-               mg     => block%dstate(1)%mg    , &
-               pt     => block%dstate(1)%pt    , &
-               tv     => block%aux%tv          , &
-               gz_lev => block%dstate(1)%gz_lev, &
-               gzs    => block%static%gzs      )
+    associate (mesh => block%mesh           , &
+               u    => block%dstate(1)%u_lon, &
+               v    => block%dstate(1)%v_lat, &
+               mgs  => block%dstate(1)%mgs  , &
+               mg   => block%dstate(1)%mg   , &
+               pt   => block%dstate(1)%pt   , &
+               gzs  => block%static%gzs     )
     do k = mesh%full_kds, mesh%full_kde
       do j = mesh%full_jds, mesh%full_jde
         cos_lat = mesh%full_cos_lat(j)
@@ -89,18 +86,12 @@ contains
       do j = mesh%full_jds, mesh%full_jde
         do i = mesh%full_ids, mesh%full_ide
           pt%d(i,j,k) = modified_potential_temperature(288.0_r8, mg%d(i,j,k), 0.0_r8)
-          tv%d(i,j,k) = 288
         end do
       end do
     end do
     call fill_halo(pt)
 
-    if (nonhydrostatic) then
-      call calc_dmg   (block, block%dstate(1))
-      call calc_ph    (block, block%dstate(1))
-      call gz_lev%copy(gzs, mesh%half_kde, with_halo=.true.)
-      call calc_gz_lev(block, block%dstate(1))
-    end if
+    init_hydrostatic_gz = .true.
 
     ! tracers(block%id)%q%d(:,:,:,1) = 1.0_r8
     end associate

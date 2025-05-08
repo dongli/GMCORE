@@ -2,8 +2,9 @@ module rossby_haurwitz_wave_test_mod
 
   use flogger
   use const_mod
-  use latlon_parallel_mod
+  use namelist_mod
   use block_mod
+  use latlon_parallel_mod
 
   implicit none
 
@@ -82,6 +83,8 @@ contains
       end do
     end do
     call fill_halo(gz)
+
+    init_hydrostatic_gz = .true.
     end associate
 
   end subroutine rossby_haurwitz_wave_test_set_ic

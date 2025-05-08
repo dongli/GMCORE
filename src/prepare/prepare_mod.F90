@@ -114,7 +114,7 @@ contains
           do itime = lbound(blocks(iblk)%dstate, 1), ubound(blocks(iblk)%dstate, 1)
             call blocks(iblk)%dstate(itime)%gz_lev%copy(blocks(iblk)%static%gzs, k=blocks(iblk)%mesh%half_kde, with_halo=.true.)
           end do
-          call calc_gz_lev(blocks(iblk), blocks(iblk)%dstate(1))
+          call calc_gz(blocks(iblk), blocks(iblk)%dstate(1))
           call fill_halo(blocks(iblk)%dstate(1)%gz_lev)
         end do
       end if

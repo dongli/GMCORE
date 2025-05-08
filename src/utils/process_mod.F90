@@ -62,6 +62,9 @@ contains
       call MPI_COMM_RANK(proc%comm_model, proc%id_model, ierr)
       call MPI_GET_PROCESSOR_NAME(proc%hostname, n, ierr)
       call latlon_decomp_run(proc_layout, nproc_x, nproc_y, ierr)
+      if (ierr /= 0) then
+        call log_error('Failed to decompose global domain!', __FILE__, __LINE__, pid=proc%id_model)
+      end if
     end if
 
     call MPI_COMM_SIZE(proc%comm_io, proc%np_io, ierr)
