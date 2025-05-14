@@ -100,7 +100,7 @@ contains
       call calc_ke                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call calc_pv                        (blocks(iblk), blocks(iblk)%dstate(itime),     total_substeps)
       call interp_pv                      (blocks(iblk), blocks(iblk)%dstate(itime), dt, total_substeps)
-      if (hydrostatic .or. init_hydrostatic_gz) then
+      if (baroclinic .and. (hydrostatic .or. init_hydrostatic_gz)) then
         call calc_gz                      (blocks(iblk), blocks(iblk)%dstate(itime))
       end if
       if (baroclinic    ) call calc_rhod  (blocks(iblk), blocks(iblk)%dstate(itime))
