@@ -125,6 +125,8 @@ contains
     integer, intent(in), optional :: idx(:)
     class(adv_batch_type), intent(in), target, optional :: bg
 
+    character(10) loc0, locx, locy, locz
+
     call this%clear()
 
     this%mesh => filter_mesh
@@ -149,451 +151,272 @@ contains
       this%scheme_v = scheme
     end if
 
-    select case (batch_loc)
+    select case (this%loc)
     case ('cell')
-      if (this%passive) then
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_m'                             , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='cell'                                              , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          output          =merge('h0', '  ', advection)                        , &
-          restart         =.true.                                              , &
-          field           =this%m                                              )
-      else
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_m'                             , &
-          long_name       ='Dry-air weight'                                    , &
-          units           ='Pa'                                                , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          =merge('h0', '  ', advection)                        , &
-          restart         =.false.                                             , &
-          field           =this%m                                              )
-      end if
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_u'                             , &
-        long_name         ='U wind component'                                  , &
-        units             ='m s-1'                                             , &
-        loc               ='lon'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            =merge('h0', '  ', advection)                        , &
-        restart           =.false.                                             , &
-        field             =this%u                                              )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_v'                             , &
-        long_name         ='V wind component'                                  , &
-        units             ='m s-1'                                             , &
-        loc               ='lat'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            =merge('h0', '  ', advection)                        , &
-        restart           =.false.                                             , &
-        field             =this%v                                              )
-      if (advection .and. nlev > 1) then
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_w'                             , &
-          long_name       ='Vertical coordinate velocity'                      , &
-          units           ='s-1'                                               , &
-          loc             ='lev'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          =merge('h0', '  ', advection)                        , &
-          restart         =.false.                                             , &
-          field           =this%w                                              )
-      end if
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfz'                           , &
-        long_name         ='Vertical mass flux'                                , &
-        units             ='Pa s-1'                                            , &
-        loc               ='lev'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfz                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfx'                           , &
-        long_name         ='Mass flux in x direction'                          , &
-        units             ='Pa m s-1'                                          , &
-        loc               ='lon'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfx                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfy'                           , &
-        long_name         ='Mass flux in y direction'                          , &
-        units             ='Pa m s-1'                                          , &
-        loc               ='lat'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfy                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfx'                          , &
-        long_name         ='Tracer mass flux in x direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='lon'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfx                                           )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfy'                          , &
-        long_name         ='Tracer mass flux in y direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='lat'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfy                                           )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfz'                          , &
-        long_name         ='Tracer mass flux in z direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='lev'                                               , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        output            ='h1'                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfz                                           )
-      select case (this%scheme_h)
-      case ('ffsl')
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mfx_frac'                      , &
-          long_name       ='Fractional mass flux in x direction'               , &
-          units           ='Pa m-1 s-1'                                        , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          ='h1'                                                , &
-          restart         =.false.                                             , &
-          field           =this%mfx_frac                                       )
-        if (.not. this%passive) then
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_u_frac'                        , &
-            long_name     ='Fractional U wind component'                       , &
-            units         ='m s-1'                                             , &
-            loc           ='lon'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h1'                                                , &
-            restart       =.false.                                             , &
-            field         =this%u_frac                                         )
-          if (advection .and. nlev > 1) then
-            call append_field(this%fields                                      , &
-              name        =trim(this%name) // '_w_frac'                        , &
-              long_name   ='Fractional vertical coordinate velocity'           , &
-              units       ='s-1'                                               , &
-              loc         ='lev'                                               , &
-              mesh        =mesh                                                , &
-              halo        =halo                                                , &
-              output      ='h1'                                                , &
-              restart     =.false.                                             , &
-              field       =this%w_frac                                         )
-          end if
-        end if
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflx'                          , &
-          long_name       ='CFL number in x direction'                         , &
-          units           =''                                                  , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          ='h1'                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflx                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cfly'                          , &
-          long_name       ='CFL number in y direction'                         , &
-          units           =''                                                  , &
-          loc             ='lat'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          ='h1'                                                , &
-          restart         =.false.                                             , &
-          field           =this%cfly                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_divx'                          , &
-          long_name       ='Mass flux divergence in x direction'               , &
-          units           ='Pa s-1'                                            , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%divx                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_divy'                          , &
-          long_name       ='Mass flux divergence in y direction'               , &
-          units           ='Pa s-1'                                            , &
-          loc             ='lat'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%divy                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qmfx0'                         , &
-          long_name       ='Inner tracer mass flux in x direction'             , &
-          units           ='Pa kg kg-1 m s-1'                                  , &
-          loc             ='lon'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%qmfx0                                          )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qmfy0'                         , &
-          long_name       ='Inner tracer mass flux in y direction'             , &
-          units           ='Pa kg kg-1 m s-1'                                  , &
-          loc             ='lat'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%qmfy0                                          )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qx'                            , &
-          long_name       ='Tracer dry mixing ratio after advection in x direction', &
-          units           ='kg kg-1'                                           , &
-          loc             ='cell'                                              , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          restart         =.false.                                             , &
-          halo_cross_pole =.true.                                              , &
-          field           =this%qx                                             )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qy'                            , &
-          long_name       ='Tracer dry mixing ratio after advection in y direction', &
-          units           ='kg kg-1'                                           , &
-          loc             ='cell'                                              , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          restart         =.false.                                             , &
-          field           =this%qy                                             )
-      end select
-      select case (this%scheme_v)
-      case ('ffsl')
-        if (this%passive) then
-          call append_field(this%fields                                        , &
-            name          =trim(this%name) // '_mfz_frac'                      , &
-            long_name     ='Fractional vertical mass flux'                     , &
-            units         ='Pa m-2 s-1'                                        , &
-            loc           ='lev'                                               , &
-            mesh          =mesh                                                , &
-            halo          =halo                                                , &
-            output        ='h1'                                                , &
-            restart       =.false.                                             , &
-            field         =this%mfz_frac                                        )
-        end if
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflz'                          , &
-          long_name       ='CFL number in z direction'                         , &
-          units           =''                                                  , &
-          loc             ='lev'                                               , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          output          ='h1'                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflz                                           )
-      end select
+      loc0 = 'cell'
+      locx = 'lon'
+      locy = 'lat'
+      locz = 'lev'
     case ('lev')
-      ! Only for nonhydrostatic dynamic calculation.
-      call append_field(this%fields                                            , &
-        name            =trim(this%name) // '_m'                               , &
-        long_name       ='Dry-air weight'                                      , &
-        units           ='Pa'                                                  , &
-        loc             ='lev'                                                 , &
-        mesh            =filter_mesh                                           , &
-        halo            =filter_halo                                           , &
-        restart         =.false.                                               , &
-        field           =this%m                                                )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_u'                             , &
-        long_name         ='U wind component'                                  , &
-        units             ='m s-1'                                             , &
-        loc               ='lev_lon'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%u                                              )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_v'                             , &
-        long_name         ='V wind component'                                  , &
-        units             ='m s-1'                                             , &
-        loc               ='lev_lat'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%v                                              )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfz'                           , &
-        long_name         ='Vertical mass flux'                                , &
-        units             ='Pa s-1'                                            , &
-        loc               ='cell'                                              , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfz                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfx'                           , &
-        long_name         ='Mass flux in x direction'                          , &
-        units             ='Pa m s-1'                                          , &
-        loc               ='lev_lon'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfx                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_mfy'                           , &
-        long_name         ='Mass flux in y direction'                          , &
-        units             ='Pa m s-1'                                          , &
-        loc               ='lev_lat'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%mfy                                            )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfx'                          , &
-        long_name         ='Tracer mass flux in x direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='lev_lon'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfx                                           )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfy'                          , &
-        long_name         ='Tracer mass flux in y direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='lev_lat'                                           , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfy                                           )
-      call append_field(this%fields                                            , &
-        name              =trim(this%name) // '_qmfz'                          , &
-        long_name         ='Tracer mass flux in z direction'                   , &
-        units             ='Pa kg kg-1 m s-1'                                  , &
-        loc               ='cell'                                              , &
-        mesh              =mesh                                                , &
-        halo              =halo                                                , &
-        restart           =.false.                                             , &
-        field             =this%qmfz                                           )
-      select case (this%scheme_h)
-      case ('ffsl')
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mfx_frac'                      , &
-          long_name       ='Fractional mass flux in x direction'               , &
-          units           ='Pa m-1 s-1'                                        , &
-          loc             ='lev_lon'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%mfx_frac                                       )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflx'                          , &
-          long_name       ='CFL number in x direction'                         , &
-          units           =''                                                  , &
-          loc             ='lev_lon'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflx                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cfly'                          , &
-          long_name       ='CFL number in y direction'                         , &
-          units           =''                                                  , &
-          loc             ='lev_lat'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%cfly                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_divx'                          , &
-          long_name       ='Mass flux divergence in x direction'               , &
-          units           ='Pa s-1'                                            , &
-          loc             ='lev_lon'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%divx                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_divy'                          , &
-          long_name       ='Mass flux divergence in y direction'               , &
-          units           ='Pa s-1'                                            , &
-          loc             ='lev_lat'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%divy                                           )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qmfx0'                         , &
-          long_name       ='Inner tracer mass flux in x direction'             , &
-          units           ='Pa kg kg-1 m s-1'                                  , &
-          loc             ='lev_lon'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%qmfx0                                          )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qmfy0'                         , &
-          long_name       ='Inner tracer mass flux in y direction'             , &
-          units           ='Pa kg kg-1 m s-1'                                  , &
-          loc             ='lev_lat'                                           , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%qmfy0                                          )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qx'                            , &
-          long_name       ='Tracer dry mixing ratio after advection in x direction', &
-          units           ='kg kg-1'                                           , &
-          loc             ='lev'                                               , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          restart         =.false.                                             , &
-          halo_cross_pole =.true.                                              , &
-          field           =this%qx                                             )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_qy'                            , &
-          long_name       ='Tracer dry mixing ratio after advection in y direction', &
-          units           ='kg kg-1'                                           , &
-          loc             ='lev'                                               , &
-          mesh            =filter_mesh                                         , &
-          halo            =filter_halo                                         , &
-          restart         =.false.                                             , &
-          field           =this%qy                                             )
-      end select
-      select case (this%scheme_v)
-      case ('ffsl')
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_mfz_frac'                      , &
-          long_name       ='Fractional vertical mass flux'                     , &
-          units           ='Pa m-2 s-1'                                        , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%mfz_frac                                       )
-        call append_field(this%fields                                          , &
-          name            =trim(this%name) // '_cflz'                          , &
-          long_name       ='CFL number in z direction'                         , &
-          units           =''                                                  , &
-          loc             ='cell'                                              , &
-          mesh            =mesh                                                , &
-          halo            =halo                                                , &
-          restart         =.false.                                             , &
-          field           =this%cflz                                           )
-      end select
+      loc0 = 'lev'
+      locx = 'lev_lon'
+      locy = 'lev_lat'
+      locz = 'cell'
     case default
-      call log_error('Invalid grid location ' // trim(batch_loc) // '!', __FILE__, __LINE__)
+      call log_error('Invalid grid location ' // trim(this%loc) // '!', __FILE__, __LINE__, pid=proc%id_model)
+    end select
+
+    if (this%passive) then
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_m'                             , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             =loc0                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        output          =merge('h0', '  ', advection)                        , &
+        restart         =.true.                                              , &
+        field           =this%m                                              )
+    else
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_m'                             , &
+        long_name       ='Dry-air weight'                                    , &
+        units           ='Pa'                                                , &
+        loc             =loc0                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =merge('h0', '  ', advection)                        , &
+        restart         =.false.                                             , &
+        field           =this%m                                              )
+    end if
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_u'                             , &
+      long_name         ='U wind component'                                  , &
+      units             ='m s-1'                                             , &
+      loc               =locx                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =merge('h0', '  ', advection)                        , &
+      restart           =.false.                                             , &
+      field             =this%u                                              )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_v'                             , &
+      long_name         ='V wind component'                                  , &
+      units             ='m s-1'                                             , &
+      loc               =locy                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            =merge('h0', '  ', advection)                        , &
+      restart           =.false.                                             , &
+      field             =this%v                                              )
+    if (advection .and. nlev > 1) then
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_w'                             , &
+        long_name       ='Vertical coordinate velocity'                      , &
+        units           ='s-1'                                               , &
+        loc             =locz                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          =merge('h0', '  ', advection)                        , &
+        restart         =.false.                                             , &
+        field           =this%w                                              )
+    end if
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_mfz'                           , &
+      long_name         ='Vertical mass flux'                                , &
+      units             ='Pa s-1'                                            , &
+      loc               =locz                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%mfz                                            )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_mfx'                           , &
+      long_name         ='Mass flux in x direction'                          , &
+      units             ='Pa m s-1'                                          , &
+      loc               =locx                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%mfx                                            )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_mfy'                           , &
+      long_name         ='Mass flux in y direction'                          , &
+      units             ='Pa m s-1'                                          , &
+      loc               =locy                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%mfy                                            )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_qmfx'                          , &
+      long_name         ='Tracer mass flux in x direction'                   , &
+      units             ='Pa kg kg-1 m s-1'                                  , &
+      loc               =locx                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%qmfx                                           )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_qmfy'                          , &
+      long_name         ='Tracer mass flux in y direction'                   , &
+      units             ='Pa kg kg-1 m s-1'                                  , &
+      loc               =locy                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%qmfy                                           )
+    call append_field(this%fields                                            , &
+      name              =trim(this%name) // '_qmfz'                          , &
+      long_name         ='Tracer mass flux in z direction'                   , &
+      units             ='Pa kg kg-1 m s-1'                                  , &
+      loc               =locz                                                , &
+      mesh              =mesh                                                , &
+      halo              =halo                                                , &
+      output            ='h1'                                                , &
+      restart           =.false.                                             , &
+      field             =this%qmfz                                           )
+    select case (this%scheme_h)
+    case ('ffsl')
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_mfx_frac'                      , &
+        long_name       ='Fractional mass flux in x direction'               , &
+        units           ='Pa m-1 s-1'                                        , &
+        loc             =locx                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%mfx_frac                                       )
+      if (.not. this%passive) then
+        call append_field(this%fields                                        , &
+          name          =trim(this%name) // '_u_frac'                        , &
+          long_name     ='Fractional U wind component'                       , &
+          units         ='m s-1'                                             , &
+          loc           =locx                                                , &
+          mesh          =mesh                                                , &
+          halo          =halo                                                , &
+          output        ='h1'                                                , &
+          restart       =.false.                                             , &
+          field         =this%u_frac                                         )
+        if (advection .and. nlev > 1) then
+          call append_field(this%fields                                      , &
+            name        =trim(this%name) // '_w_frac'                        , &
+            long_name   ='Fractional vertical coordinate velocity'           , &
+            units       ='s-1'                                               , &
+            loc         =locz                                                , &
+            mesh        =mesh                                                , &
+            halo        =halo                                                , &
+            output      ='h1'                                                , &
+            restart     =.false.                                             , &
+            field       =this%w_frac                                         )
+        end if
+      end if
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_cflx'                          , &
+        long_name       ='CFL number in x direction'                         , &
+        units           =''                                                  , &
+        loc             =locx                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%cflx                                           )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_cfly'                          , &
+        long_name       ='CFL number in y direction'                         , &
+        units           =''                                                  , &
+        loc             =locy                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%cfly                                           )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_divx'                          , &
+        long_name       ='Mass flux divergence in x direction'               , &
+        units           ='Pa s-1'                                            , &
+        loc             =locx                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        restart         =.false.                                             , &
+        field           =this%divx                                           )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_divy'                          , &
+        long_name       ='Mass flux divergence in y direction'               , &
+        units           ='Pa s-1'                                            , &
+        loc             =locy                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        restart         =.false.                                             , &
+        field           =this%divy                                           )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_qmfx0'                         , &
+        long_name       ='Inner tracer mass flux in x direction'             , &
+        units           ='Pa kg kg-1 m s-1'                                  , &
+        loc             =locx                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        restart         =.false.                                             , &
+        field           =this%qmfx0                                          )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_qmfy0'                         , &
+        long_name       ='Inner tracer mass flux in y direction'             , &
+        units           ='Pa kg kg-1 m s-1'                                  , &
+        loc             =locy                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        restart         =.false.                                             , &
+        field           =this%qmfy0                                          )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_qx'                            , &
+        long_name       ='Tracer dry mixing ratio after advection in x direction', &
+        units           ='kg kg-1'                                           , &
+        loc             =loc0                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        restart         =.false.                                             , &
+        halo_cross_pole =.true.                                              , &
+        field           =this%qx                                             )
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_qy'                            , &
+        long_name       ='Tracer dry mixing ratio after advection in y direction', &
+        units           ='kg kg-1'                                           , &
+        loc             =loc0                                                , &
+        mesh            =filter_mesh                                         , &
+        halo            =filter_halo                                         , &
+        restart         =.false.                                             , &
+        field           =this%qy                                             )
+    end select
+    select case (this%scheme_v)
+    case ('ffsl')
+      if (this%passive) then
+        call append_field(this%fields                                        , &
+          name          =trim(this%name) // '_mfz_frac'                      , &
+          long_name     ='Fractional vertical mass flux'                     , &
+          units         ='Pa m-2 s-1'                                        , &
+          loc           =locz                                                , &
+          mesh          =mesh                                                , &
+          halo          =halo                                                , &
+          output        ='h1'                                                , &
+          restart       =.false.                                             , &
+          field         =this%mfz_frac                                        )
+      end if
+      call append_field(this%fields                                          , &
+        name            =trim(this%name) // '_cflz'                          , &
+        long_name       ='CFL number in z direction'                         , &
+        units           =''                                                  , &
+        loc             =locz                                                , &
+        mesh            =mesh                                                , &
+        halo            =halo                                                , &
+        output          ='h1'                                                , &
+        restart         =.false.                                             , &
+        field           =this%cflz                                           )
     end select
 
     if (present(idx)) then
