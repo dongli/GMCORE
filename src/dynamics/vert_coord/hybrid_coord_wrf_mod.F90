@@ -70,7 +70,7 @@ contains
     dz = dzbot
     k0 = 0
     do k = 3, nlev + 1
-      dz = dz * dzstretch_u + (dzstretch_s - dzstretch_u) * max((dzmax / 2 - dz) / (dzmax / 2), 0.0_r8)
+      dz = dz * (dzstretch_u + (dzstretch_s - dzstretch_u) * max((dzmax / 2 - dz) / (dzmax / 2), 0.0_r8))
       if ((ztop - z_lev(k-1)) / (nlev - k + 1) < dz) then
         k0 = k - 1
         exit

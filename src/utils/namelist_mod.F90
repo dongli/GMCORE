@@ -143,7 +143,7 @@ module namelist_mod
   real(r8)        :: filter_wave_speed    = 300.0_r8
   real(r8)        :: filter_coef_a        = 3.5_r8
   real(r8)        :: filter_coef_b        = 0.5_r8
-  real(r8)        :: filter_coef_c        = 0.5_r8
+  real(r8)        :: filter_coef_c        = 0.3_r8
   real(r8)        :: filter_gauss_sigma   = 8.0_r8
   real(r8)        :: filter_min_width     = 0.0_r8
 
@@ -511,7 +511,7 @@ contains
       write(*, *) 'use_rayleigh_damp_w = ', to_str(use_rayleigh_damp_w)
     end if
     if (use_rayleigh_damp_w) then
-      write(*, *) 'rayleigh_damp_w_coef= ', to_str(rayleigh_damp_w_coef, 2)
+      write(*, *) 'rayleigh_damp_w_coef= ', rayleigh_damp_w_coef
       write(*, *) 'rayleigh_damp_top   = ', to_str(rayleigh_damp_top   , 2)
     end if
       write(*, *) 'use_p_damp          = ', to_str(use_p_damp)
