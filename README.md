@@ -12,16 +12,19 @@ Grid-point Model dynamical CORE (GMCORE) is currently on the latitude-longitude 
 - [ ] Acceleration using GPU (~?).
 - [X] Baroclinic version (done).
   - [X] Hydrostatic baroclinic version (done)
-    - [X] Rossby-Haurwitz wave test
-    - [X] Mountain induced wave test
-    - [X] Steady state test
-    - [X] Baroclinic wave test
-    - [X] Held-Suarez test
+    - [X] Rossby-Haurwitz wave test (done)
+    - [X] Mountain induced wave test (done)
+    - [X] Steady state test (done)
+    - [X] Steady state PGF test (done)
+    - [X] Baroclinic wave test (done)
+    - [X] Held-Suarez test (done)
+    - [X] Colliding Modons (done)
   - [X] Nonhydrostatic baroclinic version (done)
     - [X] X-Z version (done)
     - [X] Quasi-2D mountain wave on reduced sphere (done)
     - [X] Circular mountain wave on reduced sphere (done)
     - [X] Internal gravity wave (done)
+    - [X] Splitting supercell (done)
 - [X] Advection module (done)
   - [X] Update with fully monotonicity in 3D (done)
 - [ ] Incorporation with physics parameterisation (2025.05-2025.10).

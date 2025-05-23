@@ -403,13 +403,15 @@ if (HAS_RRTMGP AND HAS_NOAHMP)
     src/physics/wrf/lsm_noahmp_types_mod.F90
     src/physics/wrf/lsm_noahmp_driver_mod.F90
     src/physics/wrf/lsm_driver_mod.F90
-    src/physics/wrf/pbl_ysu_mod.F90
     src/physics/wrf/pbl_driver_mod.F90
     src/physics/wrf/rad_rrtmgp_types_mod.F90
     src/physics/wrf/rad_rrtmgp_mod.F90
   )
   add_definitions(-DHAS_WRF)
 endif ()
+target_sources(gmcore PRIVATE
+  src/physics/wrf/pbl_ysu_mod.F90
+)
 
 target_link_libraries(gmcore fortran_container fortran_datetime fiona flogger ${EXTERNAL_LIBS})
 if (USE_CAM AND HAS_PIO AND HAS_LAPACK AND HAS_ESMF AND HAS_MCT)
