@@ -78,11 +78,11 @@ module pbl_ysu_mod
   logical :: pbl_vdiff_qc = .true.
   logical :: pbl_vdiff_qi = .true.
   real(r8), parameter :: rcl      = 1.0_r8
-  real(r8), parameter :: xkzminm  = 0.1_r8
-  real(r8), parameter :: xkzminh  = 0.01_r8
-  real(r8), parameter :: xkzmin   = 0.01_r8
-  real(r8), parameter :: xkzmax   = 1000
-  real(r8), parameter :: rimin    = -100
+  real(r8), parameter :: kzm_min  = 0.1_r8
+  real(r8), parameter :: kzh_min  = 0.01_r8
+  real(r8), parameter :: kz_min   = 0.01_r8
+  real(r8), parameter :: kz_max   = 1000
+  real(r8), parameter :: ri_min   = -100
   real(r8), parameter :: rlam     = 30
   real(r8), parameter :: prmin    = 0.25_r8
   real(r8), parameter :: prmax    = 4
@@ -98,9 +98,9 @@ module pbl_ysu_mod
   real(r8), parameter :: d1       = 0.02_r8
   real(r8), parameter :: d2       = 0.05_r8
   real(r8), parameter :: d3       = 0.001_r8
-  real(r8), parameter :: h1       = 0.33333335_r8
+  real(r8), parameter :: h1       = 1.0_r8 / 3.0_r8
   real(r8), parameter :: h2       = 0.6666667_r8
-  real(r8), parameter :: zfmin    = 1.0e-8_r8
+  real(r8), parameter :: zf_min   = 1.0e-8_r8
   real(r8), parameter :: aphi5    = 5
   real(r8), parameter :: aphi16   = 16
   real(r8), parameter :: tmin     = 1.0e-2_r8
@@ -115,19 +115,19 @@ contains
     ncol                , &
     nlev                , &
     dt                  , &
-    ux                  , &
-    vx                  , &
-    tx                  , &
-    qvx                 , &
-    qcx                 , &
-    qix                 , &
+    u                   , &
+    v                   , &
+    t                   , &
+    qv                  , &
+    qc                  , &
+    qi                  , &
     p                   , &
     p_lev               , &
     pk                  , &
     dz                  , &
     ps                  , &
     znt                 , &
-    ust                 , &
+    ustar               , &
     hpbl                , &
     psim                , &
     psih                , &
@@ -136,23 +136,21 @@ contains
     qfx                 , &
     wspd                , &
     br                  , &
+    kzm                 , &
+    kzh                 , &
     dudt_pbl            , &
     dvdt_pbl            , &
     dtdt_pbl            , &
     dqvdt_pbl           , &
     dqcdt_pbl           , &
     dqidt_pbl           , &
-    dusfc               , &
-    dvsfc               , &
-    dtsfc               , &
-    dqsfc               , &
     kpbl                , &
     wstar               , &
     delta               , &
     u10                 , &
     v10                 , &
-    uox                 , &
-    vox                 , &
+    uos                 , &
+    vos                 , &
     dptdt_rad           , &
     ysu_topdown_pblmix  , &
     ctopo               , &
@@ -161,64 +159,61 @@ contains
     integer , intent(in   ) :: ncol
     integer , intent(in   ) :: nlev
     real(r8), intent(in   ) :: dt
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: ux
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: vx
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: tx
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qvx
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qcx
-    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qix
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: u
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: v
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: t
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qv
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qc
+    real(r8), intent(in   ), dimension(ncol,nlev  ) :: qi
     real(r8), intent(in   ), dimension(ncol,nlev  ) :: p
     real(r8), intent(in   ), dimension(ncol,nlev+1) :: p_lev
     real(r8), intent(in   ), dimension(ncol,nlev  ) :: pk
     real(r8), intent(in   ), dimension(ncol,nlev  ) :: dz
     real(r8), intent(in   ), dimension(ncol       ) :: ps
-    real(r8), intent(inout), dimension(ncol       ) :: znt
-    real(r8), intent(inout), dimension(ncol       ) :: ust
-    real(r8), intent(inout), dimension(ncol       ) :: hpbl          ! 这个和pblh是什么区别？
-    real(r8), intent(in   ), dimension(ncol       ) :: psim
-    real(r8), intent(in   ), dimension(ncol       ) :: psih
-    real(r8), intent(in   ), dimension(ncol       ) :: xland
-    real(r8), intent(in   ), dimension(ncol       ) :: hfx
-    real(r8), intent(in   ), dimension(ncol       ) :: qfx
-    real(r8), intent(inout), dimension(ncol       ) :: wspd
-    real(r8), intent(in   ), dimension(ncol       ) :: br
+    real(r8), intent(inout), dimension(ncol       ) :: znt          ! Roughness length (m)
+    real(r8), intent(inout), dimension(ncol       ) :: ustar        ! Friction velocity scale (m s-1)
+    real(r8), intent(inout), dimension(ncol       ) :: hpbl         ! 这个和pblh是什么区别？
+    real(r8), intent(in   ), dimension(ncol       ) :: psim         ! Stability function for momentum
+    real(r8), intent(in   ), dimension(ncol       ) :: psih         ! Stability function for heat
+    real(r8), intent(in   ), dimension(ncol       ) :: xland        ! Land mask (1 for land, 2 for water)
+    real(r8), intent(in   ), dimension(ncol       ) :: hfx          ! Upward heat flux at surface (W m-1)
+    real(r8), intent(in   ), dimension(ncol       ) :: qfx          ! upward moisture flux at surface (kg m-2 s-1)
+    real(r8), intent(in   ), dimension(ncol       ) :: wspd         ! Wind speed at lowest model level (m s-1)
+    real(r8), intent(in   ), dimension(ncol       ) :: br           ! Bulk Richardson number in surface layer
+    real(r8), intent(inout), dimension(ncol,nlev  ) :: kzm          ! Exchange coefficients of momentum (m2 s-1)
+    real(r8), intent(inout), dimension(ncol,nlev  ) :: kzh          ! Exchange coefficients of heat and scalars (K m s-1)
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dudt_pbl
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dvdt_pbl
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dtdt_pbl
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dqvdt_pbl
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dqcdt_pbl
     real(r8), intent(inout), dimension(ncol,nlev  ) :: dqidt_pbl
-    real(r8), intent(  out), dimension(ncol       ) :: dusfc
-    real(r8), intent(  out), dimension(ncol       ) :: dvsfc
-    real(r8), intent(  out), dimension(ncol       ) :: dtsfc
-    real(r8), intent(  out), dimension(ncol       ) :: dqsfc
     integer , intent(  out), dimension(ncol       ) :: kpbl
     real(r8), intent(  out), dimension(ncol       ) :: wstar
     real(r8), intent(  out), dimension(ncol       ) :: delta
     real(r8), intent(inout), dimension(ncol       ) :: u10
     real(r8), intent(inout), dimension(ncol       ) :: v10
-    real(r8), intent(in   ), dimension(ncol       ) :: uox
-    real(r8), intent(in   ), dimension(ncol       ) :: vox
-    real(r8), intent(in   ), dimension(ncol,ncol  ) :: dptdt_rad
+    real(r8), intent(in   ), dimension(ncol       ) :: uos          ! Sea surface zonal current (m s-1)
+    real(r8), intent(in   ), dimension(ncol       ) :: vos          ! Sea surface meridional current (m s-1)
+    real(r8), intent(in   ), dimension(ncol,ncol  ) :: dptdt_rad    ! Tendency from radiation
     integer , intent(in   ) :: ysu_topdown_pblmix
     real(r8), intent(in   ), dimension(ncol       ), optional :: ctopo
     real(r8), intent(in   ), dimension(ncol       ), optional :: ctopo2
 
-    real(r8), dimension(ncol,nlev+1) :: zq
-    real(r8), dimension(ncol,nlev  ) :: za
-    real(r8), dimension(ncol,nlev  ) :: thx
-    real(r8), dimension(ncol,nlev  ) :: thvx
-    real(r8), dimension(ncol,nlev  ) :: thlix
-    real(r8), dimension(ncol,nlev  ) :: del
-    real(r8), dimension(ncol,nlev  ) :: dza
-    real(r8), dimension(ncol,nlev  ) :: dzq
-    real(r8), dimension(ncol,nlev  ) :: xkzom
-    real(r8), dimension(ncol,nlev  ) :: xkzoh
-    real(r8), dimension(ncol       ) :: rhox
+    real(r8), dimension(ncol,nlev+1) :: z_lev
+    real(r8), dimension(ncol,nlev  ) :: z
+    real(r8), dimension(ncol,nlev  ) :: th
+    real(r8), dimension(ncol,nlev  ) :: thv
+    real(r8), dimension(ncol,nlev  ) :: thli
+    real(r8), dimension(ncol,nlev  ) :: dp
+    real(r8), dimension(ncol,nlev  ) :: dz_lev
+    real(r8), dimension(ncol,nlev  ) :: kzml
+    real(r8), dimension(ncol,nlev  ) :: kzhl
+    real(r8), dimension(ncol,nlev  ) :: kzq
+    real(r8), dimension(ncol       ) :: rhos
     real(r8), dimension(ncol       ) :: govrth
-    real(r8), dimension(ncol       ) :: zl1
     real(r8), dimension(ncol       ) :: thermal
-    real(r8), dimension(ncol       ) :: wscale
+    real(r8), dimension(ncol       ) :: ws0          ! Mixed-layer velocity scale (m s-1)
     real(r8), dimension(ncol       ) :: hgamt
     real(r8), dimension(ncol       ) :: hgamq
     real(r8), dimension(ncol       ) :: brdn
@@ -228,8 +223,6 @@ contains
     real(r8), dimension(ncol       ) :: prpbl
     real(r8), dimension(ncol       ) :: wspd1
     real(r8), dimension(ncol       ) :: thermalli
-    real(r8), dimension(ncol,nlev  ) :: xkzm
-    real(r8), dimension(ncol,nlev  ) :: xkzh
     real(r8), dimension(ncol,nlev  ) :: f1
     real(r8), dimension(ncol,nlev  ) :: f2
     real(r8), dimension(ncol,nlev  ) :: rhox2
@@ -239,19 +232,13 @@ contains
     real(r8), dimension(ncol,nlev  ) :: au
     real(r8), dimension(ncol,nlev  ) :: cu
     real(r8), dimension(ncol,nlev  ) :: al
-    real(r8), dimension(ncol,nlev  ) :: xkzq
-    real(r8), dimension(ncol,nlev  ) :: zfac
     real(r8), dimension(ncol       ) :: brcr
     real(r8), dimension(ncol       ) :: sflux
     real(r8), dimension(ncol       ) :: zol1
     real(r8), dimension(ncol       ) :: brcr_sbro
-    real(r8), dimension(ncol,nlev  ) :: wscalek
-    real(r8), dimension(ncol,nlev  ) :: wscalek2
-    real(r8), dimension(ncol,nlev  ) :: xkzml
-    real(r8), dimension(ncol,nlev  ) :: xkzhl
-    real(r8), dimension(ncol,nlev  ) :: zfacent
+    real(r8), dimension(ncol,nlev  ) :: zfac3
     real(r8), dimension(ncol,nlev  ) :: entfac
-    real(r8), dimension(ncol       ) :: ust3
+    real(r8), dimension(ncol       ) :: ustar3
     real(r8), dimension(ncol       ) :: wstar3
     real(r8), dimension(ncol       ) :: wstar3_2
     real(r8), dimension(ncol       ) :: hgamu
@@ -272,6 +259,7 @@ contains
     logical , dimension(ncol       ) :: cloudflg
 
     real(r8) dt2, rdt
+    real(r8) ws1, ws2, zfac
     real(r8) hol1, gamfac, vpert, ss, ri, tmp, dp_lev, rvls, ent_eff, rcldb
     real(r8) radsum, radflux
     real(r8) prnum, prnum0, prnumfac, prfac, prfac2
@@ -301,50 +289,49 @@ contains
 
     do k = 1, nlev
       do i = 1, ncol
-        thx  (i,k) = tx(i,k) / pk(i,k)  ! 为什么不用传进来的位温？
-        thlix(i,k) = (tx(i,k) - xlv * qcx(i,k) / cp - 2.834e6_r8 * qix(i,k) / cp) / pk(i,k)
+        th  (i,k) = t(i,k) / pk(i,k)
+        thli(i,k) = (t(i,k) - xlv * qc(i,k) / cp - 2.834e6_r8 * qi(i,k) / cp) / pk(i,k)
       end do
     end do
 
     do k = 1, nlev
       do i = 1, ncol
-        thvx(i,k) = thx(i,k) * (1 + ep1 * qvx(i,k)) ! 虚位温？
+        thv(i,k) = th(i,k) * (1 + ep1 * qv(i,k)) ! 虚位温？
       end do
     end do
 
     do i = 1, ncol
-      rhox(i) = ps(i) / (rd * tx(i,1) * (1 + ep1 * qvx(i,1))) ! 地表空气密度
-      govrth(i) = g / thx(i,1)
+      rhos(i) = ps(i) / (rd * t(i,1) * (1 + ep1 * qv(i,1))) ! 地表空气密度
+      govrth(i) = g / th(i,1)
     end do
 
     ! Compute the height of full- and half-sigma levels above ground
     ! level, and the layer thicknesses.
     do i = 1, ncol
-      zq(i,1) = 0
+      z_lev(i,1) = 0
     end do
 
     do k = 1, nlev
       do i = 1, ncol
-        zq(i,k+1) = dz(i,k) + zq(i,k) ! 半层距地面高度
-        rhox2(i,k) = p(i,k) / (rd * tx(i,k) * (1 + ep1 * qvx(i,k))) ! 整层空气密度
+        z_lev(i,k+1) = dz(i,k) + z_lev(i,k) ! 半层距地面高度
+        rhox2(i,k) = p(i,k) / (rd * t(i,k) * (1 + ep1 * qv(i,k))) ! 整层空气密度
       end do
     end do
 
     do k = 1, nlev
       do i = 1, ncol
-        za (i,k) = 0.5_r8 * (zq(i,k) + zq(i,k+1)) ! 整层距地面高度
-        dzq(i,k) = zq(i,k+1) - zq(i,k)
-        del(i,k) = p_lev(i,k) - p_lev(i,k+1) ! 气压厚度
+        z (i,k) = 0.5_r8 * (z_lev(i,k) + z_lev(i,k+1)) ! 整层距地面高度
+        dp(i,k) = p_lev(i,k) - p_lev(i,k+1) ! 气压厚度
       end do
     end do
 
     do i = 1, ncol
-      dza(i,1) = za(i,1) ! dzi是整层厚度，dza是半层厚度
+      dz_lev(i,1) = z(i,1) ! dzi是整层厚度，dza是半层厚度
     end do
 
     do k = 2, nlev
       do i = 1, ncol
-        dza(i,k) = za(i,k) - za(i,k-1)
+        dz_lev(i,k) = z(i,k) - z(i,k-1)
       end do
     end do
 
@@ -357,15 +344,13 @@ contains
     dqidt_pbl = 0
 
     do i = 1, ncol
-      wspd1(i) = sqrt((ux(i,1) - uox(i)) * (ux(i,1) - uox(i)) + (vx(i,1) - vox(i)) * (vx(i,1) - vox(i))) + 1.0e-9_r8
+      wspd1(i) = sqrt((u(i,1) - uos(i))**2 + (v(i,1) - vos(i))**2) + 1.0e-9_r8
     end do
 
     ! Compute vertical diffusion
 
-    ! Compute preliminary variables
-
-    dt2    = 2 * dt
-    rdt    = 1.0_r8 / dt2
+    dt2 = 2 * dt
+    rdt = 1.0_r8 / dt2
 
     do i = 1, ncol
       hfxpbl  (i) = 0
@@ -378,44 +363,16 @@ contains
       wstar3_2(i) = 0
     end do
 
-    do k = 1, nlev
-      do i = 1, ncol
-        wscalek (i,k) = 0
-        wscalek2(i,k) = 0
-      end do
-    end do
-
-    do k = 1, nlev
-      do i = 1, ncol
-        zfac(i,k) = 0
-      end do
-    end do
-    do k = 1, nlev - 1
-      do i = 1, ncol
-        xkzom(i,k) = xkzminm
-        xkzoh(i,k) = xkzminh
-      end do
-    end do
-
-    do i = 1, ncol
-      dusfc(i) = 0
-      dvsfc(i) = 0
-      dtsfc(i) = 0
-      dqsfc(i) = 0
-    end do
-
     do i = 1, ncol
       hgamt    (i) = 0
       hgamq    (i) = 0
-      wscale   (i) = 0
       kpbl     (i) = 1
-      hpbl     (i) = zq   (i,1)
-      zl1      (i) = za   (i,1)
-      thermal  (i) = thvx (i,1)
-      thermalli(i) = thlix(i,1)
+      hpbl     (i) = z_lev(i,1)
+      thermal  (i) = thv  (i,1)
+      thermalli(i) = thli (i,1)
       pblflg   (i) = .true.
       sfcflg   (i) = .true.
-      sflux    (i) = hfx(i) / rhox(i) / cp + qfx(i) / rhox(i) * ep1 * thx(i,1)
+      sflux    (i) = hfx(i) / rhos(i) / cp + qfx(i) / rhos(i) * ep1 * th(i,1)
       if (br(i) > 0) sfcflg(i) = .false.
     end do
 
@@ -430,7 +387,7 @@ contains
       do i = 1, ncol
         if (.not. stable(i)) then
           brdn  (i) = brup(i)
-          brup  (i) = (thvx(i,k) - thermal(i)) * (g * za(i,k) / thvx(i,1)) / max(ux(i,k)**2 + vx(i,k)**2, 1.0_r8)
+          brup  (i) = (thv(i,k) - thermal(i)) * (g * z(i,k) / thv(i,1)) / max(u(i,k)**2 + v(i,k)**2, 1.0_r8)
           kpbl  (i) = k
           stable(i) = brup(i) > brcr(i)
         end if
@@ -446,25 +403,25 @@ contains
       else
         brint = (brcr(i) - brdn(i)) / (brup(i) - brdn(i))
       end if
-      hpbl(i) = za(i,k-1) + brint * (za(i,k) - za(i,k-1))
-      if (hpbl(i) < zq(i,2)) kpbl(i) = 1
+      hpbl(i) = z(i,k-1) + brint * (z(i,k) - z(i,k-1))
+      if (hpbl(i) < z_lev(i,2)) kpbl(i) = 1
       if (kpbl(i) <= 1) pblflg(i) = .false.
     end do
 
     do i = 1, ncol
-      zol1(i) = max(br(i) * psim(i)**2 / psih(i), rimin)
+      zol1(i) = max(br(i) * psim(i)**2 / psih(i), ri_min)
       if (sfcflg(i)) then
-        zol1(i) = min(zol1(i), -zfmin)
+        zol1(i) = min(zol1(i), -zf_min)
       else
-        zol1(i) = max(zol1(i),  zfmin)
+        zol1(i) = max(zol1(i),  zf_min)
       end if
-      hol1 = zol1(i) * hpbl(i) / zl1(i) * sfcfrac
+      hol1 = zol1(i) * hpbl(i) / z(i,1) * sfcfrac
       if (sfcflg(i)) then
         phim  (i) = (1 - aphi16 * hol1)**(-0.25_r8)
         phih  (i) = (1 - aphi16 * hol1)**(-0.5_r8)
         bfx0      = max(sflux(i), 0.0_r8)
-        hfx0      = max(hfx(i) / rhox(i) / cp, 0.0_r8)
-        qfx0      = max(ep1 * thx(i,1) * qfx(i) / rhox(i), 0.0_r8)
+        hfx0      = max(hfx(i) / rhos(i) / cp, 0.0_r8)
+        qfx0      = max(ep1 * th(i,1) * qfx(i) / rhos(i), 0.0_r8)
         wstar3(i) = (govrth(i) * bfx0 * hpbl(i))
         wstar (i) = wstar3(i)**h1
       else
@@ -473,26 +430,26 @@ contains
         wstar (i) = 0
         wstar3(i) = 0
       end if
-      ust3    (i) = ust(i)**3
-      wscale  (i) = (ust3(i) + phifac * karman * wstar3(i) * 0.5_r8)**h1
-      wscale  (i) = min(wscale(i), ust(i) * aphi16)
-      wscale  (i) = max(wscale(i), ust(i) / aphi5)
+      ustar3(i) = ustar(i)**3
+      ws0(i) = (ustar3(i) + phifac * karman * wstar3(i) * 0.5_r8)**h1
+      ws0(i) = min(ws0(i), ustar(i) * aphi16)
+      ws0(i) = max(ws0(i), ustar(i) / aphi5)
     end do
 
     ! Compute the surface variables for pbl height estimation under unstable conditions
     do i = 1, ncol
       if (sfcflg(i) .and. sflux(i) > 0) then
-        gamfac       = bfac / rhox(i) / wscale(i)
+        gamfac       = bfac / rhos(i) / ws0(i)
         hgamt    (i) = min(gamfac * hfx(i) / cp, gamcrt)
         hgamq    (i) = min(gamfac * qfx(i), gamcrq)
-        vpert        = (hgamt(i) + ep1 * thx(i,1) * hgamq(i)) / bfac * afac
-        thermal  (i) = thermal  (i) + max(vpert, 0.0_r8) * min(za(i,1) / (sfcfrac * hpbl(i)), 1.0_r8)
-        thermalli(i) = thermalli(i) + max(vpert, 0.0_r8) * min(za(i,1) / (sfcfrac * hpbl(i)), 1.0_r8)
+        vpert        = (hgamt(i) + ep1 * th(i,1) * hgamq(i)) / bfac * afac
+        thermal  (i) = thermal  (i) + max(vpert, 0.0_r8) * min(z(i,1) / (sfcfrac * hpbl(i)), 1.0_r8)
+        thermalli(i) = thermalli(i) + max(vpert, 0.0_r8) * min(z(i,1) / (sfcfrac * hpbl(i)), 1.0_r8)
         hgamt    (i) = max(hgamt(i), 0.0_r8)
         hgamq    (i) = max(hgamq(i), 0.0_r8)
-        brint        = -15.9_r8 * ust(i) * ust(i) / wspd(i) * wstar3(i) / (wscale(i)**4)
-        hgamu    (i) = brint * ux(i,1)
-        hgamv    (i) = brint * vx(i,1)
+        brint        = -15.9_r8 * ustar(i) * ustar(i) / wspd(i) * wstar3(i) / (ws0(i)**4)
+        hgamu    (i) = brint * u(i,1)
+        hgamv    (i) = brint * v(i,1)
       else
         pblflg   (i) = .false.
       end if
@@ -502,7 +459,7 @@ contains
     do i = 1, ncol
       if (pblflg(i)) then
         kpbl(i) = 1
-        hpbl(i) = zq(i,1)
+        hpbl(i) = z_lev(i,1)
       end if
     end do
 
@@ -517,9 +474,9 @@ contains
     do k = 2, nlev
       do i = 1, ncol
         if (.not.stable(i) .and. pblflg(i)) then
-          brdn(i) = brup(i)
-          brup(i) = (thvx(i,k) - thermal(i)) * (g * za(i,k) / thvx(i,1)) / max(ux(i,k)**2 + vx(i,k)**2, 1.0_r8)
-          kpbl(i) = k
+          brdn  (i) = brup(i)
+          brup  (i) = (thv(i,k) - thermal(i)) * (g * z(i,k) / thv(i,1)) / max(u(i,k)**2 + v(i,k)**2, 1.0_r8)
+          kpbl  (i) = k
           stable(i) = brup(i) > brcr(i)
         end if
       end do
@@ -530,7 +487,7 @@ contains
       do i = 1, ncol
         definebrup = .false.
         do k = kpbl(i), nlev - 1
-          tmp = (thlix(i,k) - thermalli(i)) * (g * za(i,k) / thlix(i,1)) / max(ux(i,k)**2 + vx(i,k)**2, 1.0_r8)
+          tmp = (thli(i,k) - thermalli(i)) * (g * z(i,k) / thli(i,1)) / max(u(i,k)**2 + v(i,k)**2, 1.0_r8)
           stable(i) = tmp >= brcr(i)
           if (definebrup) then
             kpbl(i)    = k
@@ -556,15 +513,15 @@ contains
         else
           brint = (brcr(i) - brdn(i)) / (brup(i) - brdn(i))
         end if
-        hpbl(i) = za(i,k-1) + brint * (za(i,k) - za(i,k-1))
-        if (hpbl(i) < zq(i,2)) kpbl(i) = 1
+        hpbl(i) = z(i,k-1) + brint * (z(i,k) - z(i,k-1))
+        if (hpbl(i) < z_lev(i,2)) kpbl(i) = 1
         if (kpbl(i) <= 1) pblflg(i) = .false.
       end if
     end do
 
     ! Stable boundary layer
     do i = 1, ncol
-      if ((.not.sfcflg(i)) .and. hpbl(i) < zq(i,2)) then
+      if ((.not.sfcflg(i)) .and. hpbl(i) < z_lev(i,2)) then
         brup  (i) = br(i)
         stable(i) = .false.
       else
@@ -592,7 +549,7 @@ contains
       do i = 1, ncol
         if (.not.stable(i)) then
           brdn(i) = brup(i)
-          brup(i) = (thvx(i,k) - thermal(i)) * (g * za(i,k) / thvx(i,1)) / max(ux(i,k)**2 + vx(i,k)**2, 1.0_r8)
+          brup(i) = (thv(i,k) - thermal(i)) * (g * z(i,k) / thv(i,1)) / max(u(i,k)**2 + v(i,k)**2, 1.0_r8)
           kpbl(i) = k
           stable(i) = brup(i).gt.brcr(i)
         end if
@@ -600,7 +557,7 @@ contains
     end do
 
     do i = 1, ncol
-      if (.not. sfcflg(i) .and. hpbl(i) < zq(i,2)) then
+      if (.not. sfcflg(i) .and. hpbl(i) < z_lev(i,2)) then
         k = kpbl(i)
         if (brdn(i) >= brcr(i)) then
           brint = 0
@@ -609,8 +566,8 @@ contains
         else
           brint = (brcr(i) - brdn(i)) / (brup(i) - brdn(i))
         end if
-        hpbl(i) = za(i,k-1) + brint * (za(i,k) - za(i,k-1))
-        if (hpbl(i) < zq(i,2)) kpbl(i) = 1
+        hpbl(i) = z(i,k-1) + brint * (z(i,k) - z(i,k-1))
+        if (hpbl(i) < z_lev(i,2)) kpbl(i) = 1
         if (kpbl(i) <= 1) pblflg(i) = .false.
       end if
     end do
@@ -620,23 +577,23 @@ contains
       cloudflg(i) = .false. 
       if (pblflg(i)) then
         k = kpbl(i) - 1
-        wm3       = wstar3(i) + 5 * ust3(i)
+        wm3       = wstar3(i) + 5 * ustar3(i)
         wm2       = wm3**h2
-        bfxpbl    = -0.15_r8 * thvx(i,1) / g * wm3 / hpbl(i)
-        dthvx     = max(thvx(i,k+1) - thvx(i,k), tmin)
+        bfxpbl    = -0.15_r8 * thv(i,1) / g * wm3 / hpbl(i)
+        dthvx     = max(thv(i,k+1) - thv(i,k), tmin)
         we    (i) = max(bfxpbl / dthvx, -sqrt(wm2))
-        if (qcx(i,k) + qix(i,k) > 0.01e-3_r8 .and. ysu_topdown_pblmix == 1) then
+        if (qc(i,k) + qi(i,k) > 0.01e-3_r8 .and. ysu_topdown_pblmix == 1) then
           if (kpbl(i) >= 2) then
             cloudflg(i) = .true. 
-            templ = thlix(i,k) * (p_lev(i,k+1) / 100000)**rovcp
+            templ = thli(i,k) * (p_lev(i,k+1) / 100000)**rovcp
             ! rvls is ws at full level
             rvls  = 100 * 6.112_r8 * exp(17.67_r8 * (templ - 273.16_r8) / (templ - 29.65_r8)) * (ep2 / p_lev(i,k+1))
-            temps = templ + ((qvx(i,k) + qcx(i,k)) - rvls) / (cp / xlv + ep2 * xlv * rvls / (rd * templ**2))
+            temps = templ + ((qv(i,k) + qc(i,k)) - rvls) / (cp / xlv + ep2 * xlv * rvls / (rd * templ**2))
             rvls  = 100 * 6.112_r8 * exp(17.67_r8 * (temps - 273.15_r8) / (temps - 29.65_r8)) * (ep2 / p_lev(i,k+1))
-            rcldb = max(qvx(i,k) + qcx(i,k) - rvls, 0.0_r8)
+            rcldb = max(qv(i,k) + qc(i,k) - rvls, 0.0_r8)
             ! entrainment efficiency
-            dthvx = (thlix(i,k+2) + thx(i,k+2) * ep1 * (qvx(i,k+2) + qcx(i,k+2))) &
-                  - (thlix(i,k  ) + thx(i,k  ) * ep1 * (qvx(i,k  ) + qcx(i,k  )))
+            dthvx = (thli(i,k+2) + th(i,k+2) * ep1 * (qv(i,k+2) + qc(i,k+2))) &
+                  - (thli(i,k  ) + th(i,k  ) * ep1 * (qv(i,k  ) + qc(i,k  )))
             dthvx = max(dthvx, 0.1_r8)
             ent_eff  = 0.2_r8 * 8 * xlv / cp * rcldb / (pk(i,k) * dthvx) + 0.2_r8
             radsum   = 0
@@ -652,55 +609,55 @@ contains
             ! Recompute entrainment from sfc thermals
             bfx0        = max(max(sflux(i), 0.0_r8) - radsum / rhox2(i,k) / cp, 0.0_r8)
             bfx0        = max(sflux(i), 0.0_r8) ! 啥意思？上一行不作数？
-            wm3         = (govrth(i) * bfx0 * hpbl(i)) + 5 * ust3(i)
+            wm3         = (govrth(i) * bfx0 * hpbl(i)) + 5 * ustar3(i)
             wm2         = wm3**h2
-            bfxpbl      = -0.15_r8 * thvx(i,1) / g * wm3 / hpbl(i)
-            dthvx       = max(thvx(i,k+1) - thvx(i,k), tmin)
+            bfxpbl      = -0.15_r8 * thv(i,1) / g * wm3 / hpbl(i)
+            dthvx       = max(thv(i,k+1) - thv(i,k), tmin)
             we    (i)   = max(bfxpbl / dthvx, -sqrt(wm2))
 
             ! Entrainment from PBL top thermals
             bfx0        = max(radsum / rhox2(i,k) / cp - max(sflux(i), 0.0_r8), 0.0_r8)
             bfx0        = max(radsum / rhox2(i,k) / cp, 0.0_r8) ! 啥意思？上一行不作数？
-            wm3         = (g / thvx(i,k) * bfx0 * hpbl(i)) ! this is wstar3(i)
+            wm3         = (g / thv(i,k) * bfx0 * hpbl(i)) ! this is wstar3(i)
             wm2         = wm2 + wm3**h2
             bfxpbl      = -ent_eff * bfx0
-            dthvx       = max(thvx(i,k+1)-thvx(i,k),0.1)
+            dthvx       = max(thv(i,k+1)-thv(i,k),0.1)
             we    (i)   = we(i) + max(bfxpbl / dthvx, -sqrt(wm3**h2))
 
             ! wstar3_2
             bfx0        = max(radsum / rhox2(i,k) / cp, 0.0_r8)
-            wstar3_2(i) = (g / thvx(i,k) * bfx0 * hpbl(i))
+            wstar3_2(i) = (g / thv(i,k) * bfx0 * hpbl(i))
             ! Recompute hgamt 
-            wscale(i)   = (ust3(i) + phifac * karman * (wstar3(i) + wstar3_2(i)) * 0.5_r8)**h1
-            wscale(i)   = min(wscale(i), ust(i) * aphi16)
-            wscale(i)   = max(wscale(i), ust(i) / aphi5)
-            gamfac      = bfac / rhox(i) / wscale(i)
+            ws0   (i)   = (ustar3(i) + phifac * karman * (wstar3(i) + wstar3_2(i)) * 0.5_r8)**h1
+            ws0   (i)   = min(ws0(i), ustar(i) * aphi16)
+            ws0   (i)   = max(ws0(i), ustar(i) / aphi5)
+            gamfac      = bfac / rhos(i) / ws0(i)
             hgamt (i)   = min(gamfac * hfx(i) / cp, gamcrt)
             hgamq (i)   = min(gamfac * qfx(i), gamcrq)
-            gamfac      = bfac / rhox2(i,k) / wscale(i)
+            gamfac      = bfac / rhox2(i,k) / ws0(i)
             hgamt (i)   = max(hgamt(i), 0.0_r8) + max(min(gamfac * radsum / cp, gamcrt), 0.0_r8)
-            brint       = -15.9_r8 * ust(i) * ust(i) / wspd(i) * (wstar3(i) + wstar3_2(i)) / (wscale(i)**4)
-            hgamu (i)   = brint * ux(i,1)
-            hgamv (i)   = brint * vx(i,1)
+            brint       = -15.9_r8 * ustar(i) * ustar(i) / wspd(i) * (wstar3(i) + wstar3_2(i)) / (ws0(i)**4)
+            hgamu (i)   = brint * u(i,1)
+            hgamv (i)   = brint * v(i,1)
           end if
         end if
         prpbl (i) = 1
-        hfxpbl(i) = we(i) * max(thx(i,k+1) - thx(i,k), tmin)
-        qfxpbl(i) = we(i) * min(qvx(i,k+1) - qvx(i,k), 0.0_r8)
+        hfxpbl(i) = we(i) * max(th(i,k+1) - th(i,k), tmin)
+        qfxpbl(i) = we(i) * min(qv(i,k+1) - qv(i,k), 0.0_r8)
 
-        dux = ux(i,k+1) - ux(i,k)
-        dvx = vx(i,k+1) - vx(i,k)
+        dux = u(i,k+1) - u(i,k)
+        dvx = v(i,k+1) - v(i,k)
         if (dux > tmin) then
-          ufxpbl(i) = max(prpbl(i) * we(i) * dux, -ust(i) * ust(i))
+          ufxpbl(i) = max(prpbl(i) * we(i) * dux, -ustar(i) * ustar(i))
         else if (dux < -tmin) then
-          ufxpbl(i) = min(prpbl(i) * we(i) * dux,  ust(i) * ust(i))
+          ufxpbl(i) = min(prpbl(i) * we(i) * dux,  ustar(i) * ustar(i))
         else
           ufxpbl(i) = 0
         end if
         if (dvx > tmin) then
-          vfxpbl(i) = max(prpbl(i) * we(i) * dvx, -ust(i) * ust(i))
+          vfxpbl(i) = max(prpbl(i) * we(i) * dvx, -ustar(i) * ustar(i))
         else if (dvx < -tmin) then
-          vfxpbl(i) = min(prpbl(i) * we(i) * dvx,  ust(i) * ust(i))
+          vfxpbl(i) = min(prpbl(i) * we(i) * dvx,  ustar(i) * ustar(i))
         else
           vfxpbl(i) = 0
         end if
@@ -711,50 +668,46 @@ contains
     do k = 1, nlev
       do i = 1, ncol
         if (pblflg(i) .and. k >= kpbl(i))then
-          entfac(i,k) = ((zq(i,k+1) - hpbl(i)) / delta(i))**2
+          entfac(i,k) = ((z_lev(i,k+1) - hpbl(i)) / delta(i))**2
         else
           entfac(i,k) = 1.0e30
         end if
       end do
     end do
 
-    ! Compute diffusion coefficients below pbl
+    ! Compute diffusion coefficients below PBL.
     do k = 1, nlev
       do i = 1, ncol
         if (k < kpbl(i)) then
-          zfac    (i,k) = min(max((1 - (zq(i,k+1) - zl1(i)) / (hpbl(i) - zl1(i))), zfmin), 1.0_r8)
-          zfacent (i,k) = (1 - zfac(i,k))**3
-          wscalek (i,k) = (ust3(i) + phifac * karman * wstar3(i) * (1 - zfac(i,k)))**h1
-          wscalek2(i,k) = (phifac * karman * wstar3_2(i) * zfac(i,k))**h1
+          zfac = min(max((1 - (z_lev(i,k+1) - z(i,1)) / (hpbl(i) - z(i,1))), zf_min), 1.0_r8)
+          zfac3(i,k) = (1 - zfac)**3
+          ws1 = (ustar3(i) + phifac * karman * wstar3(i) * (1 - zfac))**h1
+          ws2 = (phifac * karman * wstar3_2(i) * zfac)**h1
           if (sfcflg(i)) then
             prfac    = conpr
-            prfac2   = 15.9_r8 * (wstar3(i) + wstar3_2(i)) / ust3(i) / (1 + 4 * karman * (wstar3(i) + wstar3_2(i)) / ust3(i))
-            prnumfac = -3 * (max(zq(i,k+1) - sfcfrac * hpbl(i), 0.0_r8))**2 / hpbl(i)**2
+            prfac2   = 15.9_r8 * (wstar3(i) + wstar3_2(i)) / ustar3(i) / (1 + 4 * karman * (wstar3(i) + wstar3_2(i)) / ustar3(i))
+            prnumfac = -3 * (max(z_lev(i,k+1) - sfcfrac * hpbl(i), 0.0_r8))**2 / hpbl(i)**2
           else
             prfac    = 0
             prfac2   = 0
             prnumfac = 0
-            wscalek(i,k) = ust(i) / (1 + aphi5 * zol1(i) * zq(i,k+1) / zl1(i))
-            wscalek(i,k) = max(wscalek(i,k), 0.001_r8)
+            ws1 = max(ustar(i) / (1 + aphi5 * zol1(i) * z_lev(i,k+1) / z(i,1)), 0.001_r8)
           end if
           prnum0 = max(min((phih(i) / phim(i) + prfac), prmax), prmin)
-          xkzm(i,k) = wscalek (i,k) * karman *           zq(i,k+1)  *      zfac(i,k) **pfac + &
-                      wscalek2(i,k) * karman *(hpbl(i) - zq(i,k+1)) * (1 - zfac(i,k))**pfac
-          ! Do not include xkzm at kpbl-1 since it changes entrainment
+          kzm(i,k) = ws1 * karman *           z_lev(i,k+1)  *      zfac **pfac + &
+                     ws2 * karman *(hpbl(i) - z_lev(i,k+1)) * (1 - zfac)**pfac
+          ! Do not include kzm at kpbl-1 since it changes entrainment
           if (k == kpbl(i) - 1 .and. cloudflg(i) .and. we(i) < 0) then
-            xkzm(i,k) = 0
+            kzm(i,k) = 0
           end if
-          prnum     = 1 + (prnum0 - 1) * exp(prnumfac)
-          xkzq(i,k) = xkzm(i,k) / prnum * zfac(i,k)**(pfac_q - pfac)
-          prnum0    = prnum0 / (1 + prfac2 * karman * sfcfrac)
-          prnum     = 1 + (prnum0 - 1) * exp(prnumfac)
-          xkzh(i,k) = xkzm(i,k) / prnum
-          xkzm(i,k) = xkzm(i,k) + xkzom(i,k)
-          xkzh(i,k) = xkzh(i,k) + xkzoh(i,k)
-          xkzq(i,k) = xkzq(i,k) + xkzoh(i,k)
-          xkzm(i,k) = min(xkzm(i,k), xkzmax)
-          xkzh(i,k) = min(xkzh(i,k), xkzmax)
-          xkzq(i,k) = min(xkzq(i,k), xkzmax)
+          prnum    = 1 + (prnum0 - 1) * exp(prnumfac)
+          kzq(i,k) = kzm(i,k) / prnum * zfac**(pfac_q - pfac)
+          prnum0   = prnum0 / (1 + prfac2 * karman * sfcfrac)
+          prnum    = 1 + (prnum0 - 1) * exp(prnumfac)
+          kzh(i,k) = kzm(i,k) / prnum
+          kzm(i,k) = min(kzm(i,k) + kzm_min, kz_max)
+          kzh(i,k) = min(kzh(i,k) + kzh_min, kz_max)
+          kzq(i,k) = min(kzq(i,k) + kzh_min, kz_max)
         end if
       end do
     end do
@@ -763,40 +716,38 @@ contains
     do k = 1, nlev - 1
       do i = 1, ncol
         if (k >= kpbl(i)) then
-          ss = ((ux(i,k+1) - ux(i,k))**2 + (vx(i,k+1) - vx(i,k))**2) / dza(i,k+1)**2 + 1.0e-9_r8
-          ri = g / (0.5_r8 * (thvx(i,k+1) + thvx(i,k))) * (thvx(i,k+1) - thvx(i,k)) / (ss * dza(i,k+1))
+          ss = ((u(i,k+1) - u(i,k))**2 + (v(i,k+1) - v(i,k))**2) / dz_lev(i,k+1)**2 + 1.0e-9_r8
+          ri = g / (0.5_r8 * (thv(i,k+1) + thv(i,k))) * (thv(i,k+1) - thv(i,k)) / (ss * dz_lev(i,k+1))
           if (imvdif == 1 .and. pbl_vdiff_qc .and. pbl_vdiff_qi)then
-            if (qcx(i,k) + qix(i,k) > 0.01e-3_r8 .and. (qcx(i,k+1) + qix(i,k+1)) > 0.01e-3) then
+            if (qc(i,k) + qi(i,k) > 0.01e-3_r8 .and. (qc(i,k+1) + qi(i,k+1)) > 0.01e-3) then
               ! In cloud
-              qmean = 0.5_r8 * (qvx(i,k) + qvx(i,k+1))
-              tmean = 0.5_r8 * (tx (i,k) + tx (i,k+1))
+              qmean = 0.5_r8 * (qv(i,k) + qv(i,k+1))
+              tmean = 0.5_r8 * (t (i,k) + t (i,k+1))
               alph  = xlv * qmean / rd / tmean
               chi   = xlv * xlv * qmean / cp / rv / tmean / tmean
               ri    = (1 + alph) * (ri - g * g / ss / tmean / cp * ((chi - alph) / (1 + chi)))
             end if
           end if
-          zk = karman * zq(i,k+1)
-          rlamdz = min(max(0.1_r8 * dza(i,k+1), rlam), 300.0_r8)
-          rlamdz = min(dza(i,k+1), rlamdz)
+          zk = karman * z_lev(i,k+1)
+          rlamdz = min(max(0.1_r8 * dz_lev(i,k+1), rlam), 300.0_r8)
+          rlamdz = min(dz_lev(i,k+1), rlamdz)
           dk     = (zk * rlamdz / (rlamdz + zk))**2 * sqrt(ss)
           if (ri < 0) then
             ! Unstable regime
-            ri        = max(ri, rimin)
+            ri        = max(ri, ri_min)
             sri       = sqrt(-ri)
-            xkzm(i,k) = dk * (1 + 8 * (-ri) / (1 + 1.746_r8 * sri))
-            xkzh(i,k) = dk * (1 + 8 * (-ri) / (1 + 1.286_r8 * sri))
+            kzm (i,k) = dk * (1 + 8 * (-ri) / (1 + 1.746_r8 * sri))
+            kzh(i,k) = dk * (1 + 8 * (-ri) / (1 + 1.286_r8 * sri))
           else
             ! Stable regime
-            xkzh(i,k) = dk / (1 + 5 * ri)**2
+            kzh(i,k) = dk / (1 + 5 * ri)**2
             prnum     = min(1.0 + 2.1 * ri, prmax)
-            xkzm(i,k) = xkzh(i,k) * prnum
+            kzm(i,k) = kzh(i,k) * prnum
           end if
-          xkzm (i,k) = xkzm(i,k) + xkzom(i,k)
-          xkzh (i,k) = xkzh(i,k) + xkzoh(i,k)
-          xkzm (i,k) = min(xkzm(i,k), xkzmax)
-          xkzh (i,k) = min(xkzh(i,k), xkzmax)
-          xkzml(i,k) = xkzm(i,k)
-          xkzhl(i,k) = xkzh(i,k)
+          kzm (i,k) = min(kzm(i,k) + kzm_min, kz_max)
+          kzh (i,k) = min(kzh(i,k) + kzh_min, kz_max)
+          kzml(i,k) = kzm(i,k)
+          kzhl(i,k) = kzh(i,k)
         end if
       end do
     end do
@@ -813,30 +764,29 @@ contains
 
     do i = 1, ncol
       ad(i,1) = 1
-      f1(i,1) = thx(i,1) - 300 + hfx(i) / cont / del(i,1) * dt2
+      f1(i,1) = th(i,1) - 300 + hfx(i) / cont / dp(i,1) * dt2
     end do
 
     do k = 1, nlev - 1
       do i = 1, ncol
-        dtodsd = dt2 / del(i,k  )
-        dtodsu = dt2 / del(i,k+1)
+        dtodsd = dt2 / dp(i,k  )
+        dtodsu = dt2 / dp(i,k+1)
         dp_lev = p(i,k) - p(i,k+1)
-        tmp    = dp_lev * xkzh(i,k) / dza(i,k+1)
+        tmp    = dp_lev * kzh(i,k) / dz_lev(i,k+1)
         if (pblflg(i) .and. k < kpbl(i)) then
-          dsdzt     = tmp * (-hgamt(i) / hpbl(i) - hfxpbl(i) * zfacent(i,k) / xkzh(i,k))
+          dsdzt     = tmp * (-hgamt(i) / hpbl(i) - hfxpbl(i) * zfac3(i,k) / kzh(i,k))
           f1(i,k)   = f1(i,k) + dtodsd * dsdzt
-          f1(i,k+1) = thx(i,k+1) - 300 - dtodsu * dsdzt
+          f1(i,k+1) = th(i,k+1) - 300 - dtodsu * dsdzt
         else if (pblflg(i) .and. k >= kpbl(i) .and. entfac(i,k) < 4.6_r8) then
-          xkzh(i,k) = -we(i) * dza(i,kpbl(i)) * exp(-entfac(i,k))
-          xkzh(i,k) = sqrt(xkzh(i,k) * xkzhl(i,k))
-          xkzh(i,k) = max(xkzh(i,k), xkzoh(i,k))
-          xkzh(i,k) = min(xkzh(i,k), xkzmax)
-          f1(i,k+1) = thx(i,k+1) - 300
+          kzh(i,k)  = -we(i) * dz_lev(i,kpbl(i)) * exp(-entfac(i,k))
+          kzh(i,k)  = sqrt(kzh(i,k) * kzhl(i,k))
+          kzh(i,k)  = min(max(kzh(i,k), kzh_min), kz_max)
+          f1(i,k+1) = th(i,k+1) - 300
         else
-          f1(i,k+1) = thx(i,k+1) - 300
+          f1(i,k+1) = th(i,k+1) - 300
         end if
-        tmp       = dp_lev * xkzh(i,k) / dza(i,k+1)
-        dsdz2     = tmp / dza(i,k+1)
+        tmp       = dp_lev * kzh(i,k) / dz_lev(i,k+1)
+        dsdz2     = tmp / dz_lev(i,k+1)
         au(i,k  ) = -dtodsd * dsdz2
         al(i,k  ) = -dtodsu * dsdz2
         ad(i,k  ) = ad(i,k) - au(i,k)
@@ -857,9 +807,8 @@ contains
     ! Recover tendencies of heat
     do k = nlev, 1, -1
       do i = 1, ncol
-        ttend = (f1(i,k) - thx(i,k) + 300) * rdt * pk(i,k)
+        ttend = (f1(i,k) - th(i,k) + 300) * rdt * pk(i,k)
         dtdt_pbl(i,k) = dtdt_pbl(i,k) + ttend
-        dtsfc(i) = dtsfc(i) + ttend * cont * del(i,k) / pk(i,k)
       end do
     end do
 
@@ -875,47 +824,46 @@ contains
 
     do i = 1, ncol
       ad(i,1) = 1
-      f3(i,1,1) = qvx(i,1) + qfx(i) * g / del(i,1) * dt2
+      f3(i,1,1) = qv(i,1) + qfx(i) * g / dp(i,1) * dt2
     end do
 
     if (pbl_vdiff_qc) then
       do i = 1, ncol
-        f3(i,1,2) = qcx(i,1)
+        f3(i,1,2) = qc(i,1)
       end do
     end if
     if (pbl_vdiff_qi) then
       do i = 1, ncol
-        f3(i,1,3) = qix(i,1)
+        f3(i,1,3) = qi(i,1)
       end do
     end if
 
     do k = 1, nlev - 1
       do i = 1, ncol
         if (k >= kpbl(i)) then
-          xkzq(i,k) = xkzh(i,k)
+          kzq(i,k) = kzh(i,k)
         end if
       end do
     end do
 
     do k = 1, nlev - 1
       do i = 1, ncol
-        dtodsd = dt2 / del(i,k  )
-        dtodsu = dt2 / del(i,k+1)
+        dtodsd = dt2 / dp(i,k  )
+        dtodsu = dt2 / dp(i,k+1)
         dp_lev = p(i,k) - p(i,k+1)
         if (pblflg(i) .and. k < kpbl(i)) then
-          dsdzq = dp_lev * xkzq(i,k) / dza(i,k+1) * (-qfxpbl(i) * zfacent(i,k) / xkzq(i,k))
+          dsdzq = dp_lev * kzq(i,k) / dz_lev(i,k+1) * (-qfxpbl(i) * zfac3(i,k) / kzq(i,k))
           f3(i,k,1) = f3(i,k,1) + dtodsd * dsdzq
-          f3(i,k+1,1) = qvx(i,k+1) - dtodsu * dsdzq
+          f3(i,k+1,1) = qv(i,k+1) - dtodsu * dsdzq
         else if (pblflg(i) .and. k >= kpbl(i) .and. entfac(i,k) < 4.6) then
-          xkzq(i,k) = -we(i) * dza(i,kpbl(i)) * exp(-entfac(i,k))
-          xkzq(i,k) = sqrt(xkzq(i,k) * xkzhl(i,k))
-          xkzq(i,k) = max(xkzq(i,k), xkzoh(i,k))
-          xkzq(i,k) = min(xkzq(i,k), xkzmax)
-          f3(i,k+1,1) = qvx(i,k+1)
+          kzq(i,k) = -we(i) * dz_lev(i,kpbl(i)) * exp(-entfac(i,k))
+          kzq(i,k) = sqrt(kzq(i,k) * kzhl(i,k))
+          kzq(i,k) = min(max(kzq(i,k), kzh_min), kz_max)
+          f3(i,k+1,1) = qv(i,k+1)
         else
-          f3(i,k+1,1) = qvx(i,k+1)
+          f3(i,k+1,1) = qv(i,k+1)
         end if
-        dsdz2     = dp_lev * xkzq(i,k) / dza(i,k+1)**2
+        dsdz2     = dp_lev * kzq(i,k) / dz_lev(i,k+1)**2
         au(i,k)   = -dtodsd * dsdz2
         al(i,k)   = -dtodsu * dsdz2
         ad(i,k)   = ad(i,k) - au(i,k)
@@ -926,14 +874,14 @@ contains
     if (pbl_vdiff_qc) then
       do k = 1, nlev - 1
         do i = 1, ncol
-          f3(i,k+1,2) = qcx(i,k+1)
+          f3(i,k+1,2) = qc(i,k+1)
         end do
       end do
     end if
     if (pbl_vdiff_qi) then
       do k = 1, nlev - 1
         do i = 1, ncol
-          f3(i,k+1,3) = qix(i,k+1)
+          f3(i,k+1,3) = qi(i,k+1)
         end do
       end do
     end if
@@ -952,16 +900,15 @@ contains
     ! Recover tendencies of heat and moisture
     do k = nlev, 1, -1
       do i = 1, ncol
-       qtend = (f3(i,k,1) - qvx(i,k)) * rdt
+       qtend = (f3(i,k,1) - qv(i,k)) * rdt
        dqvdt_pbl(i,k) = dqvdt_pbl(i,k) + qtend
-       dqsfc(i) = dqsfc(i) + qtend * conq * del(i,k)
       end do
     end do
 
     if (pbl_vdiff_qc) then
       do k = nlev, 1, -1
         do i = 1, ncol
-          qtend = (f3(i,k,2) - qcx(i,k)) * rdt
+          qtend = (f3(i,k,2) - qc(i,k)) * rdt
           dqcdt_pbl(i,k) = dqcdt_pbl(i,k) + qtend
         end do
       end do
@@ -969,7 +916,7 @@ contains
     if (pbl_vdiff_qi) then
       do k = nlev, 1, -1
         do i = 1, ncol
-          qtend = (f3(i,k,3) - qix(i,k)) * rdt
+          qtend = (f3(i,k,3) - qi(i,k)) * rdt
           dqidt_pbl(i,k) = dqidt_pbl(i,k) + qtend
         end do
       end do
@@ -989,14 +936,14 @@ contains
     ! paj: ctopo=1 if topo_wind=0 (default)
     do i = 1, ncol
       do k = 1, nlev - 1
-        shear = xkzm(i,k) * ((-hgamu(i) / hpbl(i) + (ux(i,k+1) - ux(i,k)) / dza(i,k+1)) * (ux(i,k+1) - ux(i,k)) / dza(i,k+1) &
-                          +  (-hgamv(i) / hpbl(i) + (vx(i,k+1) - vx(i,k)) / dza(i,k+1)) * (vx(i,k+1) - vx(i,k)) / dza(i,k+1))
-        buoy  = xkzh(i,k) * g / thx(i,k) * (-hgamt(i) / hpbl(i) + (thx(i,k+1) - thx(i,k)) / dza(i,k+1))
+        shear = kzm(i,k) * ((-hgamu(i) / hpbl(i) + (u(i,k+1) - u(i,k)) / dz_lev(i,k+1)) * (u(i,k+1) - u(i,k)) / dz_lev(i,k+1) &
+                         +  (-hgamv(i) / hpbl(i) + (v(i,k+1) - v(i,k)) / dz_lev(i,k+1)) * (v(i,k+1) - v(i,k)) / dz_lev(i,k+1))
+        buoy  = kzh(i,k) * g / th(i,k) * (-hgamt(i) / hpbl(i) + (th(i,k+1) - th(i,k)) / dz_lev(i,k+1))
 
-        zk = karman * zq(i,k+1)
+        zk = karman * z_lev(i,k+1)
         if (k >= kpbl(i)) then
           ! Over PBL
-          rlamdz = min(dza(i,k+1), min(max(0.1_r8 * dza(i,k+1), rlam), 300.0_r8))
+          rlamdz = min(dz_lev(i,k+1), min(max(0.1_r8 * dz_lev(i,k+1), rlam), 300.0_r8))
         else
           ! In PBL
           rlamdz = 150
@@ -1010,57 +957,56 @@ contains
       end do
 
       ! Hybrid PBLH of MYNN
-      call get_pblh(nlev, thvx(i,:), tke(i,:), zq(i,:), dzq(i,:), xland(i), pblh(i))
+      call get_pblh(nlev, thv(i,:), tke(i,:), z_lev(i,:), dz(i,:), xland(i), pblh(i))
 
       ! End of paj TKE
       
       ! Compute vconv
       ! Use Beljaars over land
       if (xland(i) < 1.5_r8) then
-        vconv = (g / thvx(i,1) * pblh(i) * max(sflux(i), 0.0_r8))**0.33_r8
+        vconv = (g / thv(i,1) * pblh(i) * max(sflux(i), 0.0_r8))**0.33_r8
       else
         ! For water there is no topo effect so vconv not needed
         vconv = 0
       end if
       ! raquel
       ! ctopo stability correction
-      fric(i,1) = ust(i)**2 / wspd1(i) * rhox(i) * g / del(i,1) * dt2 * (wspd1(i) / wspd(i))**2
+      fric(i,1) = ustar(i)**2 / wspd1(i) * rhos(i) * g / dp(i,1) * dt2 * (wspd1(i) / wspd(i))**2
       if (present(ctopo)) then
         vconvlim = min(0.9_r8 * vconv + 1.5_r8 * (max((pblh(i) - 500) / 1000.0_r8, 0.0_r8)), 1.0_r8)
         ad(i,1) = 1 + fric(i,1) * vconvlim + ctopo(i) * fric(i,1) * (1 - vconvlim)
       else
        ad(i,1) = 1 + fric(i,1)
       end if
-      f1(i,1) = ux(i,1) + uox(i) * ust(i)**2 * rhox(i) * g / del(i,1) * dt2 / wspd1(i) * (wspd1(i) / wspd(i))**2
-      f2(i,1) = vx(i,1) + vox(i) * ust(i)**2 * rhox(i) * g / del(i,1) * dt2 / wspd1(i) * (wspd1(i) / wspd(i))**2
+      f1(i,1) = u(i,1) + uos(i) * ustar(i)**2 * rhos(i) * g / dp(i,1) * dt2 / wspd1(i) * (wspd1(i) / wspd(i))**2
+      f2(i,1) = v(i,1) + vos(i) * ustar(i)**2 * rhos(i) * g / dp(i,1) * dt2 / wspd1(i) * (wspd1(i) / wspd(i))**2
     end do
 
     do k = 1, nlev - 1
       do i = 1, ncol
-        dtodsd = dt2 / del(i,k  )
-        dtodsu = dt2 / del(i,k+1)
+        dtodsd = dt2 / dp(i,k  )
+        dtodsu = dt2 / dp(i,k+1)
         dp_lev = p(i,k) - p(i,k+1)
-        tmp    = dp_lev * xkzm(i,k) / dza(i,k+1)
+        tmp    = dp_lev * kzm(i,k) / dz_lev(i,k+1)
         if (pblflg(i) .and. k < kpbl(i)) then
-          dsdzu     = tmp * (-hgamu(i) / hpbl(i) - ufxpbl(i) * zfacent(i,k) / xkzm(i,k))
-          dsdzv     = tmp * (-hgamv(i) / hpbl(i) - vfxpbl(i) * zfacent(i,k) / xkzm(i,k))
+          dsdzu     = tmp * (-hgamu(i) / hpbl(i) - ufxpbl(i) * zfac3(i,k) / kzm(i,k))
+          dsdzv     = tmp * (-hgamv(i) / hpbl(i) - vfxpbl(i) * zfac3(i,k) / kzm(i,k))
           f1(i,k  ) = f1(i,k  ) + dtodsd * dsdzu
-          f1(i,k+1) = ux(i,k+1) - dtodsu * dsdzu
+          f1(i,k+1) = u(i,k+1) - dtodsu * dsdzu
           f2(i,k  ) = f2(i,k  ) + dtodsd * dsdzv
-          f2(i,k+1) = vx(i,k+1) - dtodsu * dsdzv
+          f2(i,k+1) = v(i,k+1) - dtodsu * dsdzv
         else if (pblflg(i) .and. k >= kpbl(i) .and. entfac(i,k) < 4.6_r8) then
-          xkzm(i,k) = prpbl(i) * xkzh(i,k)
-          xkzm(i,k) = sqrt(xkzm(i,k) * xkzml(i,k))
-          xkzm(i,k) = max(xkzm(i,k), xkzom(i,k))
-          xkzm(i,k) = min(xkzm(i,k), xkzmax)
-          f1(i,k+1) = ux(i,k+1)
-          f2(i,k+1) = vx(i,k+1)
+          kzm(i,k) = prpbl(i) * kzh(i,k)
+          kzm(i,k) = sqrt(kzm(i,k) * kzml(i,k))
+          kzm(i,k) = min(max(kzm(i,k), kzm_min), kz_max)
+          f1(i,k+1) = u(i,k+1)
+          f2(i,k+1) = v(i,k+1)
         else
-          f1(i,k+1) = ux(i,k+1)
-          f2(i,k+1) = vx(i,k+1)
+          f1(i,k+1) = u(i,k+1)
+          f2(i,k+1) = v(i,k+1)
         end if
-        tmp       = dp_lev * xkzm(i,k) / dza(i,k+1)
-        dsdz2     = tmp / dza(i,k+1)
+        tmp       = dp_lev * kzm(i,k) / dz_lev(i,k+1)
+        dsdz2     = tmp / dz_lev(i,k+1)
         au(i,k  ) = -dtodsd * dsdz2
         al(i,k  ) = -dtodsu * dsdz2
         ad(i,k  ) = ad(i,k) - au(i,k)
@@ -1083,12 +1029,10 @@ contains
     ! Recover tendencies of momentum
     do k = nlev, 1, -1
       do i = 1, ncol
-        utend      = (f1(i,k) - ux(i,k)) * rdt
-        vtend      = (f2(i,k) - vx(i,k)) * rdt
-        dudt_pbl (i,k) = dudt_pbl(i,k) + utend
-        dvdt_pbl (i,k) = dvdt_pbl(i,k) + vtend
-        dusfc(i  ) = dusfc(i) + utend * conwrc * del(i,k)
-        dvsfc(i  ) = dvsfc(i) + vtend * conwrc * del(i,k)
+        utend = (f1(i,k) - u(i,k)) * rdt
+        vtend = (f2(i,k) - v(i,k)) * rdt
+        dudt_pbl(i,k) = dudt_pbl(i,k) + utend
+        dvdt_pbl(i,k) = dvdt_pbl(i,k) + vtend
       end do
     end do
 
@@ -1096,8 +1040,8 @@ contains
 
     do i = 1, ncol
       if (present(ctopo) .and. present(ctopo2)) then ! mchen for NMM
-        u10(i) = ctopo2(i) * u10(i) + (1 - ctopo2(i)) * ux(i,1)
-        v10(i) = ctopo2(i) * v10(i) + (1 - ctopo2(i)) * vx(i,1)
+        u10(i) = ctopo2(i) * u10(i) + (1 - ctopo2(i)) * u(i,1)
+        v10(i) = ctopo2(i) * v10(i) + (1 - ctopo2(i)) * v(i,1)
       end if
     end do
 
@@ -1212,10 +1156,7 @@ contains
                       ids, ide, jds, jde, kds, kde,                            &
                       ims, ime, jms, jme, kms, kme,                            &
                       its, ite, jts, jte, kts, kte                 )
-!-------------------------------------------------------------------------------
-   implicit none
-!-------------------------------------------------------------------------------
-!
+
    logical , intent(in)          :: restart, allowed_to_read
    integer , intent(in)          ::  ids, ide, jds, jde, kds, kde,             &
                                      ims, ime, jms, jme, kms, kme,             &
@@ -1229,11 +1170,11 @@ contains
                                                                      rqcblten, &
                                                                      rqiblten
    integer :: i, j, k, itf, jtf, ktf
-!
+
    jtf = min0(jte,jde-1)
    ktf = min0(kte,kde-1)
    itf = min0(ite,ide-1)
-!
+
    if(.not.restart)then
      do j = jts,jtf
        do k = kts,ktf
@@ -1247,7 +1188,7 @@ contains
        enddo
      enddo
    endif
-!
+
    if (p_qi .ge. p_first_scalar .and. .not.restart) then
      do j = jts,jtf
        do k = kts,ktf
@@ -1257,7 +1198,7 @@ contains
        enddo
      enddo
    endif
-!
+
   end subroutine ysuinit
 
   subroutine get_pblh(nlev, thetav, tke, zi, dz, landsea, pblh)

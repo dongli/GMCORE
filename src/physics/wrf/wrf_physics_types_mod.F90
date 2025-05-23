@@ -28,10 +28,10 @@ module wrf_physics_types_mod
     real(r8), allocatable, dimension(:  ) :: qflx
     ! Bulk Richardson
     real(r8), allocatable, dimension(:  ) :: br
-    ! Scalar exchange coefficients
-    real(r8), allocatable, dimension(:,:) :: exch_h
-    ! Exchange coefficients
-    real(r8), allocatable, dimension(:,:) :: exch_m
+    ! Exchange coefficients of heat and scalars
+    real(r8), allocatable, dimension(:,:) :: kzh
+    ! Exchange coefficients of momentum
+    real(r8), allocatable, dimension(:,:) :: kzm
     ! ???
     real(r8), allocatable, dimension(:  ) :: delta
     ! Sea surface zonal currents (m s-1)
@@ -72,8 +72,8 @@ contains
     allocate(this%qv2   (mesh%ncol          ))
     allocate(this%qflx  (mesh%ncol          ))
     allocate(this%br    (mesh%ncol          ))
-    allocate(this%exch_h(mesh%ncol,mesh%nlev))
-    allocate(this%exch_m(mesh%ncol,mesh%nlev))
+    allocate(this%kzh   (mesh%ncol,mesh%nlev))
+    allocate(this%kzm   (mesh%ncol,mesh%nlev))
     allocate(this%delta (mesh%ncol          ))
     allocate(this%uos   (mesh%ncol          ))
     allocate(this%vos   (mesh%ncol          ))
@@ -98,8 +98,8 @@ contains
     if (allocated(this%qv2   )) deallocate(this%qv2   )
     if (allocated(this%qflx  )) deallocate(this%qflx  )
     if (allocated(this%br    )) deallocate(this%br    )
-    if (allocated(this%exch_h)) deallocate(this%exch_h)
-    if (allocated(this%exch_m)) deallocate(this%exch_m)
+    if (allocated(this%kzh   )) deallocate(this%kzh   )
+    if (allocated(this%kzm   )) deallocate(this%kzm   )
     if (allocated(this%delta )) deallocate(this%delta )
     if (allocated(this%uos   )) deallocate(this%uos   )
     if (allocated(this%vos   )) deallocate(this%vos   )
