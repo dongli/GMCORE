@@ -856,8 +856,10 @@ contains
         end do
       end do
     end do
-    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
-    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    if (substep == total_substeps .or. .not. save_dyn_calc) then
+      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end if
     end associate
 
     call perf_stop('interp_pv_midpoint')
@@ -939,8 +941,10 @@ contains
         end do
       end do
     end select
-    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
-    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    if (substep == total_substeps .or. .not. save_dyn_calc) then
+      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end if
     end associate
 
     call perf_stop('interp_pv_upwind')
@@ -1022,8 +1026,10 @@ contains
         end do
       end do
     end select
-    call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
-    call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    if (substep == total_substeps .or. .not. save_dyn_calc) then
+      call fill_halo(pv_lon, east_halo=.false., south_halo=.false., async=.true.)
+      call fill_halo(pv_lat, west_halo=.false., north_halo=.false., async=.true.)
+    end if
     end associate
 
     call perf_stop('interp_pv_weno')

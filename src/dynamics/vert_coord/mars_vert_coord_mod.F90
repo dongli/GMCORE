@@ -97,7 +97,7 @@ contains
       1.0          & ! 29
     ]
 
-    p0 = 6.1e2_r8
+    p0 = 701
     hyai = hyai / p0
     ptop = p0 * hyai(1)
 

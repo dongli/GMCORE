@@ -471,7 +471,7 @@ contains
 
     call this%m%copy(m)
     call adv_fill_vhalo(this%m, no_negvals=.true.)
-    call fill_halo(this%m, async=.true.)
+    if (this%scheme_h == 'ffsl') call fill_halo(this%m, async=.true.)
 
   end subroutine adv_batch_copy_m_old
 
