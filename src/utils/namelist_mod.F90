@@ -113,9 +113,9 @@ module namelist_mod
 
   character(30)   :: pv_adv_scheme        = 'weno'   ! midpoint, upwind, weno
   logical         :: pv_pole_stokes       = .true.
-  integer         :: upwind_order_pv      = 3
+  integer         :: upwind_order_pv      = 5
   real(r8)        :: upwind_wgt_pv        = 1
-  integer         :: weno_order_pv        = 3
+  integer         :: weno_order_pv        = 5
 
   character(8)    :: pgf_scheme           = ''       ! lin97, ptb
 
@@ -128,10 +128,10 @@ module namelist_mod
 
   character(8)    :: zonal_tridiag_solver = 'spk'   ! mkl, spk
 
-  integer         :: weno_order           = 3       ! 3, 5
-  integer         :: weno_order_h         = 3       ! 3, 5
-  integer         :: weno_order_v         = 3       ! 3, 5
-  integer         :: upwind_order         = 3       ! 0, 1, 3, 5
+  integer         :: weno_order           = 5       ! 3, 5
+  integer         :: weno_order_h         = 5       ! 3, 5
+  integer         :: weno_order_v         = 5       ! 3, 5
+  integer         :: upwind_order         = 5       ! 0, 1, 3, 5
   integer         :: upwind_order_h       = -1      ! 0, 1, 3, 5
   integer         :: upwind_order_v       = -1      ! 0, 1, 3, 5
   real(r8)        :: upwind_wgt           = 1
@@ -305,6 +305,7 @@ module namelist_mod
     filter_ptend              , &
     gmcore_data_dir           , &
     use_topo_smooth           , &
+    use_zs_polar_filter       , &
     topo_max_slope            , &
     topo_smooth_order         , &
     topo_smooth_coef          , &
